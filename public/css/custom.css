@@ -1,0 +1,42 @@
+/* Custom Cursor (Outer Circle) */
+.custom-cursor {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ffcc00;
+    background: rgba(255, 204, 0, 0.2);
+    border-radius: 50%;
+    position: fixed;
+    top: -10px;
+    left: -10px;
+    pointer-events: none;
+    transition: transform 0.1s linear, opacity 0.2s ease-in-out, box-shadow 0.3s ease-in-out;
+    z-index: 9999;
+}
+
+/* Small Dot Inside Cursor */
+
+
+/* Cursor Hover Effect - Outer Circle Expands with Glow */
+.custom-cursor.hover {
+    opacity: 0;
+    transform: scale(2);
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.8); /* Glow Effect */
+}
+
+/* Dot Disappears Smoothly on Hover */
+
+
+/* Keep the default cursor visible */
+body {
+    cursor: default;
+}
+
+@media (max-width: 1024px) { /* Adjust breakpoint as needed */
+    .custom-cursor {
+        display: none;
+    }
+
+    body {
+        cursor: auto; /* Restore default cursor */
+    }
+}
