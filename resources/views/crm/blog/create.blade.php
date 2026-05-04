@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
     {{-- Minimal page-specific tweaks; keep Bootstrap for theme/dark-mode parity --}}
     <style>
@@ -336,4 +338,4 @@
                 }
             });
     </script>
-</x-crm.layout.app>
+@endsection

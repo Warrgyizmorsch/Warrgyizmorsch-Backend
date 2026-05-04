@@ -1,519 +1,216 @@
 <?php
 
 use App\Http\Controllers\CRM\BlogController;
-use App\Http\Controllers\CRM\SubjectPageController;
-use App\Http\Controllers\MasterController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\MailController;
-use App\Http\Controllers\ToeflPageController;
-use App\Http\Controllers\PtePageController;
-use App\Http\Controllers\GmatPageController;
-use App\Http\Controllers\GrePageController;
-use App\Http\Controllers\SatPageController;
-use App\Http\Controllers\DuolingoPageController;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Session;
-use App\Http\Controllers\UniversityController;
+use App\Http\Controllers\CRM\UserController;
+use App\Http\Controllers\CRM\RouteController;
+use App\Http\Controllers\CRM\RoleController;
+use App\Http\Controllers\CRM\MenuController;
+use App\Http\Controllers\CRM\RolePermissionController;
+use App\Http\Controllers\CRM\UserPermissionController;
+use App\Http\Controllers\CRM\BucketController;
 use App\Http\Controllers\CRM\LeadController;
-use App\Http\Controllers\LandingPageController;
-use App\Http\Controllers\CityController;
-use App\Http\Controllers\IeltsPageController;
-use App\Models\Blog;
-use App\Models\University;
+use App\Http\Controllers\CRM\LeadQuestionController;
+use App\Http\Controllers\CRM\LeadSourceController;
+use App\Http\Controllers\CRM\WarrLeadController;
+use App\Http\Controllers\CRM\WarrServicePageController;
+use App\Http\Controllers\CRM\SubjectPageController;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\CRM\NewleadController;
+use App\Http\Controllers\CRM\UniversityDetailController;
 
-Route::post('/apply-university', [UniversityController::class, 'apply'])->name('university.apply');
+
+
+
+Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
+
+    Route::prefix('users')->name('users.')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::get('/create', [UserController::class, 'create'])->name('create');
+        Route::post('/store', [UserController::class, 'store'])->name('store');
+        Route::get('/edit/{user}', [UserController::class, 'edit'])->name('edit');
+        Route::put('/update/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/destroy/{user}', [UserController::class, 'destroy'])->name('destroy');
+
+        Route::get('/session', [UserController::class, 'indexLog'])->name('session');
+        Route::post('/{user}/logout', [UserController::class, 'forceLogout'])->name('logout');
+        Route::get('/{user}/history', [UserController::class, 'userHistory'])->name('history');
+        Route::get('/{user}/lead-history', [UserController::class, 'leadHistory'])->name('leadHistory');
+    });
+
+    Route::resource('routes', RouteController::class);
+
+    Route::resource('roles', RoleController::class);
+
+    Route::resource('menus', MenuController::class);
+
+    Route::resource('role-permissions', RolePermissionController::class);
+    Route::post('roles/{role}/permissions', [RolePermissionController::class, 'updatePermissions'])->name('role-permissions-id.update');
+
+    Route::resource('user-permissions', UserPermissionController::class);
+    Route::post('users/{user}/permissions', [UserPermissionController::class, 'updatePermissions'])
+        ->name('user-permissions-id.update');
+
+
+    Route::prefix('lead')->group(function () {
+        Route::get('/', [LeadController::class, 'index'])->name('lead.index');
+        Route::get('/create', [LeadController::class, 'create'])->name('lead.create');
+        Route::post('/store', [LeadController::class, 'store'])->name('lead.store');
+        Route::get('/edit/{lead}', [LeadController::class, 'edit'])->name('lead.edit');
+        Route::put('/update/{lead}', [LeadController::class, 'update'])->name('lead.update');
+        // Route::delete('/destroy/{lead}', [LeadController::class, 'destroy'])->name('lead.destroy');
+        Route::put('/bucket/{lead}', [LeadController::class, 'updateBucket'])->name('lead.updateBucket');
+
+        Route::put('/status/{lead}', [LeadController::class, 'updateStatus'])->name('lead.updateStatus');
+        Route::get('/history/{lead}', [LeadController::class, 'history'])->name('lead.history');
+        Route::post('/send-message', [LeadController::class, 'sendMessage'])->name('lead.sendMessage');
+        Route::get('/daily-report', [LeadController::class, 'dailyReport'])->name('lead.dailyReport');
+        Route::put('/{lead}/engagement-status', [LeadController::class, 'updateEngagementStatus'])->name('lead.updateEngagementStatus');
+        // Route::get('?bucket_id=15', [LeadController::class, 'index'])->name('lead.application');
+        Route::get('/application', [LeadController::class, 'application'])->name('lead.application');
+    });
+
+
+
+
+    // end new routes
+
+    Route::prefix('bucket')->group(function () {
+        Route::get('/', [BucketController::class, 'index'])->name('bucket.index');
+        Route::post('/store', [BucketController::class, 'store'])->name('bucket.store');
+        Route::get('/edit/{id}', [BucketController::class, 'edit'])->name('bucket.edit');
+        Route::put('/update/{bucket}', [BucketController::class, 'update'])->name('bucket.update');
+        Route::delete('/destroy/{bucket}', [BucketController::class, 'destroy'])->name('bucket.destroy');
+    });
+
+    Route::prefix('lead-questions')->group(function () {
+        Route::get('/', [LeadQuestionController::class, 'index'])->name('lead_questions.index');
+        Route::post('/store', [LeadQuestionController::class, 'store'])->name('lead_questions.store');
+        Route::put('/update/{question}', [LeadQuestionController::class, 'update'])->name('lead_questions.update');
+        Route::delete('/destroy/{question}', [LeadQuestionController::class, 'destroy'])->name('lead_questions.destroy');
+        Route::put('/toggle/{question}', [LeadQuestionController::class, 'toggle'])->name('lead_questions.toggle'); // enable/disable
+    });
+
+    Route::prefix('lead-sources')->group(function () {
+        Route::get('/', [LeadSourceController::class, 'index'])->name('lead_sources.index');
+        Route::post('/store', [LeadSourceController::class, 'store'])->name('lead_sources.store');
+        Route::put('/update/{source}', [LeadSourceController::class, 'update'])->name('lead_sources.update');
+        Route::put('/toggle/{source}', [LeadSourceController::class, 'toggle'])->name('lead_sources.toggle');
+    });
+
+    Route::prefix('crm-blog')->group(function () {
+        Route::get('/', [BlogController::class, 'index'])->name('blog.index');
+        Route::get('/create', [BlogController::class, 'create'])->name('blog.create');
+        Route::post('/store', [BlogController::class, 'store'])->name('blog.store');
+        Route::get('/edit/{id}', [BlogController::class, 'edit'])->name('blog.edit');
+        Route::put('/update/{id}', [BlogController::class, 'update'])->name('blog.update');
+        Route::delete('/destroy/{id}', [BlogController::class, 'destroy'])->name('blog.destroy');
+    });
+    Route::prefix('author')->name('author.')->group(function () {
+        Route::get('/', [BlogController::class, 'blogAuthor'])->name('index');
+        Route::post('/store', [BlogController::class, 'authorstore'])->name('store');
+        Route::get('/edit/{id}', [BlogController::class, 'authorEdit'])->name('edit');
+        Route::delete('/destroy/{id}', [BlogController::class, 'authorDestroy'])->name('destroy');
+    });
+    Route::prefix('warr-leads')->group(function () {
+        Route::get('/', [WarrLeadController::class, 'index'])->name('warr-leads.index');
+        Route::put('/{lead}', [WarrLeadController::class, 'update'])->name('warr-leads.updateWarrLead');
+    });
+    Route::prefix('warr-service-pages')->group(function () {
+        Route::get('/', [WarrServicePageController::class, 'index'])->name('warr-service-pages.index');
+        Route::get('/create', [WarrServicePageController::class, 'create'])->name('warr-service-pages.create');
+        Route::post('/store', [WarrServicePageController::class, 'store'])->name('warr-service-pages.store');
+        Route::get('/edit/{id}', [WarrServicePageController::class, 'edit'])->name('warr-service-pages.edit');
+        Route::post('/update/{id}', [WarrServicePageController::class, 'update'])->name('warr-service-pages.update');
+        Route::delete('/delete/{id}', [WarrServicePageController::class, 'destroy'])->name('warr-service-pages.delete');
+
+        Route::get('/cities', [WarrServicePageController::class, 'getCities'])->name('warr-service-pages.cities');
+    });
+
+    Route::prefix('warr-crud')->group(function () {
+        // Countries (single page: list + create + edit in same blade)
+        Route::get('/countries', [WarrServicePageController::class, 'countriesIndex'])->name('warr-countries.index');
+        Route::post('/countries', [WarrServicePageController::class, 'countriesStore'])->name('warr-countries.store');
+        Route::delete('/countries/{id}', [WarrServicePageController::class, 'countriesDestroy'])->name('warr-countries.destroy');
+
+        // Cities (single page: list + create + edit in same blade)
+        Route::get('/cities', [WarrServicePageController::class, 'citiesIndex'])->name('warr-cities.index');
+        Route::post('/cities', [WarrServicePageController::class, 'citiesStore'])->name('warr-cities.store');
+        Route::delete('/cities/{id}', [WarrServicePageController::class, 'citiesDestroy'])->name('warr-cities.destroy');
+
+        // Services (single page: list + create + edit in same blade)
+        Route::get('/services', [WarrServicePageController::class, 'servicesIndex'])->name('warr-services.index');
+        Route::post('/services', [WarrServicePageController::class, 'servicesStore'])->name('warr-services.store');
+        Route::delete('/services/{id}', [WarrServicePageController::class, 'servicesDestroy'])->name('warr-services.destroy');
+    });
+
+    Route::prefix('crm-subject-pages')->group(function () {
+        Route::get('/', [SubjectPageController::class, 'index'])->name('crm-subject-pages.index');
+        Route::get('/create', [SubjectPageController::class, 'create'])->name('crm-subject-pages.create');
+        Route::post('/store', [SubjectPageController::class, 'store'])->name('crm-subject-pages.store');
+        Route::get('/edit/{id}', [SubjectPageController::class, 'edit'])->name('crm-subject-pages.edit');
+        Route::put('/update/{id}', [SubjectPageController::class, 'update'])->name('crm-subject-pages.update');
+        Route::delete('/destroy/{id}', [SubjectPageController::class, 'destroy'])->name('crm-subject-pages.destroy');
+    });
+});
+
+Route::post('/crm/leads/import', [LeadController::class, 'import'])->name('lead.import');
+Route::get('/crm/leads/sample', [LeadController::class, 'downloadSample'])->name('lead.sample');
+
+
+Route::get('/lead-import-status/{jobId}', [LeadController::class, 'getImportJobStatus']);
+
+
+// new routes 
+Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
+Route::post('/modern-leads/quick-update/{lead}', [NewleadController::class, 'updateQuick'])->name('lead.updateQuick');
+Route::post('/modern-leads/todo/{lead}', [NewleadController::class, 'storeTodo'])->name('lead.storeTodo');
+Route::get('/user/activity', [UserController::class, 'activity'])->name('user.activity');
+Route::post('/save-work-time', [UserController::class, 'saveWorkTime'])->name('save.work.time');
+Route::post('lead/bucket/get-sub-status', [LeadController::class, 'getSubStatus'])->name('lead.getSubStatus');
+
+Route::get('/follow-up-data', [LeadController::class, 'followUpData'])->name('lead.followUpData');
+Route::post('/callback-update/{id}', [LeadController::class, 'callbackUpdate'])->name('lead.callbackUpdate');
+Route::post('/callback-done', [LeadController::class, 'callbackDone'])->name('lead.callbackDone');
+Route::get('/lead/new-daily-report', [LeadController::class, 'newdailyReport'])->name('lead.newdailyReport');
+
+Route::get('/campaign-performance', [LeadController::class, 'campaignPerformance'])->name('lead.campaignPerformance');
+Route::get('/source', [LeadController::class, 'sourcePerformance'])->name('lead.sourcePerformance');
+Route::get('/lead/counsellor-report', [LeadController::class, 'councillorReport'])->name('lead.councillorReport');
+Route::get('/fetch-templates', [LeadController::class, 'fetchTemplates'])->name('lead.fetchTemplates');
+Route::post('/send-sms', [LeadController::class, 'sendSMS'])->name('lead.sendSms');
+Route::post('/leads/bulk-delete', [LeadController::class, 'bulkDelete'])->name('leads.bulkDelete');
+Route::patch('/user/{id}/status', [UserController::class, 'updateStatus'])
+    ->name('users.userUpdateStatus');
+
+Route::get('/leads-export', [LeadController::class, 'exportLeads'])
+    ->name('leads.export');
+
+Route::get('/lead/activity', [LeadController::class, 'leadActivity'])->name('lead.leadActivity');
 
 Route::get('/leads/export', [LeadController::class, 'export'])->name('lead.export');
 
 Route::get('/user/search-by-mobile', [LeadController::class, 'searchByMobile'])->name('user.search.byMobile');
 
-// Route::get('/', [UniversityController::class, 'filterUniversity'])->name('home');
-Route::get('/', [UniversityController::class, 'newHome'])->name('home');
-
-Route::get('/visa-consultation', [UniversityController::class, 'landingPage'])->name('landing_page');
-Route::get('/uk-study-visa-consultation', [UniversityController::class, 'ukStudyVisaConsultation'])->name('landing_page2');
-Route::get('/study-abroad-in-uk', [UniversityController::class, 'studyAbroadConsultant'])->name('study_abroad_consultant');
-Route::get('/study-abroad-consultant-v1', [LandingPageController::class, 'studyAbroadConsultantV1'])->name('study_abroad_consultant_v1');
-Route::post('/landing-page/submit', [LandingPageController::class, 'submitLead'])->name('landing.page.submit');
-Route::post('/landing-page/send-otp', [LandingPageController::class, 'sendOtp'])->name('landing.page.send.otp');
-Route::post('/landing-page/verify-otp', [LandingPageController::class, 'verifyOtp'])->name('landing.page.verify.otp');
-
-Route::get('/contact', function () {
-    return view("contact");
-})->name('contact');
-
-Route::get('/about', function () {
-    return view("about");
-})->name('about');
-Route::get('/privacy-policy', function () {
-    return view("privacy-policy");
-})->name('privacy_policy');
-Route::get('/terms-and-conditions', function () {
-    return view("terms-of-service");
-})->name('terms_of_service');
-
-
-
-Route::get('/universities', [UniversityController::class, 'showByCountry'])->name('universities.index');
-Route::get('/course-finder', [UniversityController::class, 'courseFinder'])->name('course.finder');
-Route::post('/course-finder-submit', [UniversityController::class, 'courseFinderPageLeadToCrm'])->name('submit.lead.course.finder');
-
-// Route::get('/fetch-currency-rates', [UniversityController::class, 'fetchAndStoreRates']);
-
-
-// Route::post('/contact-submit', [MasterController::class, 'submit'])->name('contact.submit');
-
-Route::get('/component-hero', [MasterController::class, 'hero'])->name('component-hero');
-
-
-Route::fallback(function () {
-    return response()->view('errors.404', [], 404);
+Route::prefix('university-details')->name('university-details.')->group(function () {
+    Route::get('/', [UniversityDetailController::class, 'index'])->name('index');
+    Route::get('/create', [UniversityDetailController::class, 'create'])->name('create');
+    Route::post('/store-new', [UniversityDetailController::class, 'storeNew'])->name('store-new');
+    Route::get('/edit/{universityId}', [UniversityDetailController::class, 'edit'])->name('edit');
+    Route::post('/store/{universityId}', [UniversityDetailController::class, 'store'])->name('store');
+    Route::put('/update-status/{universityId}', [UniversityDetailController::class, 'updateStatus'])->name('updateStatus');
+    Route::delete('/destroy/{universityId}', [UniversityDetailController::class, 'destroy'])->name('destroy');
+    Route::get('/preview/{universityId}', [UniversityDetailController::class, 'preview'])->name('preview');
+    Route::post('/add-course', [UniversityDetailController::class, 'addCourse'])->name('add-course');
+    Route::post('/update-course/{id}', [UniversityDetailController::class, 'updateCourse'])->name('update-course');
+    Route::delete('/delete-course/{id}', [UniversityDetailController::class, 'deleteCourse'])->name('delete-course');
 });
 
-
-Route::get('/services/sop-assistance', function () {
-    return view('services.sop-assistance.index');
-})->name('sop_assistance');
-
-Route::get('/services/course-selection', function () {
-    return view('services.course-selection.course-selection');
-})->name('course_selection');
-
-Route::get('/services/counseling-with-an-expert', function () {
-    return view('services.counselling.counselling');
-})->name('counseling_with_an_expert');
-
-Route::get('/services/getting-admission', function () {
-    return view('services.getting-admission.index');
-})->name('getting_admission');
-
-Route::get('/services/mock-interviews', function () {
-    return view('services.mock.mock');
-})->name('mock_interviews');
-
-Route::get('/services/travel-arrangements', function () {
-    return view('services.travelling.travel');
-})->name('travel_arrangements');
-
-Route::get('/services/visa-assistance', function () {
-    return view('services.visa-assistance.visa');
-})->name('visa_assistance');
-
-Route::get('/services/free-profile-evaluation', function () {
-    return view('services.free-profile-evaluation.free-profile-evaluation');
-})->name('free_profile_evaluation');
-
-Route::get('/services/education-loan', function () {
-    return view('services.education-loan.education-loan');
-})->name('education_loan');
-
-Route::get('/services/post-landing-services', function () {
-    return view('services.post-landing-services.post-landing');
-})->name('post_landing');
-
-Route::get('/services/scholarship-assistance', function () {
-    return view('services.scholarship-assistance.scholarship');
-})->name('scholarship');
-
-Route::get('/services/test-preparation', function () {
-    return view('services.test-preparation.test-preparation');
-})->name('test_preparation');
-
-// services routes end
-
-// country routes start
-Route::get('/country/europe', function () {
-    return view('countries.europe');
-})->name('europe');
-
-Route::get('/country/study-in-uk', function () {
-    $universities = University::where('country', 'united kingdom')
-        ->orderByDesc('enroll_students')
-        ->limit(10)
-        ->get();
-
-    // Data check karne ke liye (Debug)
-
-    // echo '<pre>';
-    // print_r($universities->toArray());
-    // exit;
-
-    return view('countries.uk', compact('universities'));
-})->name('uk');
-
-Route::get('/country/study-in-usa', function () {
-    return view('countries.usa');
-})->name('usa');
-
-Route::get('/country/study-in-canada', function () {
-    return view('countries.canada');
-})->name('canada');
-
-Route::get('/country/study-in-new-zealand', function () {
-    return view('countries.newzealand');
-})->name('new_zealand');
-
-Route::get('/country/study-in-australia', function () {
-    return view('countries.australia');
-})->name('australia');
-
-Route::get('/country/study-in-ireland', function () {
-    return view('countries.ireland');
-})->name('ireland');
-
-Route::get('/country/study-in-france', function () {
-    return view('countries.france');
-})->name('france');
-
-Route::get('/country/study-in-germany', function () {
-    return view('countries.germany');
-})->name('germany');
-
-Route::get('/country/study-in-uae', function () {
-    return view('countries.uae');
-})->name('uae');
-
-Route::get('/country/study-in-singapore', function () {
-    return view('countries.singapore');
-})->name('singapore');
-
-Route::get('/country/study-in-switzerland', function () {
-    return view('countries.switzerland');
-})->name('switzerland');
-
-Route::get('/country/study-in-spain', function () {
-    return view('countries.spain');
-})->name('spain');
-
-Route::get('/country/study-in-netherlands', function () {
-    return view('countries.netherlands');
-})->name('netherlands');
-
-Route::get('/country/study-in-italy', function () {
-    return view('countries.italy');
-})->name('italy');
-
-Route::get('/country/study-in-finland', function () {
-    return view('countries.finland');
-})->name('finland');
-Route::get('/country/study-in-poland', function () {
-    return view('countries.poland');
-})->name('poland');
-Route::get('/country/study-in-russia', function () {
-    return redirect('/');
-})->name('russia');
-Route::get('/country/study-in-sweden', function () {
-    return view('countries.sweden');
-})->name('sweden');
-Route::get('/country/study-in-austria', function () {
-    return view('countries.austria');
-})->name('austria');
-Route::get('/country/study-in-denmark', function () {
-    return view('countries.denmark');
-})->name('denmark');
-Route::get('/country/study-in-norway', function () {
-    return view('countries.norway');
-})->name('norway');
-Route::get('/country/study-in-cyprus', function () {
-    return view('countries.cyprus');
-})->name('cyprus');
-Route::get('/country/study-in-latvia', function () {
-    return view('countries.latvia');
-})->name('latvia');
-Route::get('/country/study-in-luxembourg', function () {
-    return view('countries.luxembourg');
-})->name('luxembourg');
-Route::get('/country/study-in-malta', function () {
-    return view('countries.malta');
-})->name('malta');
-Route::get('/country/study-in-georgia', function () {
-    return view('countries.georgia');
-})->name('georgia');
-Route::get('/country/study-in-lithuania', function () {
-    return view('countries.lithuania');
-})->name('lithuania');
-Route::get('/country/study-in-czech-republic', function () {
-    return view('countries.czechrepublic');
-})->name('czechrepublic');
-Route::get('/country/study-in-hungary', function () {
-    return view('countries.hungary');
-})->name('hungary');
-Route::get('/country/study-in-romania', function () {
-    return view('countries.romania');
-})->name('romania');
-Route::get('/country/study-in-belgium', function () {
-    return view('countries.belgium');
-})->name('belgium');
-Route::get('/country/study-in-estonia', function () {
-    return view('countries.estonia');
-})->name('estonia');
-Route::get('/country/study-in-greece', function () {
-    return view('countries.greece');
-})->name('greece');
-Route::get('/country/study-in-portugal', function () {
-    return view('countries.portugal');
-})->name('portugal');
-Route::get('/country/study-in-slovenia', function () {
-    return view('countries.slovenia');
-})->name('slovenia');
-Route::get('/country/study-in-iceland', function () {
-    return view('countries.iceland');
-})->name('iceland');
-Route::get('/country/study-in-turkey', function () {
-    return redirect('/');
-})->name('turkey');
-Route::get('/country/study-in-slovakia', function () {
-    return view('countries.slovakia');
-})->name('slovakia');
-Route::get('/country/study-in-belarus', function () {
-    return view('countries.belarus');
-})->name('belarus');
-Route::get('/country/study-in-bulgaria', function () {
-    return view('countries.bulgaria');
-})->name('bulgaria');
-Route::get('/country/study-in-croatia', function () {
-    return view('countries.croatia');
-})->name('croatia');
-Route::get('/country/study-in-kazakhstan', function () {
-    return view('countries.kazakhstan');
-})->name('kazakhstan');
-Route::get('/country/study-in-monaco', function () {
-    return view('countries.monaco');
-})->name('monaco');
-Route::get('/country/study-in-liechtenstein', function () {
-    return view('countries.liechtenstein');
-})->name('liechtenstein');
-Route::get('/country/study-in-moldova', function () {
-    return view('countries.moldova');
-})->name('moldova');
-Route::get('/country/study-in-serbia', function () {
-    return view('countries.serbia');
-})->name('serbia');
-Route::get('/country/study-in-ukraine', function () {
-    return view('countries.ukraine');
-})->name('ukraine');
-Route::get('/country/study-in-albania', function () {
-    return view('countries.albania');
-})->name('albania');
-Route::get('/country/study-in-azerbaijan', function () {
-    return view('countries.azerbaijan');
-})->name('azerbaijan');
-Route::get('/country/study-in-armenia', function () {
-    return view('countries.armenia');
-})->name('armenia');
-Route::get('/country/study-in-bosnia', function () {
-    return view('countries.bosnia');
-})->name('bosnia');
-Route::get('/country/study-in-andorra', function () {
-    return view('countries.andorra');
-})->name('andorra');
-Route::get('/country/study-in-kosovo', function () {
-    return view('countries.kosovo');
-})->name('kosovo');
-Route::get('/country/study-in-montenegro', function () {
-    return view('countries.montenegro');
-})->name('montenegro');
-Route::get('/country/study-in-north-macedonia', function () {
-    return view('countries.northmacedonia');
-})->name('northmacedonia');
-Route::get('/country/study-in-san-marino', function () {
-    return view('countries.sanmarino');
-})->name('sanmarino');
-Route::get('/country/study-in-vatican-city', function () {
-    return view('countries.vaticancity');
-})->name('vaticancity');
-Route::get('/country/study-in-saudi-arabia', function () {
-    return redirect('/');
-})->name('saudiarabia');
-Route::get('/country/study-in-japan', function () {
-    return view('countries.japan');
-})->name('japan');
-Route::get('/country/study-in-china', function () {
-    return redirect('/');
-})->name('china');
-Route::get('/country/study-in-malaysia', function () {
-    return redirect('/');
-})->name('malaysia');
-Route::get('/country/study-in-south-korea', function () {
-    return redirect('/');
-})->name('southkorea');
-Route::get('/country/study-in-taiwan', function () {
-    return redirect('/');
-})->name('taiwan');
-Route::get('/country/study-in-philippines', function () {
-    return redirect('/');
-})->name('philippines');
-Route::get('/country/study-in-thailand', function () {
-    return redirect('/');
-})->name('thailand');
-Route::get('/country/study-in-israel', function () {
-    return redirect('/');
-})->name('israel');
-Route::get('/country/study-in-vietnam', function () {
-    return redirect('/');
-})->name('vietnam');
-Route::get('/country/study-in-iran', function () {
-    return redirect('/');
-})->name('iran');
-Route::get('/country/study-in-uzbekistan', function () {
-    return redirect('/');
-})->name('uzbekistan');
-Route::get('/country/study-in-indonesia', function () {
-    return redirect('/');
-})->name('indonesia');
-Route::get('/country/study-in-iraq', function () {
-    return redirect('/');
-})->name('iraq');
-Route::get('/country/study-in-kuwait', function () {
-    return redirect('/');
-})->name('kuwait');
-Route::get('/country/study-in-qatar', function () {
-    return redirect('/');
-})->name('qatar');
-Route::get('/country/study-in-kyrgyzstan', function () {
-    return redirect('/');
-})->name('kyrgyzstan');
-Route::get('/country/study-in-oman', function () {
-    return redirect('/');
-})->name('oman');
-
-Route::get('/country/international', function () {
-    return view('countries.international');
-})->name('international');
-
-// country routes end
-
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
-    Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
-    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.passwprdUpdate');
-});
-
-Route::post('/submit-registration', [MailController::class, 'sendVisaAssistanceEmail'])->name('submit.registration');
-Route::post('/submit-lead', [MailController::class, 'sendLeadToCrm'])->name('submit.lead');
-Route::post('/submit-lead-landing-page', [MailController::class, 'sendLandingPageLeadToCrm'])->name('submit.lead.landing.page');
-Route::post('/contact-submit', [MailController::class, 'contactSubmit'])->name('contact.submit');
-Route::post('/send-otp', [MailController::class, 'sendOtp'])->name('send.otp');
-Route::post('/verify-otp', [MailController::class, 'verifyOtp'])->name('verify.otp');
-Route::get('/thankyou', function () {
-    if (!session('visa_form_submitted')) {
-        abort(404); // prevent direct access
-    }
-
-    // Forget the session so refresh won't keep working
-    session()->forget('visa_form_submitted');
-
-    return view('thankyou'); // adjust view path as needed
-})->name('thankyou');
-
-Route::get('/thank-you', function () {
-    if (!session('visa_form_submitted')) {
-        abort(404); // prevent direct access
-    }
-
-    // Forget the session so refresh won't keep working
-    session()->forget('visa_form_submitted');
-
-    return view('thankyou'); // adjust view path as needed
-})->name('thank-you');
-
-Route::get('/blog', [BlogController::class, 'blog'])->name('blog');
-Route::get('/blog/{slug}', [BlogController::class, 'getBlogBySlug']);
-Route::get('/blog-sitemap', [BlogController::class, 'blogSitemap'])->name('blog-sitemap');
-Route::get('/load-more-blogs', [BlogController::class, 'loadMore']);
-Route::get('/search-blogs', [BlogController::class, 'searchBlogs']);
-
-// city pages
-Route::get('/study-abroad-consultants-in-{city}', [CityController::class, 'studyAbroad'])->name('city.studyabroad');
-
-// education consultants - city pages
-Route::get('/uk-education-consultants-in-{city}', [CityController::class, 'ukEducation'])->name('city.uk.education');
-Route::get('/australia-education-consultants-in-{city}', [CityController::class, 'australiaEducation'])->name('city.australia.education');
-Route::get('/france-education-consultants-in-{city}', [CityController::class, 'franceEducation'])->name('city.france.education');
-Route::get('/new-zealand-education-consultants-in-{city}', [CityController::class, 'newZealandEducation'])->name('city.nz.education');
-Route::get('/ireland-education-consultants-in-{city}', [CityController::class, 'irelandEducation'])->name('city.ireland.education');
-Route::get('/canada-education-consultants-in-{city}', [CityController::class, 'canadaEducation'])->name('city.canada.education');
-Route::get('/germany-education-consultants-in-{city}', [CityController::class, 'germanyEducation'])->name('city.germany.education');
-Route::get('/usa-education-consultants-in-{city}', [CityController::class, 'usaEducation'])->name('city.usa.education');
-Route::get('/dubai-education-consultants-in-{city}', [CityController::class, 'dubaiEducation'])->name('city.dubai.education');
-Route::get('/switzerland-education-consultants-in-{city}', [CityController::class, 'switzerlandEducation'])->name('city.switzerland.education');
-Route::get('/italy-education-consultants-in-{city}', [CityController::class, 'italyEducation'])->name('city.italy.education');
-Route::get('/singapore-education-consultants-in-{city}', [CityController::class, 'singaporeEducation'])->name('city.singapore.education');
-Route::get('/netherlands-study-abroad-consultants-in-{city}', [CityController::class, 'netherlandsEducation'])->name('city.netherlands.education');
-
-
-Route::get('/study-abroad', function () {
-    return view('informational.study-abroad');
-})->name('study-abroad');
-
-Route::get('/cost-of-living', function () {
-    return view('informational.cost-of-living');
-})->name('cost-of-living');
-
-Route::get('/letter-of-recommendation', function () {
-    return view('informational.letter-of-recommendation');
-})->name('letter-of-recommendation');
-
-Route::get('/ielts-training', function () {
-    return view('informational.ielts-training');
-})->name('ielts-training');
-
-Route::get('/career-counseling', function () {
-    return view('informational.career-counseling');
-})->name('career-counseling');
-
-Route::get('/study/{slug}', [SubjectPageController::class, 'getSubjectBySlug']);
-Route::get('/study-sitemap', [SubjectPageController::class, 'subjectSitemap'])->name('subject-sitemap');
-
-Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'index']);
-
-
-Route::get('/ielts-coaching-in-{city}', [IeltsPageController::class, 'index'])
-    ->name('ielts.city');
-
-Route::get('/toefl-coaching-in-{city}', [ToeflPageController::class, 'index'])
-    ->name('toefl.city');
-
-Route::get('/pte-coaching-in-{city}', [PtePageController::class, 'index'])
-    ->name('pte.city');
-
-Route::get('/gmat-coaching-in-{city}', [GmatPageController::class, 'index'])
-    ->name('gmat.city');
-
-Route::get('/gre-coaching-in-{city}', [GrePageController::class, 'index'])
-    ->name('gre.city');
-
-Route::get('/sat-coaching-in-{city}', [SatPageController::class, 'index'])
-    ->name('sat.city');
-
-Route::get('/duolingo-coaching-in-{city}', [DuolingoPageController::class, 'index'])
-    ->name('duolingo.city');
-
-// test
-Route::get('/ielts-coaching', [IeltsPageController::class, 'test'])
-    ->name('ielts.test');
-
-Route::get('/toefl-coaching', [ToeflPageController::class, 'test'])
-    ->name('toefl.test');
-    
-Route::get('/pte-coaching', [PtePageController::class, 'test'])
-    ->name('pte.test');
-
-Route::get('/gmat-coaching', [GmatPageController::class, 'test'])
-    ->name('gmat.test');
-
-Route::get('/gre-coaching', [GrePageController::class, 'test'])
-    ->name('gre.test');
-
-Route::get('/sat-coaching', [SatPageController::class, 'test'])
-    ->name('sat.test');
-
-Route::get('/duolingo-coaching', [DuolingoPageController::class, 'test'])
-    ->name('duolingo.test');
-
-// university details page route
-Route::get('/universities/{country}/{slug}', [UniversityController::class, 'showUniversity'])
-    ->name('university.show');
+Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
+Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.passwprdUpdate');
 
 require __DIR__ . '/auth.php';
-require __DIR__ . '/backend.php';

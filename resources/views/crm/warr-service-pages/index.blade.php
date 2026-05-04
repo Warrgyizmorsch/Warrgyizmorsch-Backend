@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <style>
         .action-links {
             display: flex;
@@ -215,4 +217,4 @@
             </div>
         </div>
     </div>
-</x-crm.layout.app>
+@endsection

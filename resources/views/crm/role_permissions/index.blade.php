@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <x-slot name="title">Role Permissions</x-slot>
 
     <div class="container">
@@ -32,29 +34,29 @@
                                 @csrf
 
                                 @php
-                                    function renderPermissionTree($menus, $menuPermissions, $parentId = null)
-                                    {
-                                        foreach ($menus as $menu) {
-                                            $checked = isset($menuPermissions[$menu->id]) && $menuPermissions[$menu->id] ? 'checked' :
-                                                '';
-                                            $parentAttr = $parentId ? 'data-parent="' . $parentId . '"' : '';
+    function renderPermissionTree($menus, $menuPermissions, $parentId = null)
+    {
+        foreach ($menus as $menu) {
+            $checked = isset($menuPermissions[$menu->id]) && $menuPermissions[$menu->id] ? 'checked' :
+                '';
+            $parentAttr = $parentId ? 'data-parent="' . $parentId . '"' : '';
 
-                                            echo '<li class="mb-2">';
-                                            echo '<div class="form-check">';
-                                            echo '<input type="checkbox" name="permissions[' . $menu->id . ']" value="1"
+            echo '<li class="mb-2">';
+            echo '<div class="form-check">';
+            echo '<input type="checkbox" name="permissions[' . $menu->id . ']" value="1"
                                                                                                         class="form-check-input permission-checkbox" ' . $checked . ' ' . $parentAttr . '>';
-                                            echo '<label class="form-check-label">' . $menu->title . '</label>';
-                                            echo '</div>';
+            echo '<label class="form-check-label">' . $menu->title . '</label>';
+            echo '</div>';
 
-                                            if ($menu->childrenRecursive && $menu->childrenRecursive->count()) {
-                                                echo '<ul class="ms-4 list-unstyled">';
-                                                renderPermissionTree($menu->childrenRecursive, $menuPermissions, $menu->id);
-                                                echo '</ul>';
-                                            }
+            if ($menu->childrenRecursive && $menu->childrenRecursive->count()) {
+                echo '<ul class="ms-4 list-unstyled">';
+                renderPermissionTree($menu->childrenRecursive, $menuPermissions, $menu->id);
+                echo '</ul>';
+            }
 
-                                            echo '</li>';
-                                        }
-                                    }
+            echo '</li>';
+        }
+    }
                                 @endphp
 
                                 <ul class="list-unstyled">
@@ -68,8 +70,8 @@
                                     <div class="d-flex flex-wrap gap-2 mb-3">
                                         @foreach($extraRoutes as $menuId => $routes)
                                             @php
-                                                $menuName = $routes->first()?->menu?->title ?? 'Other';
-                                                $tabId = 'routesTab' . ($menuId ?? 'other');
+            $menuName = $routes->first()?->menu?->title ?? 'Other';
+            $tabId = 'routesTab' . ($menuId ?? 'other');
                                             @endphp
                                             <button class="btn btn-outline-primary btn-sm route-tab-btn" type="button"
                                                 data-tab="{{ $tabId }}">
@@ -81,8 +83,8 @@
                                     <!-- Tab contents -->
                                     @foreach($extraRoutes as $menuId => $routes)
                                         @php
-                                            $menuName = $routes->first()?->menu?->title ?? 'Other';
-                                            $tabId = 'routesTab' . ($menuId ?? 'other');
+            $menuName = $routes->first()?->menu?->title ?? 'Other';
+            $tabId = 'routesTab' . ($menuId ?? 'other');
                                         @endphp
 
                                         <div class="route-tab-content mb-3" id="{{ $tabId }}" style="display: none;">
@@ -91,7 +93,7 @@
                                                 <ul class="list-unstyled ms-3 mb-0">
                                                     @foreach($routes as $route)
                                                         @php
-                                                            $checked = isset($routePermissions[$route->id]) && $routePermissions[$route->id] ? 'checked' : '';
+                $checked = isset($routePermissions[$route->id]) && $routePermissions[$route->id] ? 'checked' : '';
                                                         @endphp
                                                         <li class="mb-2">
                                                             <div class="form-check">
@@ -194,4 +196,4 @@
         </script>
 
     @endpush
-</x-crm.layout.app>
+@endsection

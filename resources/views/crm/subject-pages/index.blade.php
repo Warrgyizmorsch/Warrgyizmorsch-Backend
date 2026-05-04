@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <style>
         /* Reuse compact image style like User List */
         .thumb-img {
@@ -211,4 +213,4 @@
             </div>
         </div>
     </div>
-</x-crm.layout.app>
+@endsection

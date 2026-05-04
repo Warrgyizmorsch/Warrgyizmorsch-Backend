@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 <x-slot name="title">Menus Management</x-slot>
 
 <main>
@@ -221,4 +223,4 @@ function renderMenuTree($menu)
         </div>
     </div>
 </div>
-</x-crm.layout.app>
+@endsection

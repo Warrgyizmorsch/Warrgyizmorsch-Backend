@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
     <style>
         #warrLeadList thead th {
@@ -56,12 +58,12 @@
     </style>
 
     @php
-        $filtersApplied =
-            request('search') ||
-            request('from') ||
-            request('to') ||
-            request('source') ||
-            request('status');
+$filtersApplied =
+    request('search') ||
+    request('from') ||
+    request('to') ||
+    request('source') ||
+    request('status');
     @endphp
 
     {{-- PAGE HEADER --}}
@@ -240,7 +242,7 @@
                                         <td class="page-url-col">
                                             @if(!empty($lead->page_url))
                                                 @php
-                                                    $cleanUrl = strtok(trim($lead->page_url), '?');
+        $cleanUrl = strtok(trim($lead->page_url), '?');
                                                 @endphp
 
                                                 @if(filter_var($cleanUrl, FILTER_VALIDATE_URL))
@@ -367,6 +369,4 @@
   });
 </script>
 
-
-
-</x-crm.layout.app>
+@endsection

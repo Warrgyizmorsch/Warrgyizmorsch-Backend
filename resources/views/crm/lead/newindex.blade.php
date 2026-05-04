@@ -1,4 +1,7 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
+
     <link href="{{ asset('crm-assets/assets/vendors/css/quill.min.css') }}" rel="stylesheet">
     <style>
         /* Inactive (Normal) Tab ka Design */
@@ -91,8 +94,8 @@
         <div class="d-flex overflow-auto border-bottom mb-2 mt-3 pb-2 gap-3 align-items-center">
 
             @php
-            // All tab tabhi active hoga jab URL me koi bucket_id ya has_followups na ho
-            $isAllActive = !request()->has('bucket_id') && !request()->has('has_followups');
+// All tab tabhi active hoga jab URL me koi bucket_id ya has_followups na ho
+$isAllActive = !request()->has('bucket_id') && !request()->has('has_followups');
             @endphp
             <a href="{{ route('modern.leads.index') }}"
                 class="{{ $isAllActive ? 'btn btn-warning text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap">
@@ -100,7 +103,7 @@
             </a>
 
             @php
-            $isFollowupActive = request('has_followups') == 1;
+$isFollowupActive = request('has_followups') == 1;
             @endphp
             <a href="?has_followups=1"
                 class="{{ $isFollowupActive ? 'btn btn-danger text-white fw-bold px-4 py-2' : 'btn btn-soft-danger text-danger fw-semibold px-3 py-1' }} text-nowrap d-flex align-items-center gap-2 text-decoration-none">
@@ -109,7 +112,7 @@
 
             @foreach($buckets as $bucket)
             @php
-            $isActive = request('bucket_id') == $bucket->id;
+    $isActive = request('bucket_id') == $bucket->id;
             @endphp
             <a href="?bucket_id={{ $bucket->id }}"
                 class="{{ $isActive ? 'btn btn-warning text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap">
@@ -118,7 +121,7 @@
             @endforeach
 
             @php
-            $isDeletedActive = request('deleted_leads') == 1;
+$isDeletedActive = request('deleted_leads') == 1;
             @endphp
 
             <a href="?deleted_leads=1"
@@ -140,7 +143,7 @@
                     <label class="mb-0">Show</label>
 
                     <form method="GET">
-                        @foreach(request()->except('per_page','page') as $key => $value)
+                        @foreach(request()->except('per_page', 'page') as $key => $value)
                         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                         @endforeach
 
@@ -148,12 +151,12 @@
                             class="form-select form-select-sm"
                             onchange="this.form.submit()">
 
-                            <option value="20" {{ request('per_page',20)==20 ? 'selected' : '' }}>20</option>
-                            <option value="50" {{ request('per_page')==50 ? 'selected' : '' }}>50</option>
-                            <option value="100" {{ request('per_page')==100 ? 'selected' : '' }}>100</option>
-                            <option value="150" {{ request('per_page')==150 ? 'selected' : '' }}>150</option>
-                            <option value="250" {{ request('per_page')==250 ? 'selected' : '' }}>250</option>
-                            <option value="500" {{ request('per_page')==500 ? 'selected' : '' }}>500</option>
+                            <option value="20" {{ request('per_page', 20) == 20 ? 'selected' : '' }}>20</option>
+                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                            <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
+                            <option value="150" {{ request('per_page') == 150 ? 'selected' : '' }}>150</option>
+                            <option value="250" {{ request('per_page') == 250 ? 'selected' : '' }}>250</option>
+                            <option value="500" {{ request('per_page') == 500 ? 'selected' : '' }}>500</option>
 
                         </select>
                     </form>
@@ -252,30 +255,30 @@
 
                         <div class="d-flex justify-content-center align-items-center mx-3" title="Status Progress">
                             @php
-                            $bucketProgress = [
-                            'Counselling in Progress' => 20,
-                            'Application Process' => 40,
-                            'Offer Stage' => 60,
-                            'Visa Process' => 80,
-                            'Converted' => 100,
-                            ];
-                            $bucketColors = [
-                            'Counselling in Progress' => '#ffc107', // yellow
-                            'Application Process' => '#020203', // blue
-                            'Offer Stage' => '#6f42c1', // purple
-                            'Visa Process' => '#fd7e14', // orange
-                            'Converted' => '#28a745', // green
-                            ];
-                            // Parent bucket logic
-                            $bucket = $lead->bucket;
-                            if ($bucket && $bucket->parent_id) {
-                            $bucket = \App\Models\Bucket::find($bucket->parent_id);
-                            }
+    $bucketProgress = [
+        'Counselling in Progress' => 20,
+        'Application Process' => 40,
+        'Offer Stage' => 60,
+        'Visa Process' => 80,
+        'Converted' => 100,
+    ];
+    $bucketColors = [
+        'Counselling in Progress' => '#ffc107', // yellow
+        'Application Process' => '#020203', // blue
+        'Offer Stage' => '#6f42c1', // purple
+        'Visa Process' => '#fd7e14', // orange
+        'Converted' => '#28a745', // green
+    ];
+    // Parent bucket logic
+    $bucket = $lead->bucket;
+    if ($bucket && $bucket->parent_id) {
+        $bucket = \App\Models\Bucket::find($bucket->parent_id);
+    }
 
-                            $currentBucket = $bucket->name ?? '';
+    $currentBucket = $bucket->name ?? '';
 
-                            $percentage = $bucketProgress[$currentBucket] ?? 0;
-                            $color = $bucketColors[$currentBucket] ?? '#6c757d'; // default gray
+    $percentage = $bucketProgress[$currentBucket] ?? 0;
+    $color = $bucketColors[$currentBucket] ?? '#6c757d'; // default gray
                             @endphp
                             <div
                                 class="rounded-circle d-flex justify-content-center align-items-center shadow-sm"
@@ -298,17 +301,17 @@
                                 <input type="checkbox" class="form-check-input" value="{{ $lead->id }}" id="checkLead{{ $lead->id }}">
                             </div> -->
                             @php
-                            $engStatus = strtolower($lead->lead_engagement_status ?? 'n/a');
-                            $badgeClass = 'bg-soft-secondary text-secondary';
-                            if ($engStatus == 'hot') {
-                            $badgeClass = 'bg-soft-danger text-danger';
-                            } elseif ($engStatus == 'warm') {
-                            $badgeClass = 'bg-soft-warning text-warning';
-                            } elseif ($engStatus == 'cold') {
-                            $badgeClass = 'bg-soft-info text-info';
-                            } elseif ($engStatus == 'dead') {
-                            $badgeClass = 'bg-soft-dark text-dark';
-                            }
+    $engStatus = strtolower($lead->lead_engagement_status ?? 'n/a');
+    $badgeClass = 'bg-soft-secondary text-secondary';
+    if ($engStatus == 'hot') {
+        $badgeClass = 'bg-soft-danger text-danger';
+    } elseif ($engStatus == 'warm') {
+        $badgeClass = 'bg-soft-warning text-warning';
+    } elseif ($engStatus == 'cold') {
+        $badgeClass = 'bg-soft-info text-info';
+    } elseif ($engStatus == 'dead') {
+        $badgeClass = 'bg-soft-dark text-dark';
+    }
                             @endphp
                             <div style="width: 210px;">
                                 <div class="d-flex align-items-center gap-2">
@@ -363,11 +366,11 @@
                             </small>
                         </div>
                         @php
-                        $message = $lead->latestMessage->message ?? '';
-                        $created_at = $lead->latestMessage->created_at ?? null;
-                        $followup = $lead->latestMessage->next_followup_date ?? null;
+    $message = $lead->latestMessage->message ?? '';
+    $created_at = $lead->latestMessage->created_at ?? null;
+    $followup = $lead->latestMessage->next_followup_date ?? null;
 
-                        $isLong = strlen($message) > 80;
+    $isLong = strlen($message) > 80;
                         @endphp
 
                         <div class="p-2 rounded-3 d-flex flex-column justify-content-between card-width" style="{{$message ? 'background:#f3f4f6;' : ''}} ">
@@ -461,9 +464,9 @@
                                 @if(optional($lead->latestAssignHistory)->created_at)
                                 <div class="">
                                     <small class="lh-1 " style="font-size: .675em; line-height: 0.2;">Assign:</small>
-                                    <span class="text-muted fw-semibold" style="font-size: .705em; line-height: 0.8;"> {{ optional($lead->latestAssignHistory)->created_at 
-                                    ? \Carbon\Carbon::parse($lead->latestAssignHistory->created_at)->format('d M Y h:i A')
-                                    : '-' }}</span>
+                                    <span class="text-muted fw-semibold" style="font-size: .705em; line-height: 0.8;"> {{ optional($lead->latestAssignHistory)->created_at
+                ? \Carbon\Carbon::parse($lead->latestAssignHistory->created_at)->format('d M Y h:i A')
+                : '-' }}</span>
                                 </div>
                                 @endif
                                 @else
@@ -1008,41 +1011,42 @@
 
                                 <div class="tab-pane fade" id="followup-{{ $lead->id }}" role="tabpanel">
                                     @php
-                                    $today = \Carbon\Carbon::today();
+    $today = \Carbon\Carbon::today();
 
-                                    $Followups = $lead->messages->filter(function($item) use ($today) {
-                                    return $item->next_followup_date &&
-                                    \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->gte($today) &&
-                                    $item->is_done == 0;
-                                    });
+    $Followups = $lead->messages->filter(function ($item) use ($today) {
+        return $item->next_followup_date &&
+            \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->gte($today) &&
+            $item->is_done == 0;
+    });
 
-                                    $todayActivities = $lead->messages->filter(function($item) {
-                                    return (
-                                    ($item->created_at && \Carbon\Carbon::parse($item->created_at)->isToday())
-                                    ||
-                                    ($item->updated_at && \Carbon\Carbon::parse($item->updated_at)->isToday())
-                                    );
-                                    });
+    $todayActivities = $lead->messages->filter(function ($item) {
+        return (
+            ($item->created_at && \Carbon\Carbon::parse($item->created_at)->isToday())
+            ||
+            ($item->updated_at && \Carbon\Carbon::parse($item->updated_at)->isToday())
+        );
+    });
 
-                                    $previousActivities = $lead->messages->filter(function($item) {
-                                    return $item->created_at &&
-                                    \Carbon\Carbon::parse($item->created_at)->lt(\Carbon\Carbon::today());
-                                    })->sortByDesc('created_at');
+    $previousActivities = $lead->messages->filter(function ($item) {
+        return $item->created_at &&
+            \Carbon\Carbon::parse($item->created_at)->lt(\Carbon\Carbon::today());
+    })->sortByDesc('created_at');
 
-                                    $overdueFollowups = $lead->messages->filter(fn ($item) =>
-                                    $item->next_followup_date &&
-                                    (
-                                    \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->lt($today)
-                                    || (
-                                    \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->gte($today)
-                                    && $item->is_done == 1
-                                    )
-                                    )
-                                    );
+    $overdueFollowups = $lead->messages->filter(
+        fn($item) =>
+        $item->next_followup_date &&
+        (
+            \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->lt($today)
+            || (
+                \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->gte($today)
+                && $item->is_done == 1
+            )
+        )
+    );
 
-                                    $doneFollowups = $lead->messages->filter(function($item) {
-                                    return $item->is_done == 1;
-                                    });
+    $doneFollowups = $lead->messages->filter(function ($item) {
+        return $item->is_done == 1;
+    });
                                     @endphp
 
 
@@ -1056,16 +1060,16 @@
                                                         <h6 class="text-warning fw-semibold mb-3">Planned Activities</h6>
                                                         @forelse($Followups as $followup)
                                                         @php
-                                                        $date = \Carbon\Carbon::parse($followup->next_followup_date)->startOfDay();
-                                                        $today = \Carbon\Carbon::today();
-                                                        if ($date->eq($today)) {
-                                                        $label = 'Today';
-                                                        $class = 'text-warning';
-                                                        } else {
-                                                        $days = $today->diffInDays($date);
-                                                        $label = 'Due in ' . $days . ' day' . ($days > 1 ? 's' : '');
-                                                        $class = 'text-success';
-                                                        }
+        $date = \Carbon\Carbon::parse($followup->next_followup_date)->startOfDay();
+        $today = \Carbon\Carbon::today();
+        if ($date->eq($today)) {
+            $label = 'Today';
+            $class = 'text-warning';
+        } else {
+            $days = $today->diffInDays($date);
+            $label = 'Due in ' . $days . ' day' . ($days > 1 ? 's' : '');
+            $class = 'text-success';
+        }
                                                         @endphp
 
                                                         <div class="activity-item mb-3">
@@ -1246,8 +1250,8 @@
                                                             @if($followup->is_done == 0)
 
                                                             @php
-                                                            $date = \Carbon\Carbon::parse($followup->next_followup_date)->startOfDay();
-                                                            $days = $date->diffInDays(\Carbon\Carbon::today());
+            $date = \Carbon\Carbon::parse($followup->next_followup_date)->startOfDay();
+            $days = $date->diffInDays(\Carbon\Carbon::today());
                                                             @endphp
 
                                                             <div class="fw-semibold d-flex gap-1">
@@ -2457,4 +2461,4 @@
     </script>
 
     @endpush
-</x-crm.layout.app>
+@endsection

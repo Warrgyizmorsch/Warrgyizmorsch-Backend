@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
     <style>
         .page-url-col {
@@ -137,7 +139,7 @@
         }
     </script>
     {{-- Page Header --}}
-    <!-- <x-lead.tools :buckets="$buckets" :totalLeadsCount="$totalLeadsCount" :filteredLeadCount="$filteredLeadCount" /> -->
+    <x-lead.tools :buckets="$buckets" :totalLeadsCount="$totalLeadsCount" :filteredLeadCount="$filteredLeadCount" />
     {{-- [ Page Header ] end --}}
         @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show mt-2" role="alert">
@@ -293,8 +295,8 @@
                         Reset
                     </a>
                     @php
-                        // Check if any filter is active
-                        $filtersApplied = request('search') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name');
+// Check if any filter is active
+$filtersApplied = request('search') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name');
                     @endphp
                     <!-- Export Toggle Button (only show if filter applied) -->
                     @if($filtersApplied)
@@ -664,8 +666,8 @@ $exportColumns = [
 
                                             <td style="text-align: left;" class="last-comment-col">
                                                 @php
-                                                    $message = $lead->latestMessage->message ?? '';
-                                                    $isLong = strlen($message) > 120;
+    $message = $lead->latestMessage->message ?? '';
+    $isLong = strlen($message) > 120;
                                                 @endphp
                                                 @if($lead->lastMessage)
                                                     <strong>{{ $lead->lastMessage->user->name ?? 'Unknown' }}</strong>
@@ -728,29 +730,29 @@ $exportColumns = [
                                             <!-- Source -->
                                             <td>
                                                 @php
-                                                    if (!empty($lead->platform)) {
+    if (!empty($lead->platform)) {
 
-                                                        // remove query params
-                                                        $cleanUrl = strtok(trim($lead->platform), '?');
+        // remove query params
+        $cleanUrl = strtok(trim($lead->platform), '?');
 
-                                                        // if it is a URL show Website
-                                                        if (filter_var($cleanUrl, FILTER_VALIDATE_URL)) {
-                                                            $source = "Website";
-                                                        } else {
-                                                            $source = $cleanUrl;
-                                                        }
+        // if it is a URL show Website
+        if (filter_var($cleanUrl, FILTER_VALIDATE_URL)) {
+            $source = "Website";
+        } else {
+            $source = $cleanUrl;
+        }
 
-                                                    } else {
-                                                        $source = "Website";
-                                                    }
+    } else {
+        $source = "Website";
+    }
 
-                                                    // convert to short form (first letter of each word)
-                                                    $words = preg_split('/[\s\-_]+/', $source);
-                                                    $shortForm = '';
+    // convert to short form (first letter of each word)
+    $words = preg_split('/[\s\-_]+/', $source);
+    $shortForm = '';
 
-                                                    foreach ($words as $word) {
-                                                        $shortForm .= strtoupper(substr($word, 0, 1));
-                                                    }
+    foreach ($words as $word) {
+        $shortForm .= strtoupper(substr($word, 0, 1));
+    }
                                                 @endphp
 
                                                 <span class="badge bg-soft-dark text-dark">
@@ -837,7 +839,7 @@ $exportColumns = [
                                             {{-- Loop through extra fields and align with headers --}}
                                             @foreach($extraFieldNames as $field)
                                                 @php
-                                                $attr = $lead->attributes->firstWhere('field_name', $field);
+        $attr = $lead->attributes->firstWhere('field_name', $field);
                                                 @endphp
                                                 <td class="highlight-column bg-white">{{ $attr->field_value ?? 'N/A' }}</td>
                                             @endforeach
@@ -846,8 +848,8 @@ $exportColumns = [
                                             <td class="page-url-col">
                                                 @if(!empty($lead->page_url))
                                                     @php
-                                                        // Always strip everything after ?
-                                                        $cleanUrl = strtok(trim($lead->page_url), '?');
+        // Always strip everything after ?
+        $cleanUrl = strtok(trim($lead->page_url), '?');
                                                     @endphp
 
                                                     @if(filter_var($cleanUrl, FILTER_VALIDATE_URL))
@@ -993,4 +995,4 @@ $(document).ready(function() {
 
         });
     </script>    
-</x-crm.layout.app>
+@endsection

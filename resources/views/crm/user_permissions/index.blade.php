@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <x-slot name="title">User Permissions</x-slot>
 
     <div class="container">
@@ -199,4 +201,4 @@
             });
         </script>
     @endpush
-</x-crm.layout.app>
+@endsection

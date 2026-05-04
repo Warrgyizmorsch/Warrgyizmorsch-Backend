@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
     <style>
         .table-responsive {
@@ -160,8 +162,8 @@
                         <div class="d-flex overflow-auto border-bottom mb-2 pb-2 gap-3 align-items-center">
 
                             @php
-                            // All tab tabhi active hoga jab URL me koi bucket_id ya has_followups na ho
-                            $isAllActive = !request()->has('bucket_id') && !request()->has('has_followups');
+// All tab tabhi active hoga jab URL me koi bucket_id ya has_followups na ho
+$isAllActive = !request()->has('bucket_id') && !request()->has('has_followups');
                             @endphp
                             <a
                                 class=" text-nowrap">
@@ -227,7 +229,7 @@
                                         @endif
 
                                         {{-- Next Followup Date --}}
-                                        @if(!empty($cb->next_followup_date) )
+                                        @if(!empty($cb->next_followup_date))
                                         <div class="text-warning">
                                             <i class="fas fa-clock me-1"></i>
                                             <strong>Next Followup:</strong>
@@ -236,7 +238,7 @@
                                         @endif
 
                                         {{-- Done Status --}}
-                                        @if((int)$cb->is_done === 1)
+                                        @if((int) $cb->is_done === 1)
                                         <div class="text-success fw-semibold">
                                             <i class="fas fa-check-circle me-1"></i>
                                             Followup Done
@@ -420,4 +422,4 @@
 
             });
         </script>
-</x-crm.layout.app>
+@endsection

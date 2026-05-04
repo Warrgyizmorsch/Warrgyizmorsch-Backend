@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
     <style>
         .table-responsive {
@@ -515,4 +517,4 @@ window.onload = function () {
 
 };
 </script>
-</x-crm.layout.app>
+@endsection

@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <div class="page-header">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
@@ -125,11 +127,11 @@
                                         <option value="">Select Lead Source</option>
 
                                         @php
-                                            // Collect all options (sources + current lead platform if not already in sources)
-                                            $allSources = $sources;
-                                            if($lead->platform && !in_array($lead->platform, $sources)){
-                                                $allSources[] = $lead->platform;
-                                            }
+// Collect all options (sources + current lead platform if not already in sources)
+$allSources = $sources;
+if ($lead->platform && !in_array($lead->platform, $sources)) {
+    $allSources[] = $lead->platform;
+}
                                         @endphp
 
                                         @foreach($allSources as $source)
@@ -300,7 +302,7 @@
                                                 <div class="col-lg-4 mb-4">
                                                     <label class="form-label">{{ ucwords(str_replace('_', ' ', $attr->field_name)) }}</label>
                                                     <input type="text" name="attributes[{{ $attr->id }}]" 
-                                                        value="{{ old('attributes.'.$attr->id, $attr->field_value) }}" 
+                                                        value="{{ old('attributes.' . $attr->id, $attr->field_value) }}" 
                                                         class="form-control" placeholder="{{ ucwords(str_replace('_', ' ', $attr->field_name)) }}">
                                                 </div>
                                             @empty
@@ -413,4 +415,4 @@
         }
     </style>
 
-</x-crm.layout.app>
+@endsection

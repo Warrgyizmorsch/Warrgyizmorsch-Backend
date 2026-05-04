@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <style>
         .image-preview {
             width: 200px;
@@ -366,11 +368,11 @@
                             {{-- FAQ Container --}}
                             <div id="faq-container" class="mb-3">
                                 @php
-                                    $faqs = [];
-                                    if (!empty($detail->faq_content)) {
-                                        $decoded = json_decode($detail->faq_content, true);
-                                        $faqs = is_array($decoded) ? $decoded : [];
-                                    }
+$faqs = [];
+if (!empty($detail->faq_content)) {
+    $decoded = json_decode($detail->faq_content, true);
+    $faqs = is_array($decoded) ? $decoded : [];
+}
                                 @endphp
 
                                 @if (count($faqs) > 0)
@@ -380,12 +382,11 @@
                                                 <div class="col-md-6">
                                                     <label class="form-label">Question</label>
                                                     <input type="text" class="form-control faq-question"
-                                                        value="{{ $faq['question'] ?? '' }}" required>
+                                                        value="{{ $faq['question'] ?? '' }}">
                                                 </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label">Answer</label>
-                                                    <textarea class="form-control faq-answer" rows="1"
-                                                        required>{{ $faq['answer'] ?? '' }}</textarea>
+                                                    <textarea class="form-control faq-answer" rows="1">{{ $faq['answer'] ?? '' }}</textarea>
                                                 </div>
                                                 <div class="col-12">
                                                     <button type="button"
@@ -399,11 +400,11 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <label class="form-label">Question</label>
-                                                <input type="text" class="form-control faq-question" required>
+                                                <input type="text" class="form-control faq-question">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">Answer</label>
-                                                <textarea class="form-control faq-answer" rows="1" required></textarea>
+                                                <textarea class="form-control faq-answer" rows="1"></textarea>
                                             </div>
                                             <div class="col-12">
                                                 <button type="button"
@@ -1029,4 +1030,4 @@
 
         });
     </script>
-</x-crm.layout.app>
+@endsection

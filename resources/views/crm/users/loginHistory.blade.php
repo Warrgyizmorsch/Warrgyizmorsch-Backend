@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
     <main>
         <div>
@@ -121,15 +123,15 @@
                                                     @forelse ($users as $user)
 
                                                     @php
-                                                    $session = $sessions[$user->id] ?? null;
-                                                    $latestLogin = $user->loginHistories->last();
-                                                    $isLoggedIn = false;
+    $session = $sessions[$user->id] ?? null;
+    $latestLogin = $user->loginHistories->last();
+    $isLoggedIn = false;
 
-                                                    if ($session) {
-                                                    $lastActivity = \Carbon\Carbon::createFromTimestamp($session->last_activity);
-                                                    $expiryTime = $lastActivity->copy()->addMinutes(config('session.lifetime'));
-                                                    $isLoggedIn = now()->lt($expiryTime);
-                                                    }
+    if ($session) {
+        $lastActivity = \Carbon\Carbon::createFromTimestamp($session->last_activity);
+        $expiryTime = $lastActivity->copy()->addMinutes(config('session.lifetime'));
+        $isLoggedIn = now()->lt($expiryTime);
+    }
                                                     @endphp
 
                                                     <tr>
@@ -298,6 +300,4 @@
         </div>
     </main>
 
-
-
-</x-crm.layout.app>
+@endsection

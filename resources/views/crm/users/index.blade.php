@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <style>
         .profile-img {
             width: 40px;
@@ -143,4 +145,4 @@
             </div>
         </div>
     </div>
-</x-crm.layout.app>
+@endsection

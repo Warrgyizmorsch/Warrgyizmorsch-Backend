@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 <main>
   <div class="page-header">
     <div class="page-header-left d-flex align-items-center">
@@ -108,4 +110,4 @@
     }
   });
 </script>
-</x-crm.layout.app>
+@endsection

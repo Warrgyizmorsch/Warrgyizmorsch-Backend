@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <div class="page-header">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
@@ -6,7 +8,7 @@
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item">
-                    <a href="{{ route('home') }}">Home</a>
+                    <a href="{{ route('dashboard') }}">Home</a>
                 </li>
                 <li class="breadcrumb-item">{{ $breadcrumb ?? 'Analytics' }}</li>
             </ul>
@@ -187,59 +189,59 @@
                             @foreach($buckets as $bucket)
 
                             @php
-                            $bucketName = strtolower(trim($bucket->name)); // Normalize for reliable matching
+    $bucketName = strtolower(trim($bucket->name)); // Normalize for reliable matching
 
-                            // Default fallback
-                            $icon = 'bi-folder2-open';
-                            $color = 'text-primary';
+    // Default fallback
+    $icon = 'bi-folder2-open';
+    $color = 'text-primary';
 
-                            // Specific matches based on your exact bucket names
-                            if (str_contains($bucketName, 'new') || str_contains($bucketName, 'lead') || str_contains($bucketName, 'new lead')) {
-                            $icon = 'bi-person-plus-fill'; // adding new person / fresh lead
-                            $color = 'text-success'; // green = new & positive
-                            } elseif (str_contains($bucketName, 'not connected') || str_contains($bucketName, 'no connect')) {
-                            $icon = 'bi-telephone-x'; // call failed / no connection
-                            $color = 'text-danger'; // red = problem / needs attention
-                            } elseif (str_contains($bucketName, 'follow up') || str_contains($bucketName, 'follow-up')) {
-                            $icon = 'bi-arrow-repeat'; // repeat / follow-up action
-                            $color = 'text-warning'; // yellow = pending action
-                            } elseif (str_contains($bucketName, 'options shortlisting') || str_contains($bucketName, 'shortlist')) {
-                            $icon = 'bi-list-check'; // checklist / shortlisting
-                            $color = 'text-info'; // info blue = in progress / selection
-                            } elseif (str_contains($bucketName, 'application') || str_contains($bucketName, 'apply')) {
-                            $icon = 'bi-file-earmark-person'; // application form with person
-                            $color = 'text-primary'; // primary blue = core process step
-                            } elseif (str_contains($bucketName, 'offer letter') || str_contains($bucketName, 'offer')) {
-                            $icon = 'bi-envelope-check'; // envelope with check = offer sent/approved
-                            $color = 'text-success'; // green = positive milestone
-                            } elseif (str_contains($bucketName, 'payment')) {
-                            $icon = 'bi-currency-rupee'; // rupee / money (Bootstrap has bi-currency-rupee)
-                            $color = 'text-success'; // green = money received or due
-                            } elseif (str_contains($bucketName, 'cas')) {
-                            $icon = 'bi-shield-check'; // shield = compliance / CAS process
-                            $color = 'text-info'; // info = verification step
-                            } elseif (str_contains($bucketName, 'visa')) {
-                            $icon = 'bi-globe'; // globe = international / visa
-                            $color = 'text-primary'; // primary = important international step
-                            } elseif (str_contains($bucketName, 'enrollment') || str_contains($bucketName, 'enrol')) {
-                            $icon = 'bi-mortarboard-fill'; // graduation cap = enrollment / admission
-                            $color = 'text-success'; // green = final academic step
-                            } elseif (str_contains($bucketName, 'closed') || str_contains($bucketName, 'close')) {
-                            $icon = 'bi-check2-circle'; // double check = completed & closed
-                            $color = 'text-success'; // green = done
-                            } elseif (str_contains($bucketName, 'cold lead') || str_contains($bucketName, 'cold')) {
-                            $icon = 'bi-snow'; // snowflake = cold / inactive
-                            $color = 'text-muted'; // gray = low priority / dormant
-                            } elseif (str_contains($bucketName, 'next intake')) {
-                            $icon = 'bi-calendar-event'; // calendar = future intake date
-                            $color = 'text-warning'; // yellow = upcoming / pending
-                            }
+    // Specific matches based on your exact bucket names
+    if (str_contains($bucketName, 'new') || str_contains($bucketName, 'lead') || str_contains($bucketName, 'new lead')) {
+        $icon = 'bi-person-plus-fill'; // adding new person / fresh lead
+        $color = 'text-success'; // green = new & positive
+    } elseif (str_contains($bucketName, 'not connected') || str_contains($bucketName, 'no connect')) {
+        $icon = 'bi-telephone-x'; // call failed / no connection
+        $color = 'text-danger'; // red = problem / needs attention
+    } elseif (str_contains($bucketName, 'follow up') || str_contains($bucketName, 'follow-up')) {
+        $icon = 'bi-arrow-repeat'; // repeat / follow-up action
+        $color = 'text-warning'; // yellow = pending action
+    } elseif (str_contains($bucketName, 'options shortlisting') || str_contains($bucketName, 'shortlist')) {
+        $icon = 'bi-list-check'; // checklist / shortlisting
+        $color = 'text-info'; // info blue = in progress / selection
+    } elseif (str_contains($bucketName, 'application') || str_contains($bucketName, 'apply')) {
+        $icon = 'bi-file-earmark-person'; // application form with person
+        $color = 'text-primary'; // primary blue = core process step
+    } elseif (str_contains($bucketName, 'offer letter') || str_contains($bucketName, 'offer')) {
+        $icon = 'bi-envelope-check'; // envelope with check = offer sent/approved
+        $color = 'text-success'; // green = positive milestone
+    } elseif (str_contains($bucketName, 'payment')) {
+        $icon = 'bi-currency-rupee'; // rupee / money (Bootstrap has bi-currency-rupee)
+        $color = 'text-success'; // green = money received or due
+    } elseif (str_contains($bucketName, 'cas')) {
+        $icon = 'bi-shield-check'; // shield = compliance / CAS process
+        $color = 'text-info'; // info = verification step
+    } elseif (str_contains($bucketName, 'visa')) {
+        $icon = 'bi-globe'; // globe = international / visa
+        $color = 'text-primary'; // primary = important international step
+    } elseif (str_contains($bucketName, 'enrollment') || str_contains($bucketName, 'enrol')) {
+        $icon = 'bi-mortarboard-fill'; // graduation cap = enrollment / admission
+        $color = 'text-success'; // green = final academic step
+    } elseif (str_contains($bucketName, 'closed') || str_contains($bucketName, 'close')) {
+        $icon = 'bi-check2-circle'; // double check = completed & closed
+        $color = 'text-success'; // green = done
+    } elseif (str_contains($bucketName, 'cold lead') || str_contains($bucketName, 'cold')) {
+        $icon = 'bi-snow'; // snowflake = cold / inactive
+        $color = 'text-muted'; // gray = low priority / dormant
+    } elseif (str_contains($bucketName, 'next intake')) {
+        $icon = 'bi-calendar-event'; // calendar = future intake date
+        $color = 'text-warning'; // yellow = upcoming / pending
+    }
 
-                            // Optional fallback if nothing matches
-                            if ($icon === 'bi-folder2-open' && str_contains($bucketName, 'lead')) {
-                            $icon = 'bi-person-lines-fill';
-                            $color = 'text-primary';
-                            }
+    // Optional fallback if nothing matches
+    if ($icon === 'bi-folder2-open' && str_contains($bucketName, 'lead')) {
+        $icon = 'bi-person-lines-fill';
+        $color = 'text-primary';
+    }
                             @endphp
 
                             <div class="col-xxl-2 col-lg-3 col-md-6">
@@ -287,26 +289,26 @@
 
                             @foreach($firstBucket->children as $child)
                             @php
-                            $statusName = strtolower(trim($child->name)); // Normalize for matching
+        $statusName = strtolower(trim($child->name)); // Normalize for matching
 
-                            // Default fallback
-                            $icon = 'bi-circle-fill';
-                            $color = 'text-secondary';
+        // Default fallback
+        $icon = 'bi-circle-fill';
+        $color = 'text-secondary';
 
-                            // Specific matches based on your exact status names
-                            if (str_contains($statusName, 'sop under preparation') || str_contains($statusName, 'sop preparation')) {
-                            $icon = 'bi-file-earmark-plus'; // alternative: creating/preparing doc
-                            $color = 'text-primary';
-                            } elseif (str_contains($statusName, 'submitted')) {
-                            $icon = 'bi-check-circle';
-                            $color = 'text-success';
-                            } elseif (str_contains($statusName, 'processed') || str_contains($statusName, 'offer awaited')) {
-                            $icon = 'bi-clock-history';
-                            $color = 'text-warning';
-                            } elseif (str_contains($statusName, 'other') || str_contains($statusName, 'uncategorized')) {
-                            $icon = 'bi-question-circle';
-                            $color = 'text-secondary';
-                            }
+        // Specific matches based on your exact status names
+        if (str_contains($statusName, 'sop under preparation') || str_contains($statusName, 'sop preparation')) {
+            $icon = 'bi-file-earmark-plus'; // alternative: creating/preparing doc
+            $color = 'text-primary';
+        } elseif (str_contains($statusName, 'submitted')) {
+            $icon = 'bi-check-circle';
+            $color = 'text-success';
+        } elseif (str_contains($statusName, 'processed') || str_contains($statusName, 'offer awaited')) {
+            $icon = 'bi-clock-history';
+            $color = 'text-warning';
+        } elseif (str_contains($statusName, 'other') || str_contains($statusName, 'uncategorized')) {
+            $icon = 'bi-question-circle';
+            $color = 'text-secondary';
+        }
                             @endphp
 
                             <div class="col-xxl-2 col-lg-3 col-md-6">
@@ -401,50 +403,50 @@
                     <div class="card-body custom-card-action">
                         <div class="row g-4">
                             @php
-                            $engagementItems = [
-                            [
-                            'key' => 'hot',
-                            'label' => 'Hot Leads',
-                            'color' => '#dc3545',
-                            'icon' => 'bi-fire',
-                            'iconClass' => 'text-danger',
-                            ],
-                            [
-                            'key' => 'warm',
-                            'label' => 'Warm Leads',
-                            'color' => '#fd7e14',
-                            'icon' => 'bi-thermometer-half',
-                            'iconClass' => 'text-warning',
-                            ],
-                            [
-                            'key' => 'cold',
-                            'label' => 'Cold Leads',
-                            'color' => '#0d6efd',
-                            'icon' => 'bi-snow',
-                            'iconClass' => 'text-primary',
-                            ],
-                            [
-                            'key' => 'dead',
-                            'label' => 'Dead Leads',
-                            'color' => '#6c757d',
-                            'icon' => 'bi-x-circle',
-                            'iconClass' => 'text-secondary',
-                            ],
-                            ];
+$engagementItems = [
+    [
+        'key' => 'hot',
+        'label' => 'Hot Leads',
+        'color' => '#dc3545',
+        'icon' => 'bi-fire',
+        'iconClass' => 'text-danger',
+    ],
+    [
+        'key' => 'warm',
+        'label' => 'Warm Leads',
+        'color' => '#fd7e14',
+        'icon' => 'bi-thermometer-half',
+        'iconClass' => 'text-warning',
+    ],
+    [
+        'key' => 'cold',
+        'label' => 'Cold Leads',
+        'color' => '#0d6efd',
+        'icon' => 'bi-snow',
+        'iconClass' => 'text-primary',
+    ],
+    [
+        'key' => 'dead',
+        'label' => 'Dead Leads',
+        'color' => '#6c757d',
+        'icon' => 'bi-x-circle',
+        'iconClass' => 'text-secondary',
+    ],
+];
                             @endphp
 
                             @foreach($engagementItems as $item)
                             @php
-                            $percent = $engagementPercentages[$item['key']] ?? 0;
-                            $count = $engagementCounts[$item['key']] ?? 0;
+    $percent = $engagementPercentages[$item['key']] ?? 0;
+    $count = $engagementCounts[$item['key']] ?? 0;
 
-                            $knownEngagementTotal =
-                            ($engagementCounts['hot'] ?? 0) +
-                            ($engagementCounts['warm'] ?? 0) +
-                            ($engagementCounts['cold'] ?? 0) +
-                            ($engagementCounts['dead'] ?? 0);
+    $knownEngagementTotal =
+        ($engagementCounts['hot'] ?? 0) +
+        ($engagementCounts['warm'] ?? 0) +
+        ($engagementCounts['cold'] ?? 0) +
+        ($engagementCounts['dead'] ?? 0);
 
-                            $remainingEngagement = $totalEngagement - $knownEngagementTotal;
+    $remainingEngagement = $totalEngagement - $knownEngagementTotal;
                             @endphp
 
                             <div class="col-sm-6">
@@ -882,18 +884,18 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <tbody>
                                     @forelse($recentLeadsProgress as $lead)
                                     @php
-                                    $stageColorClasses = [
-                                    1 => 'stage-1',
-                                    2 => 'stage-2',
-                                    3 => 'stage-3',
-                                    4 => 'stage-4',
-                                    5 => 'stage-5',
-                                    6 => 'stage-6',
-                                    7 => 'stage-7',
-                                    8 => 'stage-8',
-                                    ];
+    $stageColorClasses = [
+        1 => 'stage-1',
+        2 => 'stage-2',
+        3 => 'stage-3',
+        4 => 'stage-4',
+        5 => 'stage-5',
+        6 => 'stage-6',
+        7 => 'stage-7',
+        8 => 'stage-8',
+    ];
 
-                                    $currentStageClass = $stageColorClasses[$lead['stage_position']] ?? 'stage-1';
+    $currentStageClass = $stageColorClasses[$lead['stage_position']] ?? 'stage-1';
                                     @endphp
                                     <tr>
                                         {{-- Lead Info --}}
@@ -923,9 +925,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                                 @for($i = 1; $i <= $lead['total_stages']; $i++)
 
                                                     @php
-                                                    $colorClass=($i <=$lead['stage_position'])
-                                                    ? ($stageColorClasses[$i] ?? 'stage-1' )
-                                                    : 'stage-empty' ;
+        $colorClass = ($i <= $lead['stage_position'])
+            ? ($stageColorClasses[$i] ?? 'stage-1')
+            : 'stage-empty';
                                                     @endphp
 
                                                     <div class="wd-20 ht-4 {{ $colorClass }} rounded-pill">
@@ -1207,8 +1209,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <!-- Last Comment -->
                                     <td class="last-comment-col">
                                         @php
-                                        $message = $lead->latestMessage->message ?? '';
-                                        $isLong = strlen($message) > 120;
+    $message = $lead->latestMessage->message ?? '';
+    $isLong = strlen($message) > 120;
                                         @endphp
 
                                         <div>
@@ -1329,4 +1331,4 @@ document.addEventListener('DOMContentLoaded', function () {
 
     </div>
     </div>
-</x-crm.layout.app>
+@endsection

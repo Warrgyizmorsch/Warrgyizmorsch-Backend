@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
 <style>
     li.hover-item:hover {
@@ -201,4 +203,4 @@
         </div>
      
     </div>
-</x-crm.layout.app>
+@endsection

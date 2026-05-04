@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <style>
         .entry-box {
             border: 1px dashed var(--bs-border-color);
@@ -421,4 +423,4 @@
             document.getElementById('faq_data').value = JSON.stringify(faqs);
         });
     </script>
-</x-crm.layout.app>
+@endsection

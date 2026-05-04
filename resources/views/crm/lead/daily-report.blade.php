@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
     <style>
         
@@ -139,7 +141,7 @@
                                                 {{-- No Bucket / Unassigned Column --}}
                                                 <td class="highlight-column">
                                                     @php
-                                                        $noBucket = $row[$unassignedColumn] ?? 0;
+    $noBucket = $row[$unassignedColumn] ?? 0;
                                                     @endphp
 
                                                     @if($noBucket > 0)
@@ -156,7 +158,7 @@
                                                 {{-- Convert Column --}}
                                                 <td class="highlight-column">
                                                     @php
-                                                        $convert = $row['convert'] ?? 0;
+    $convert = $row['convert'] ?? 0;
                                                     @endphp
 
                                                     @if($convert > 0)
@@ -198,4 +200,4 @@
         </div>
     </div>
 
-</x-crm.layout.app>
+@endsection

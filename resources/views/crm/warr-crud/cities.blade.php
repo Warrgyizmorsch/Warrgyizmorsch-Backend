@@ -1,5 +1,6 @@
-{{-- resources/views/crm/warr-settings/cities.blade.php --}}
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 <main>
   <div class="page-header">
     <div class="page-header-left d-flex align-items-center">
@@ -60,7 +61,7 @@
               <select name="country_id" class="form-select">
                 <option value="">All Countries</option>
                 @foreach($countries as $c)
-                  <option value="{{ $c->id }}" {{ (string)request('country_id') === (string)$c->id ? 'selected' : '' }}>
+                  <option value="{{ $c->id }}" {{ (string) request('country_id') === (string) $c->id ? 'selected' : '' }}>
                     {{ $c->name }}
                   </option>
                 @endforeach
@@ -145,4 +146,4 @@
     }
   });
 </script>
-</x-crm.layout.app>
+@endsection

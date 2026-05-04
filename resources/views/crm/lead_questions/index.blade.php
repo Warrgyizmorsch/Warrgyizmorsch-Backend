@@ -1,11 +1,14 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
+
     <div class="page-header d-flex justify-content-between align-items-center">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
                 <h5 class="m-b-10">Lead Questions</h5>
             </div>
             <ul class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
                 <li class="breadcrumb-item active">Lead Questions</li>
             </ul>
         </div>
@@ -275,4 +278,4 @@
             }
         }
     </style>
-</x-crm.layout.app>
+@endsection

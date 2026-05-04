@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <!-- PAGE HEADER -->
     <div class="page-header d-flex justify-content-between align-items-center ">
 
@@ -117,7 +119,7 @@
                                         <div class="col-sm-6 fw-semibold">
                                             @if($user->role)
                                             @php
-                                            $displayRole = $user->role->name;
+    $displayRole = $user->role->name;
                                             @endphp
 
                                             @if($displayRole == 'Admin')
@@ -274,4 +276,4 @@
     </script>
 
     <!-- [ Main Content ] end -->
-</x-crm.layout.app>
+@endsection

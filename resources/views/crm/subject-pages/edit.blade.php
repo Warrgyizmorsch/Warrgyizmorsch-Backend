@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     {{-- Minimal page-specific tweaks; Bootstrap-first so dark-mode stays consistent --}}
     <style>
         .image-preview {
@@ -311,4 +313,4 @@
 
        
     </script>
-</x-crm.layout.app>
+@endsection

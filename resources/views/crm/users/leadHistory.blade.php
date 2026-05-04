@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <main>
         <div class="page-header">
             <div class="page-header-left d-flex align-items-center">
@@ -54,12 +56,12 @@
                         <!-- Session Body -->
                         <div class="card-body">
                             @php
-                                $tasks = $leadHistories->filter(function ($lead) use ($session) {
-                                    return $lead->created_at->between(
-                                        $session->created_at,
-                                        $session->logout_at ?? now()
-                                    );
-                                });
+    $tasks = $leadHistories->filter(function ($lead) use ($session) {
+        return $lead->created_at->between(
+            $session->created_at,
+            $session->logout_at ?? now()
+        );
+    });
                             @endphp
 
                             @if($tasks->isNotEmpty())
@@ -115,4 +117,4 @@
             </div>
         </div>
     </div>
-</x-crm.layout.app>
+@endsection

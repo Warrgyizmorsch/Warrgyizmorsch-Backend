@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
 <main>
     <div>
@@ -41,19 +43,19 @@
                             </thead>
                             <tbody>
                                 @php
-                                    $session = $sessions[$user->id] ?? null;
-                                    $latestLogin = $user->loginHistories->last();
+    $session = $sessions[$user->id] ?? null;
+    $latestLogin = $user->loginHistories->last();
 
-                                    $isLoggedIn = false;
+    $isLoggedIn = false;
 
-                                    if ($session) {
-                                        // session->last_activity is stored as UNIX timestamp
-                                        $lastActivity = \Carbon\Carbon::createFromTimestamp($session->last_activity);
-                                        $expiryTime = $lastActivity->copy()->addMinutes(config('session.lifetime'));
+    if ($session) {
+        // session->last_activity is stored as UNIX timestamp
+        $lastActivity = \Carbon\Carbon::createFromTimestamp($session->last_activity);
+        $expiryTime = $lastActivity->copy()->addMinutes(config('session.lifetime'));
 
-                                        // if not expired yet, user is still logged in
-                                        $isLoggedIn = now()->lt($expiryTime);
-                                    }
+        // if not expired yet, user is still logged in
+        $isLoggedIn = now()->lt($expiryTime);
+    }
                                 @endphp
 
                                 @foreach ($user->loginHistories as $index => $history)
@@ -83,4 +85,4 @@
             </div>
         </div>
     </div>
-</x-crm.layout.app>
+@endsection

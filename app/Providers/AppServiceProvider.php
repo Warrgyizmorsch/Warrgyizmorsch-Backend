@@ -43,10 +43,5 @@ class AppServiceProvider extends ServiceProvider
 
             $view->with('menus', $menus);
         });
-
-        View::composer('*', function ($view) {
-            $homeData = app(\App\Services\HomePageDataService::class); // adjust namespace
-            $view->with('testimonials', $homeData->getTestimonials());
-        });
     }
 }

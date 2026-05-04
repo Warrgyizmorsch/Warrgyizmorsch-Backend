@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
 
 <main>
     <div>
@@ -89,4 +91,4 @@
 
     </div>
 
-</x-crm.layout.app>
+@endsection

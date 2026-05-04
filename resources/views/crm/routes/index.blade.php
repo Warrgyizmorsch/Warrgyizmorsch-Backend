@@ -1,4 +1,6 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
     <x-slot name="title">Routes Management</x-slot>
 
     <main>
@@ -186,4 +188,4 @@
             </div>
         </div>
     </div>
-</x-crm.layout.app>
+@endsection

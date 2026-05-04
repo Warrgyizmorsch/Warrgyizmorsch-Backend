@@ -1,4 +1,7 @@
-<x-crm.layout.app>
+@extends('layouts.app')
+
+@section('content')
+
 <x-slot name="title">Roles Management</x-slot>
 
 <main>
@@ -135,4 +138,4 @@
         </div>
     </div>
 </div>
-</x-crm.layout.app>
+@endsection
