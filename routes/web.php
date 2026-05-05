@@ -24,8 +24,6 @@ use App\Http\Controllers\CRM\UniversityDetailController;
 
 
 Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
-    Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
-
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
@@ -214,5 +212,8 @@ Route::prefix('university-details')->name('university-details.')->group(function
 Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
 Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.passwprdUpdate');
+
+Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
+
 
 require __DIR__ . '/auth.php';
