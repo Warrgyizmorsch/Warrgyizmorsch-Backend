@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Menu;
-use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,24 +23,30 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // ✅ FORCE correct domain for this subdomain
-        URL::forceRootUrl(config('app.url'));
-        URL::forceScheme('https');
-
         View::composer('*', function ($view) {
             $viewData = $view->getData();
-
+        
+            // Safely check if 'meta' is already passed
             if (!array_key_exists('meta', $viewData)) {
                 $routeName = Route::currentRouteName();
-                $meta = config("meta.pages.$routeName", config('meta.default'));
+
+                $meta = config("meta.pages.$routeName");
+
+                if (!$meta) {
+                    $meta = config('meta.default', [
+                        'title' => 'Admin Panel',
+                        'description' => '',
+                    ]);
+                }
                 $view->with('meta', $meta);
             }
 
+            // Load menus for logged-in user
             if (Auth::check()) {
                 $user = Auth::user();
                 $menus = Menu::getMenusForUser($user);
             } else {
-                $menus = collect();
+                $menus = collect(); // empty collection if not logged in
             }
 
             $view->with('menus', $menus);
