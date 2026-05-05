@@ -24,7 +24,7 @@ use App\Http\Controllers\CRM\UniversityDetailController;
 
 
 Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
-    Route::get('/', fn() => redirect()->route('dashboard'));
+    Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
