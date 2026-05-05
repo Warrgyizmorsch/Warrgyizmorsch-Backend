@@ -24,6 +24,9 @@ use App\Http\Controllers\CRM\UniversityDetailController;
 
 
 Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
+    Route::get('/', [DashboardController::class, 'index'])
+        ->name('dashboard');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
