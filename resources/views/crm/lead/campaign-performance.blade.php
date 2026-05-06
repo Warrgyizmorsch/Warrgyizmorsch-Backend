@@ -109,6 +109,26 @@
             text-align: center;
             font-weight: 500;
         }
+
+        /* ================= TABLE SORTING ================= */
+
+        #leadList th.sortable {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        #leadList th.sortable .sort-icons {
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-left: 6px;
+            font-size: 7px;
+            line-height: 7px;
+            opacity: 0.5;
+            vertical-align: middle;
+        }
     </style>
 
     <div class="main-wrapper">
@@ -159,9 +179,9 @@
                         <select name="campaign_name" class="form-control" data-select2-selector="status">
                             <option value="">All Campaign</option>
                             @foreach($campaigns as $campaign)
-                            <option value="{{ $campaign }}" {{ request('campaign_name') == $campaign ? 'selected' : '' }}>
-                                {{ $campaign }}
-                            </option>
+                                <option value="{{ $campaign }}" {{ request('campaign_name') == $campaign ? 'selected' : '' }}>
+                                    {{ $campaign }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -170,9 +190,9 @@
                         <select name="adset_name" class="form-control" data-select2-selector="status">
                             <option value="">All Adset</option>
                             @foreach($adsets as $adset)
-                            <option value="{{ $adset }}" {{ request('adset_name') == $adset ? 'selected' : '' }}>
-                                {{ $adset }}
-                            </option>
+                                <option value="{{ $adset }}" {{ request('adset_name') == $adset ? 'selected' : '' }}>
+                                    {{ $adset }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -181,13 +201,13 @@
                         <select name="adset_name" class="form-control" data-select2-selector="status">
                             <option value="">All Adset</option>
                             @foreach($adsets as $adset)
-                            <option value="{{ $adset }}" {{ request('adset_name') == $adset ? 'selected' : '' }}>
-                                {{ $adset }}
-                            </option>
+                                <option value="{{ $adset }}" {{ request('adset_name') == $adset ? 'selected' : '' }}>
+                                    {{ $adset }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
-                     <div class="col-md-3">
+                    <div class="col-md-3">
                         <label class="form-label">From Date</label>
                         <input type="date" name="from" value="{{ request('from') }}" class="form-control">
                     </div>
@@ -225,15 +245,13 @@
                                 {{-- LEFT: DROPDOWN --}}
                                 <div style="min-width: 250px;">
                                     <form method="GET" action="{{ route('lead.campaignPerformance') }}">
-                                         <input type="hidden" name="campaign_name" value="{{ request('campaign_name') }}">
-                                         <input type="hidden" name="from" value="{{ request('from') }}">
-                                         <input type="hidden" name="to" value="{{ request('to') }}">
+                                        <input type="hidden" name="campaign_name" value="{{ request('campaign_name') }}">
+                                        <input type="hidden" name="from" value="{{ request('from') }}">
+                                        <input type="hidden" name="to" value="{{ request('to') }}">
 
                                         <label class="form-label fw-semibold">Select Data Type</label>
 
-                                        <select name="group_by"
-                                            class="form-control"
-                                            onchange="this.form.submit()">
+                                        <select name="group_by" class="form-control" onchange="this.form.submit()">
 
                                             <option value="campaign" {{ request('group_by') == 'campaign' ? 'selected' : '' }}>
                                                 Campaign
@@ -282,42 +300,113 @@
 
                                     <thead>
                                         <tr>
-                                            <th class="text-start" style="min-width:200px; max-width:250px;">Name</th>
-                                            <th>Total Leads</th>
-                                            <th>Untouched</th>
-                                            <th>Not Connected</th>
-                                            <th>Counselling</th>
-                                            <th>Application</th>
-                                            <th>Offer</th>
-                                            <th>Visa</th>
-                                            <th>Converted</th>
-                                            <th>Lost</th>
+
+                                            <th class="text-start sortable" style="min-width:200px; max-width:250px;">
+                                                Name
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Total Leads
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Untouched
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Not Connected
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Counselling
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Application
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Offer
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Visa
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Converted
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
+                                            <th class="sortable">
+                                                Lost
+                                                <span class="sort-icons">
+                                                    <span>▲</span>
+                                                    <span>▼</span>
+                                                </span>
+                                            </th>
+
                                         </tr>
                                     </thead>
 
                                     <tbody>
                                         @forelse($data as $row)
-                                        <tr>
-                                            <td class="text-start" style="word-break: break-word; white-space: normal;">
-                                                <strong>{{ $row->name }}</strong>
-                                            </td>
+                                            <tr>
+                                                <td class="text-start" style="word-break: break-word; white-space: normal;">
+                                                    <strong>{{ $row->name }}</strong>
+                                                </td>
 
-                                            <td><strong>{{ $row->total_leads ?? 0 }}</strong></td>
-                                            <td>{{ $row->untouched }}</td>
-                                            <td>{{ $row->not_connected }}</td>
-                                            <td>{{ $row->counselling }}</td>
-                                            <td>{{ $row->application }}</td>
-                                            <td>{{ $row->offer_stage }}</td>
-                                            <td>{{ $row->visa_process }}</td>
-                                            <td>{{ $row->converted }}</td>
-                                            <td><strong>{{ $row->lost ?? 0 }}</strong></td>
-                                        </tr>
+                                                <td><strong>{{ $row->total_leads ?? 0 }}</strong></td>
+                                                <td>{{ $row->untouched }}</td>
+                                                <td>{{ $row->not_connected }}</td>
+                                                <td>{{ $row->counselling }}</td>
+                                                <td>{{ $row->application }}</td>
+                                                <td>{{ $row->offer_stage }}</td>
+                                                <td>{{ $row->visa_process }}</td>
+                                                <td>{{ $row->converted }}</td>
+                                                <td><strong>{{ $row->lost ?? 0 }}</strong></td>
+                                            </tr>
                                         @empty
-                                        <tr>
-                                            <td colspan="10" class="text-center p-5 text-muted">
-                                                No Records Found
-                                            </td>
-                                        </tr>
+                                            <tr>
+                                                <td colspan="10" class="text-center p-5 text-muted">
+                                                    No Records Found
+                                                </td>
+                                            </tr>
                                         @endforelse
                                     </tbody>
 
@@ -337,184 +426,230 @@
         </div>
     </div>
 
-<script>
-// window.onload = function () {
+    <script>
+        // window.onload = function () {
 
-//     let data = [
-//         { name: 'Total Leads', real: {{ $totals->sum('total_leads') ?? 0 }} },
-//         { name: 'Lost', real: {{ $totals->sum('lost') ?? 0 }} },
-//         { name: ' Not Connected', real: {{ $totals->sum('not_connected') ?? 0 }} },
-//         { name: 'Untouched', real: {{ $totals->sum('untouched') ?? 0 }} },
-//         { name: 'Counselling', real: {{ $totals->sum('counselling') ?? 0 }} },
-//         { name: 'Application', real: {{ $totals->sum('application') ?? 0 }} },
-//         { name: 'Offer Stage', real: {{ $totals->sum('offer_stage') ?? 0 }} },
-//         { name: 'Visa', real: {{ $totals->sum('visa_process') ?? 0 }} },
-//         { name: 'Converted', real: {{ $totals->sum('converted') ?? 0 }} }
-//     ];
+        //     let data = [
+        //         { name: 'Total Leads', real: {{ $totals->sum('total_leads') ?? 0 }} },
+        //         { name: 'Lost', real: {{ $totals->sum('lost') ?? 0 }} },
+        //         { name: ' Not Connected', real: {{ $totals->sum('not_connected') ?? 0 }} },
+        //         { name: 'Untouched', real: {{ $totals->sum('untouched') ?? 0 }} },
+        //         { name: 'Counselling', real: {{ $totals->sum('counselling') ?? 0 }} },
+        //         { name: 'Application', real: {{ $totals->sum('application') ?? 0 }} },
+        //         { name: 'Offer Stage', real: {{ $totals->sum('offer_stage') ?? 0 }} },
+        //         { name: 'Visa', real: {{ $totals->sum('visa_process') ?? 0 }} },
+        //         { name: 'Converted', real: {{ $totals->sum('converted') ?? 0 }} }
+        //     ];
 
-//     // 🔥 SORT: highest first
-//     data.sort((a, b) => b.real - a.real);
+        //     // 🔥 SORT: highest first
+        //     data.sort((a, b) => b.real - a.real);
 
-//     // 🔥 FIXED SHAPE (same size)
-//     let finalData = data.map(item => ({
-//         name: item.name,
-//         y: 100,        // shape same rahega
-//         real: item.real
-//     }));
+        //     // 🔥 FIXED SHAPE (same size)
+        //     let finalData = data.map(item => ({
+        //         name: item.name,
+        //         y: 100,        // shape same rahega
+        //         real: item.real
+        //     }));
 
-//     Highcharts.chart('funnelChart', {
-//         chart: {
-//             type: 'funnel'
-//         },
+        //     Highcharts.chart('funnelChart', {
+        //         chart: {
+        //             type: 'funnel'
+        //         },
 
-//         title: {
-//             text: ''
-//         },
-//          tooltip: {
-//         formatter: function () {
-//             return '<b>' + this.point.name + '</b>: ' + this.point.real;
-//         }
-//     },
+        //         title: {
+        //             text: ''
+        //         },
+        //          tooltip: {
+        //         formatter: function () {
+        //             return '<b>' + this.point.name + '</b>: ' + this.point.real;
+        //         }
+        //     },
 
-//         plotOptions: {
-//             series: {
-//                 dataLabels: {
-//                     enabled: true,
-//                     formatter: function () {
-//                         return this.point.name + ': ' + this.point.real;
-//                     }
-//                 },
-//                 neckWidth: '0%',
-//                 neckHeight: '0%',
-//                 width: '60%'
-//             }
-//         },
+        //         plotOptions: {
+        //             series: {
+        //                 dataLabels: {
+        //                     enabled: true,
+        //                     formatter: function () {
+        //                         return this.point.name + ': ' + this.point.real;
+        //                     }
+        //                 },
+        //                 neckWidth: '0%',
+        //                 neckHeight: '0%',
+        //                 width: '60%'
+        //             }
+        //         },
 
-//         series: [{
-//             name: 'Leads',
-//             data: finalData,
-//             colors: [
-//         '#E67E3F',
-//         '#E5D46A',
-//         '#76B7B2',
-//         '#8FD18B',
-//         '#3B6FB6',
-//         '#E76F51',
-//         '#F4E7A1'
-//     ]
-//         }]
-//     });
+        //         series: [{
+        //             name: 'Leads',
+        //             data: finalData,
+        //             colors: [
+        //         '#E67E3F',
+        //         '#E5D46A',
+        //         '#76B7B2',
+        //         '#8FD18B',
+        //         '#3B6FB6',
+        //         '#E76F51',
+        //         '#F4E7A1'
+        //     ]
+        //         }]
+        //     });
 
-// };
+        // };
 
-window.onload = function () {
+        window.onload = function () {
 
-    let colors = [
-        '#E67E3F',
-        '#E5D46A',
-        '#76B7B2',
-        '#8FD18B',
-        '#3B6FB6',
-        '#E76F51',
-        '#F4E7A1',
-        '#A29BFE',
-        '#FF9FF3'
-    ];
+            let colors = [
+                '#E67E3F',
+                '#E5D46A',
+                '#76B7B2',
+                '#8FD18B',
+                '#3B6FB6',
+                '#E76F51',
+                '#F4E7A1',
+                '#A29BFE',
+                '#FF9FF3'
+            ];
 
-    let data = [
-        { name: 'Total Leads', real: {{ $totals->sum('total_leads') ?? 0 }} },
-        { name: 'Lost', real: {{ $totals->sum('lost') ?? 0 }} },
-        { name: 'Not Connected', real: {{ $totals->sum('not_connected') ?? 0 }} },
-        { name: 'Untouched', real: {{ $totals->sum('untouched') ?? 0 }} },
-        { name: 'Counselling', real: {{ $totals->sum('counselling') ?? 0 }} },
-        { name: 'Application', real: {{ $totals->sum('application') ?? 0 }} },
-        { name: 'Offer Stage', real: {{ $totals->sum('offer_stage') ?? 0 }} },
-        { name: 'Visa', real: {{ $totals->sum('visa_process') ?? 0 }} },
-        { name: 'Converted', real: {{ $totals->sum('converted') ?? 0 }} }
-    ];
+            let data = [
+                { name: 'Total Leads', real: {{ $totals->sum('total_leads') ?? 0 }} },
+                { name: 'Lost', real: {{ $totals->sum('lost') ?? 0 }} },
+                { name: 'Not Connected', real: {{ $totals->sum('not_connected') ?? 0 }} },
+                { name: 'Untouched', real: {{ $totals->sum('untouched') ?? 0 }} },
+                { name: 'Counselling', real: {{ $totals->sum('counselling') ?? 0 }} },
+                { name: 'Application', real: {{ $totals->sum('application') ?? 0 }} },
+                { name: 'Offer Stage', real: {{ $totals->sum('offer_stage') ?? 0 }} },
+                { name: 'Visa', real: {{ $totals->sum('visa_process') ?? 0 }} },
+                { name: 'Converted', real: {{ $totals->sum('converted') ?? 0 }} }
+            ];
 
-    // 🔥 Sort descending
-    data.sort((a, b) => b.real - a.real);
+            // 🔥 Sort descending
+            data.sort((a, b) => b.real - a.real);
 
-    let finalData = data.map((item, index) => ({
-        name: item.name,
-        y: 100, // shape same
-        real: item.real,
-        color: colors[index % colors.length]
-    }));
+            let finalData = data.map((item, index) => ({
+                name: item.name,
+                y: 100, // shape same
+                real: item.real,
+                color: colors[index % colors.length]
+            }));
 
-    // ================= FUNNEL CHART =================
-    Highcharts.chart('funnelChart', {
-        chart: {
-            type: 'funnel'
-        },
+            // ================= FUNNEL CHART =================
+            Highcharts.chart('funnelChart', {
+                chart: {
+                    type: 'funnel'
+                },
 
-        title: {
-            text: ''
-        },
+                title: {
+                    text: ''
+                },
 
-        tooltip: {
-            formatter: function () {
-                return '<b>' + this.point.name + '</b>: ' + this.point.real;
-            }
-        },
-
-        plotOptions: {
-            series: {
-                dataLabels: {
-                    enabled: true,
-                    inside: true, // 🔥 center me
-                    style: {
-                        color: '#000',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        textOutline: 'none'
-                    },
+                tooltip: {
                     formatter: function () {
-                        return this.point.real; // 🔥 sirf count
+                        return '<b>' + this.point.name + '</b>: ' + this.point.real;
                     }
                 },
-                neckWidth: '0%',
-                neckHeight: '0%',
-                width: '80%'
-            }
-        },
 
-        series: [{
-            name: 'Leads',
-            data: finalData
-        }]
-    });
+                plotOptions: {
+                    series: {
+                        dataLabels: {
+                            enabled: true,
+                            inside: true, // 🔥 center me
+                            style: {
+                                color: '#000',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                textOutline: 'none'
+                            },
+                            formatter: function () {
+                                return this.point.real; // 🔥 sirf count
+                            }
+                        },
+                        neckWidth: '0%',
+                        neckHeight: '0%',
+                        width: '80%'
+                    }
+                },
 
-    // ================= RIGHT SIDE LEGEND =================
-    let legendHTML = '';
+                series: [{
+                    name: 'Leads',
+                    data: finalData
+                }]
+            });
 
-    finalData.forEach(item => {
-        legendHTML += `
-            <div style="display:flex; align-items:center; margin-bottom:10px;">
-                
-                <div style="
-                    width:14px;
-                    height:14px;
-                    background:${item.color};
-                    margin-right:10px;
-                    border-radius:3px;">
-                </div>
+            // ================= RIGHT SIDE LEGEND =================
+            let legendHTML = '';
 
-                <div style="flex:1; font-size:14px;">
-                    ${item.name}
-                </div>
+            finalData.forEach(item => {
+                legendHTML += `
+                        <div style="display:flex; align-items:center; margin-bottom:10px;">
 
-                <div style="font-weight:600;">
-                    ${item.real}
-                </div>
+                            <div style="
+                                width:14px;
+                                height:14px;
+                                background:${item.color};
+                                margin-right:10px;
+                                border-radius:3px;">
+                            </div>
 
-            </div>
-        `;
-    });
+                            <div style="flex:1; font-size:14px;">
+                                ${item.name}
+                            </div>
 
-    document.getElementById('funnelLegend').innerHTML = legendHTML;
+                            <div style="font-weight:600;">
+                                ${item.real}
+                            </div>
 
-};
-</script>
+                        </div>
+                    `;
+            });
+
+            document.getElementById('funnelLegend').innerHTML = legendHTML;
+
+            // ================= TABLE SORTING =================
+
+            const table = document.getElementById("leadList");
+            const headers = table.querySelectorAll("th.sortable");
+
+            headers.forEach((header, index) => {
+
+                let ascending = true;
+
+                header.addEventListener("click", function () {
+
+                    const tbody = table.querySelector("tbody");
+
+                    const rows = Array.from(
+                        tbody.querySelectorAll("tr")
+                    ).filter(row => row.children.length > 1);
+
+                    rows.sort((a, b) => {
+
+                        let aText = a.children[index].innerText.trim();
+                        let bText = b.children[index].innerText.trim();
+
+                        let aNum = parseFloat(aText.replace(/,/g, ""));
+                        let bNum = parseFloat(bText.replace(/,/g, ""));
+
+                        // Number sorting
+                        if (!isNaN(aNum) && !isNaN(bNum)) {
+
+                            return ascending
+                                ? aNum - bNum
+                                : bNum - aNum;
+                        }
+
+                        // Text sorting
+                        return ascending
+                            ? aText.localeCompare(bText)
+                            : bText.localeCompare(aText);
+
+                    });
+
+                    rows.forEach(row => tbody.appendChild(row));
+
+                    ascending = !ascending;
+                });
+
+            });
+        };
+    </script>
 @endsection
