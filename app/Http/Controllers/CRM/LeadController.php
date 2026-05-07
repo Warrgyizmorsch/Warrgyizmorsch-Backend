@@ -127,7 +127,7 @@ class LeadController extends Controller
             $query->where('lead_bucket_id', $request->old_bucket_id);
         }
 
-         if ($request->filled('old_sub_status')) {
+        if ($request->filled('old_sub_status')) {
             $query->where('lead_status', $request->old_sub_status);
         }
 
@@ -190,7 +190,7 @@ class LeadController extends Controller
         $sources = LeadSource::pluck('source_name')->toArray();
 
 
-        return view('crm.lead.index', compact('leads', 'oldbuckets','oldSubStatus', 'extraFieldNames', 'buckets', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources'));
+        return view('crm.lead.index', compact('leads', 'oldbuckets', 'oldSubStatus', 'extraFieldNames', 'buckets', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources'));
     }
 
     public function application(Request $request)
@@ -289,9 +289,9 @@ class LeadController extends Controller
         if (!empty($lead->lead_owner)) {
 
             LeadAssignHistory::create([
-                'lead_id'       => $lead->id,
+                'lead_id' => $lead->id,
                 'lead_owner_id' => $data['lead_owner'],
-                'assigned_by'   => auth()->id(),
+                'assigned_by' => auth()->id(),
                 'assigned_date' => now(),
             ]);
         }
@@ -420,10 +420,10 @@ class LeadController extends Controller
         if ($oldOwnerId != $newOwnerId) {
 
             LeadAssignHistory::create([
-                'lead_id'        => $lead->id,
-                'lead_owner_id'  => $newOwnerId,
-                'assigned_by'    => auth()->id(),
-                'assigned_date'  => now(),
+                'lead_id' => $lead->id,
+                'lead_owner_id' => $newOwnerId,
+                'assigned_by' => auth()->id(),
+                'assigned_date' => now(),
             ]);
         }
 
@@ -691,12 +691,9 @@ class LeadController extends Controller
 
             return response()->json(['status' => 'success', 'message' => 'File uploaded successfully. Import has been queued and will be processed in the background.', 'job_id' => $importJob->id]);
         } catch (\Exception $e) {
-            \Log::error("Import dispatch failed: " . $e->getMessage());
 
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to start import. Please try again later.'
-            ], 500);
+            dd($e->getMessage());
+
         }
     }
 
@@ -1054,7 +1051,7 @@ class LeadController extends Controller
     public function dailyReport(Request $request)
     {
         $from = $request->from;
-        $to   = $request->to;
+        $to = $request->to;
 
         // Convert grouping
         $convertBuckets = [
@@ -1173,7 +1170,8 @@ class LeadController extends Controller
     public function newdailyReport(Request $request)
     {
         $from = $request->from ?? now()->toDateString();
-        $to   = $request->to ?? now()->toDateString();
+        $to = $request->to ?? now()->toDateString();
+        $engagementFilter = $request->engagement_filter;
 
         $statusColumns = [
             'Untouched leads',
@@ -1231,6 +1229,47 @@ class LeadController extends Controller
             ->whereNotNull('followup_type')
             ->groupBy('created_by', 'followup_type')
             ->get();
+
+        // ✅ CALL STATUS DATA (Connected vs Not Connected)
+        $callStatusData = CallBack::select(
+            'created_by',
+            'followup_type',
+            'followup_status',
+            DB::raw("COUNT(*) as total")
+        )
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereIn('followup_type', ['Call', 'WhatsApp Call'])
+            ->whereIn('followup_status', ['Connected', 'Not Connected'])
+            ->groupBy('created_by', 'followup_type', 'followup_status')
+            ->get();
+
+        // ✅ WHATSAPP STATUS DATA (Discussion Start vs No Response)
+        $whatsappStatusData = CallBack::select(
+            'created_by',
+            'followup_status',
+            DB::raw("COUNT(*) as total")
+        )
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
+            ->where('followup_type', 'Whatsapp')
+            ->whereIn('followup_status', ['Discussion Start', 'No Response'])
+            ->groupBy('created_by', 'followup_status')
+            ->get();
+
+        // ✅ LEAD ENGAGEMENT STATUS DATA
+        $engagementQuery = Leads::select(
+            'lead_owner',
+            'lead_engagement_status',
+            DB::raw("COUNT(*) as total")
+        )
+            ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
+            ->whereIn('lead_engagement_status', ['hot', 'warm', 'cold']);
+
+        if ($engagementFilter) {
+            $engagementQuery->where('lead_engagement_status', $engagementFilter);
+        }
+
+        $engagementData = $engagementQuery->groupBy('lead_owner', 'lead_engagement_status')->get();
+
         $final = [];
 
         foreach ($allUsers as $userId) {
@@ -1243,6 +1282,19 @@ class LeadController extends Controller
                     'Call' => 0,
                     'WhatsApp Call' => 0,
                     'Whatsapp' => 0,
+                ],
+                'call_stats' => [
+                    'Call' => ['Connected' => 0, 'Not Connected' => 0],
+                    'WhatsApp Call' => ['Connected' => 0, 'Not Connected' => 0],
+                ],
+                'whatsapp_stats' => [
+                    'Discussion Start' => 0,
+                    'No Response' => 0,
+                ],
+                'engagement' => [
+                    'hot' => 0,
+                    'warm' => 0,
+                    'cold' => 0,
                 ]
             ];
 
@@ -1254,6 +1306,27 @@ class LeadController extends Controller
                     if (isset($final[$f->created_by]['followups'][$type])) {
                         $final[$f->created_by]['followups'][$type] = $f->total;
                     }
+                }
+            }
+
+            // Process call status data
+            foreach ($callStatusData as $c) {
+                if ($c->created_by == $userId && isset($final[$c->created_by]['call_stats'][$c->followup_type])) {
+                    $final[$c->created_by]['call_stats'][$c->followup_type][$c->followup_status] = $c->total;
+                }
+            }
+
+            // Process whatsapp status data
+            foreach ($whatsappStatusData as $w) {
+                if ($w->created_by == $userId && isset($final[$w->created_by]['whatsapp_stats'][$w->followup_status])) {
+                    $final[$w->created_by]['whatsapp_stats'][$w->followup_status] = $w->total;
+                }
+            }
+
+            // Process engagement status data
+            foreach ($engagementData as $e) {
+                if ($e->lead_owner == $userId && isset($final[$userId]['engagement'][$e->lead_engagement_status])) {
+                    $final[$userId]['engagement'][$e->lead_engagement_status] = $e->total;
                 }
             }
 
@@ -1305,7 +1378,7 @@ class LeadController extends Controller
     public function followUpData(Request $request)
     {
         $from = $request->from;
-        $to   = $request->to;
+        $to = $request->to;
 
         $today = Carbon::today()->toDateString();
 
@@ -1521,7 +1594,7 @@ class LeadController extends Controller
         }
         if ($request->filled('from')) {
             $from = \Carbon\Carbon::parse($request->from)->toDateString();
-            $query->where('leads.created_at',  '>=', $from);
+            $query->where('leads.created_at', '>=', $from);
         }
 
 
@@ -1650,7 +1723,7 @@ class LeadController extends Controller
         }
         if ($request->filled('from')) {
             $from = \Carbon\Carbon::parse($request->from)->toDateString();
-            $baseQuery->where('leads.created_at',  '>=', $from);
+            $baseQuery->where('leads.created_at', '>=', $from);
         }
 
         $query = DB::table(DB::raw("({$baseQuery->toSql()}) as mapped"))
@@ -1728,7 +1801,7 @@ class LeadController extends Controller
         }
         if ($request->filled('from')) {
             $from = \Carbon\Carbon::parse($request->from)->toDateString();
-            $query->where('leads.created_at',  '>=', $from);
+            $query->where('leads.created_at', '>=', $from);
         }
 
         $totals = (clone $query)->get();
@@ -1845,14 +1918,14 @@ class LeadController extends Controller
     public function leadActivity(Request $request)
     {
         $from = $request->from;
-        $to   = $request->to;
+        $to = $request->to;
 
 
         $query = CallBack::with(['lead.user', 'lead.owner'])
             ->when($from && $to, function ($q) use ($from, $to) {
                 $q->whereDate('created_at', '>=', $from)
                     ->whereDate('created_at', '<=', $to);
-            },  function ($q) use ($from) {
+            }, function ($q) use ($from) {
                 if ($from) {
                     $q->whereDate('created_at', '>=', $from)
                         ->whereDate('created_at', '<=', now()->toDateString());
