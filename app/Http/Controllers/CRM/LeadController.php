@@ -691,9 +691,12 @@ class LeadController extends Controller
 
             return response()->json(['status' => 'success', 'message' => 'File uploaded successfully. Import has been queued and will be processed in the background.', 'job_id' => $importJob->id]);
         } catch (\Exception $e) {
+            \Log::error("Import dispatch failed: " . $e->getMessage());
 
-            dd($e->getMessage());
-
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to start import. Please try again later.'
+            ], 500);
         }
     }
 
