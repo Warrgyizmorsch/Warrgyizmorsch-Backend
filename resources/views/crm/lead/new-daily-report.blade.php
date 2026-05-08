@@ -6,27 +6,18 @@
         .table-responsive {
             overflow-x: auto;
             max-height: 70vh;
-            /* adjust height if needed */
         }
 
-        #leadList thead th {
+        .table thead th {
             position: sticky;
             top: 0;
-            background: #ffffff;
-            /* important so it doesn't turn transparent */
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
             z-index: 10;
-            box-shadow: 0 2px 2px rgba(0, 0, 0, 0.05);
+            font-weight: 600;
+            color: #333;
         }
 
-        .highlight-column {
-            background-color: #fafafaf5 !important;
-        }
-
-        .table-responsive {
-            overflow-x: auto;
-        }
-
-        /* Make content take full height so footer stays at bottom */
         .main-wrapper {
             min-height: 100vh;
             display: flex;
@@ -37,21 +28,72 @@
             flex: 1;
         }
 
-        .card[data-bs-toggle="modal"] {
-            transition: all 0.3s ease;
+        .report-section {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         }
 
-        .card[data-bs-toggle="modal"]:not([style*="opacity"]):hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+        .report-section h5 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
         }
 
-        .card[data-bs-toggle="modal"][style*="opacity"] {
-            pointer-events: none;
+        .stat-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            background: #f0f2f5;
+            color: #333;
         }
 
-        .card-body {
-            padding: 5px !important;
+        .stat-value {
+            color: #007bff;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .table-sm th,
+        .table-sm td {
+            padding: 10px;
+            vertical-align: middle;
+        }
+
+        .user-filter-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: #999;
+        }
+
+        .transition-badge {
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+
+        .record-row {
+            border-left: 3px solid #007bff;
+            background: #f8f9ff;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .optional-cell {
+            background: #fff3cd;
+            font-style: italic;
         }
     </style>
 
@@ -67,8 +109,6 @@
                     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
                     <li class="breadcrumb-item">Daily Report</li>
                 </ul>
-
-
             </div>
 
             <div class="page-header-right ms-auto">
@@ -80,20 +120,16 @@
                     </div>
 
                     <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-
-                        {{-- Chart Toggle --}}
                         <a href="javascript:void(0);" class="btn btn-icon btn-light-brand" data-bs-toggle="collapse"
                             data-bs-target="#collapseDailyReportFilter">
-                            <i class="feather-bar-chart"></i>Filter
+                            <i class="feather-filter"></i>Filter
                         </a>
                     </div>
                 </div>
             </div>
-
         </div>
 
-        {{-- Filters --}}
-        {{-- Collapsible Lead Stats --}}
+        {{-- Filters Section --}}
         <div id="collapseDailyReportFilter" class="accordion-collapse show page-header-collapse">
             <div class="accordion-body pb-2">
                 <form method="GET" action="{{ route('lead.newdailyReport') }}" class="row g-3 mb-4" id="date-filter-form">
@@ -130,16 +166,25 @@
                         <input type="date" name="to" id="end-date" class="form-control" value="{{ request('to') }}">
                     </div>
 
-                    <!-- Lead Engagement Status Filter -->
-                    <!-- <div class="col-md-3">
-                                    <label class="form-label">Lead Engagement Status</label>
-                                    <select name="engagement_filter" class="form-control">
-                                        <option value="">All</option>
-                                        <option value="hot" {{ request('engagement_filter') == 'hot' ? 'selected' : '' }}>Hot</option>
-                                        <option value="warm" {{ request('engagement_filter') == 'warm' ? 'selected' : '' }}>Warm</option>
-                                        <option value="cold" {{ request('engagement_filter') == 'cold' ? 'selected' : '' }}>Cold</option>
-                                    </select>
-                                </div> -->
+                    <!-- User Filter -->
+                    <div class="col-md-3">
+                        <label class="form-label">User</label>
+                        <select name="user_id" id="user-filter" class="form-control">
+                            <option value="">All Users</option>
+                            @php
+                                $allUserIds = array_keys($final);
+                            @endphp
+                            @foreach($allUserIds as $userId)
+                                <option value="{{ $userId }}" {{ request('user_id') == $userId ? 'selected' : '' }}>
+                                    @if($userImages[$userId] ?? null)
+                                        📷 {{ $final[$userId]['name'] }}
+                                    @else
+                                        {{ $final[$userId]['name'] }}
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
                     <!-- Buttons -->
                     <div class="col-12 d-flex gap-2 mt-3">
@@ -153,684 +198,377 @@
             </div>
         </div>
 
-
         {{-- ===================== MAIN CONTENT ===================== --}}
-        <div class="main-content mt-3">
-            <div class="row">
-                @foreach($final as $userId => $row)
+        <div class="main-content mt-4">
 
-                    {{-- USER CARD --}}
-                    <div class="col-md-6 mb-4">
-                        <div class="card shadow-sm border-0">
+            @php
+                $selectedUserId = request('user_id');
+                $displayData = [];
 
-                            {{-- User Header --}}
-                            <div class="card-header fw-bold d-flex justify-content-between align-items-center"
-                                data-bs-toggle="collapse" data-bs-target="#user-{{ $userId }}" style="cursor:pointer;">
+                if ($selectedUserId && isset($final[$selectedUserId])) {
+                    $displayData[$selectedUserId] = $final[$selectedUserId];
+                } else {
+                    $displayData = $final;
+                }
+            @endphp
 
-                                <strong class="fw-bold text-dark">{{ $row['name'] }}</strong>
-                                <span class="badge bg-light text-dark">
-                                    Total: {{ $row['total'] }}
-                                </span>
+            @forelse($displayData as $userId => $row)
+
+                {{-- ===== DAILY REPORT SECTION ===== --}}
+                <div class="report-section">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        @if($userImages[$userId] ?? null)
+                            <img src="{{ asset('storage/' . $userImages[$userId]) }}" alt="{{ $row['name'] }}"
+                                class="rounded-circle"
+                                style="width: 50px; height: 50px; object-fit: cover; border: 2px solid #007bff;">
+                        @else
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                                style="width: 50px; height: 50px; font-weight: bold; font-size: 18px;">
+                                {{ substr($row['name'], 0, 1) }}
                             </div>
-
-                            {{-- USER DETAILS --}}
-                            <div id="user-{{ $userId }}" class="collapse">
-                                <div class="card-body">
-
-                                    <div class="row">
-                                        @foreach($statusColumns as $bucket)
-
-                                            {{-- BUCKET CARD --}}
-                                            <div class="col-md-6 mb-3">
-                                                <div class="border rounded p-2">
-
-                                                    {{-- Bucket Header --}}
-                                                    <div class="d-flex justify-content-between align-items-center"
-                                                        data-bs-toggle="collapse"
-                                                        data-bs-target="#bucket-{{ $userId }}-{{ Str::slug($bucket) }}"
-                                                        style="cursor:pointer;">
-
-                                                        <span class="fw-semibold">{{ $bucket }}</span>
-
-                                                        <span class="badge 
-                                                                    @if($bucket == 'Converted') bg-success
-                                                                    @elseif($bucket == 'Lost') bg-danger
-                                                                    @else bg-primary
-                                                                    @endif
-                                                                ">
-                                                            {{ $row['statuses'][$bucket]['count'] }}
-                                                        </span>
-                                                    </div>
-
-                                                    {{-- SUB STATUS --}}
-                                                    <div id="bucket-{{ $userId }}-{{ Str::slug($bucket) }}" class="collapse mt-2">
-
-                                                        <div class="row">
-                                                            @foreach($row['statuses'][$bucket]['sub_status'] as $status => $count)
-
-                                                                <div class="col-md-6 mb-2">
-                                                                    <div class="p-2 text-center bg-white rounded shadow-sm border">
-
-                                                                        <div class="text-muted small mb-1">
-                                                                            {{ $status }}
-                                                                        </div>
-
-                                                                        <div class="fw-bold text-dark">
-                                                                            {{ $count }}
-                                                                        </div>
-
-                                                                    </div>
-                                                                </div>
-
-                                                            @endforeach
-                                                        </div>
-
-                                                    </div>
-
-                                                </div>
-                                            </div>
-
-                                        @endforeach
-                                    </div>
-
-                                    {{-- FOLLOWUP BOXES --}}
-                                    <div class="mt-3">
-                                        <div class="row">
-
-                                            {{-- Call --}}
-                                            <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                <div
-                                                    class="card border border-dashed border-gray-5 hover-shadow transition-all">
-                                                    <div style="padding-bottom: 10px;"
-                                                        class="card-body d-flex align-items-center justify-content-between">
-                                                        <div
-                                                            class="avatar-text avatar-lg bg-soft-danger text-danger border-soft-danger rounded">
-                                                            <i class="bi bi-telephone-x fs-2 text-danger"></i>
-                                                        </div>
-                                                        <div class="text-end">
-                                                            <p class="fs-9 fw-medium text-uppercase text-muted mb-1">Call</p>
-                                                            <h3 class="tx-20 tx-semibold tx-left">
-                                                                {{ $row['followups']['Call'] ?? 0 }}
-                                                            </h3>
-                                                        </div>
-                                                    </div>
-                                                    <div
-                                                        style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 0 5px;">
-                                                        <small class="text-muted">
-                                                            Connected: {{ $row['call_stats']['Call']['Connected'] ?? 0 }}
-                                                        </small>
-                                                        <small class="text-muted">
-                                                            Lost: {{ $row['call_stats']['Call']['Not Connected'] ?? 0 }}
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {{-- WhatsApp Call--}}
-                                            <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                <div
-                                                    class="card border border-dashed border-gray-5 hover-shadow transition-all">
-                                                    <div style="padding-bottom: 10px;"
-                                                        class="card-body d-flex align-items-center justify-content-between ">
-                                                        <div
-                                                            class="avatar-text avatar-lg bg-soft-success text-success border-soft-danger rounded">
-                                                            <i class="bi bi-telephone-fill fs-6 text-success"></i>
-                                                        </div>
-                                                        <div class="text-end">
-                                                            <p class="fs-9 fw-medium text-uppercase text-muted mb-1">WhatsApp
-                                                                Call</p>
-                                                            <h3 class="tx-20 tx-semibold tx-left">
-                                                                {{ $row['followups']['WhatsApp Call'] ?? 0 }}
-                                                            </h3>
-                                                        </div>
-                                                    </div>
-                                                    <div
-                                                        style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 0 5px;">
-
-                                                        <small class="text-muted">
-                                                            Connected:
-                                                            {{ $row['call_stats']['WhatsApp Call']['Connected'] ?? 0 }}
-                                                        </small>
-                                                        <small class="text-muted">
-                                                            Lost:
-                                                            {{ $row['call_stats']['WhatsApp Call']['Not Connected'] ?? 0 }}
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {{-- Whatsapp --}}
-                                            <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                <div
-                                                    class="card border border-dashed border-gray-5 hover-shadow transition-all">
-                                                    <div style="padding-bottom: 10px;"
-                                                        class="card-body d-flex align-items-center justify-content-between">
-                                                        <div
-                                                            class="avatar-text avatar-lg bg-soft-success text-success border-soft-success rounded">
-                                                            <i class="bi bi-whatsapp fs-2 text-success"></i>
-                                                        </div>
-                                                        <div class="text-end">
-                                                            <p class="fs-9 fw-medium text-uppercase text-muted mb-1">Whatsapp
-                                                            </p>
-                                                            <h3 class="tx-20 tx-semibold tx-left">
-                                                                {{ $row['followups']['Whatsapp'] ?? 0 }}
-                                                            </h3>
-                                                        </div>
-                                                    </div>
-                                                    <div
-                                                        style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 0 5px;">
-                                                        <small class="text-muted">
-                                                            Discussion Start:
-                                                            {{ $row['whatsapp_stats']['Discussion Start'] ?? 0 }}
-                                                        </small>
-                                                        <small class="text-muted">
-                                                            No Response: {{ $row['whatsapp_stats']['No Response'] ?? 0 }}
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                        </div>
-                                    </div>
-
-                                    {{-- LEAD ENGAGEMENT STATUS --}}
-                                    <div class="mt-2">
-                                        <h6 class="mb-3 fw-semibold text-dark">Status Transitions & Hot Leads</h6>
-                                        <div class="row">
-                                            {{-- Hot Leads --}}
-                                            <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                <div class="card border border-dashed border-danger hover-shadow transition-all"
-                                                    style="cursor: pointer;" data-bs-toggle="modal"
-                                                    data-bs-target="#hotLeadsModal-{{ $userId }}" @if(!(count($row['hot_leads'] ?? []) ?? 0)) style="opacity: 0.5; cursor: default;" @endif>
-                                                    <div class="card-body d-flex align-items-center justify-content-between">
-                                                        <div
-                                                            class="avatar-text avatar-lg bg-soft-danger text-danger border-soft-danger rounded">
-                                                            <i class="bi bi-fire fs-2 text-danger"></i>
-                                                        </div>
-                                                        <div class="text-end">
-                                                            <p class="fs-9 fw-medium text-uppercase text-muted mb-1">Hot Leads
-                                                            </p>
-                                                            <h3 class="tx-20 tx-semibold tx-left">
-                                                                {{ count($row['hot_leads'] ?? []) }}
-                                                            </h3>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {{-- Warm to Hot Leads --}}
-                                            <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                <div class="card border border-dashed border-success hover-shadow transition-all"
-                                                    style="cursor: pointer;" data-bs-toggle="modal"
-                                                    data-bs-target="#warmToHotModal-{{ $userId }}"
-                                                    @if(!(count($row['warm_to_hot']) ?? 0))
-                                                    style="opacity: 0.5; cursor: default;" @endif>
-                                                    <div class="card-body d-flex align-items-center justify-content-between">
-                                                        <div
-                                                            class="avatar-text avatar-lg bg-soft-success text-success border-soft-success rounded">
-                                                            <i class="bi bi-arrow-up-circle fs-2 text-success"></i>
-                                                        </div>
-                                                        <div class="text-end">
-                                                            <p class="fs-9 fw-medium text-uppercase text-muted mb-1">Warm → Hot
-                                                            </p>
-                                                            <h3 class="tx-20 tx-semibold tx-left">
-                                                                {{ count($row['warm_to_hot']) ?? 0 }}
-                                                            </h3>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {{-- Hot to Warm Leads --}}
-                                            <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                <div class="card border border-dashed border-warning hover-shadow transition-all"
-                                                    style="cursor: pointer;" data-bs-toggle="modal"
-                                                    data-bs-target="#hotToWarmModal-{{ $userId }}"
-                                                    @if(!(count($row['hot_to_warm']) ?? 0))
-                                                    style="opacity: 0.5; cursor: default;" @endif>
-                                                    <div class="card-body d-flex align-items-center justify-content-between">
-                                                        <div
-                                                            class="avatar-text avatar-lg bg-soft-warning text-warning border-soft-warning rounded">
-                                                            <i class="bi bi-arrow-down-circle fs-2 text-warning"></i>
-                                                        </div>
-                                                        <div class="text-end">
-                                                            <p class="fs-9 fw-medium text-uppercase text-muted mb-1">Hot → Warm
-                                                            </p>
-                                                            <h3 class="tx-20 tx-semibold tx-left">
-                                                                {{ count($row['hot_to_warm']) ?? 0 }}
-                                                            </h3>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {{-- Engagement Status Summary --}}
-                                            <div class="col-12 mt-3">
-                                                <h6 class="mb-2 fw-semibold text-dark">Lead Engagement Status Summary</h6>
-                                                <div class="row">
-                                                    {{-- Warm Leads --}}
-                                                    <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                        <div
-                                                            class="card border border-dashed border-warning hover-shadow transition-all">
-                                                            <div
-                                                                class="card-body d-flex align-items-center justify-content-between">
-                                                                <div
-                                                                    class="avatar-text avatar-lg bg-soft-warning text-warning border-soft-warning rounded">
-                                                                    <i class="bi bi-thermometer-half fs-2 text-warning"></i>
-                                                                </div>
-                                                                <div class="text-end">
-                                                                    <p class="fs-9 fw-medium text-uppercase text-muted mb-1">
-                                                                        Warm Leads</p>
-                                                                    <h3 class="tx-20 tx-semibold tx-left">
-                                                                        {{ $row['engagement']['warm'] ?? 0 }}
-                                                                    </h3>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {{-- Cold Leads --}}
-                                                    <div class="col-12 col-sm-6 col-xl-4 mb-2">
-                                                        <div
-                                                            class="card border border-dashed border-info hover-shadow transition-all">
-                                                            <div
-                                                                class="card-body d-flex align-items-center justify-content-between">
-                                                                <div
-                                                                    class="avatar-text avatar-lg bg-soft-info text-info border-soft-info rounded">
-                                                                    <i class="bi bi-snow fs-2 text-info"></i>
-                                                                </div>
-                                                                <div class="text-end">
-                                                                    <p class="fs-9 fw-medium text-uppercase text-muted mb-1">
-                                                                        Cold Leads</p>
-                                                                    <h3 class="tx-20 tx-semibold tx-left">
-                                                                        {{ $row['engagement']['cold'] ?? 0 }}
-                                                                    </h3>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-
+                        @endif
+                        <div>
+                            <h5 class="mb-0">{{ $row['name'] }}'s Daily Report</h5>
+                            <small class="text-muted">Lead Performance Summary</small>
                         </div>
                     </div>
 
-                @endforeach
+                    {{-- Summary Stats --}}
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-center" style="width: 25%;">
+                                        <i class="bi bi-graph-up me-1 text-success"></i>Total
+                                    </th>
+                                    <th class="text-center" style="width: 25%;">
+                                        <i class="bi bi-fire me-1 text-danger"></i>Hot
+                                    </th>
+                                    <th class="text-center" style="width: 25%;">
+                                        <i class="bi bi-thermometer-half me-1 text-warning"></i>Warm
+                                    </th>
+                                    <th class="text-center" style="width: 25%;">
+                                        <i class="bi bi-snow me-1 text-info"></i>Cold
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="text-center">
+                                        <div class="stat-value" style="color: #28a745; font-size: 24px;">
+                                            {{ $row['total'] }}
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="stat-value" style="color: #dc3545; font-size: 24px;">
+                                            {{ $row['engagement']['hot'] ?? 0 }}
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="stat-value" style="color: #ffc107; font-size: 24px;">
+                                            {{ $row['engagement']['warm'] ?? 0 }}
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="stat-value" style="color: #17a2b8; font-size: 24px;">
+                                            {{ $row['engagement']['cold'] ?? 0 }}
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-                {{-- HOT LEADS MODAL --}}
-                @foreach($final as $userId => $row)
-                    <div class="modal fade" id="hotLeadsModal-{{ $userId }}" tabindex="-1"
-                        aria-labelledby="hotLeadsModalLabel-{{ $userId }}" aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header bg-danger text-white">
-                                    <h5 class="modal-title" id="hotLeadsModalLabel-{{ $userId }}">
-                                        <i class="bi bi-fire me-2"></i>Hot Leads - {{ $row['name'] }}
-                                    </h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                        aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                                    @if(count($row['hot_leads']) > 0)
-                                        <div class="lead-list">
-                                            @foreach($row['hot_leads'] as $index => $hotLead)
-                                                <div class="card mb-3 border shadow-sm">
-                                                    {{-- Lead Header Card --}}
-                                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <span class="badge bg-danger fs-6">{{ $index + 1 }}</span>
-                                                            <h6 class="mb-0 fw-bold">Lead #{{ $hotLead['id'] }}</h6>
-                                                        </div>
-                                                        @if($hotLead['verified_lead'])
-                                                            <span class="badge bg-success">
-                                                                <i class="bi bi-check-circle me-1"></i>Verified
+                    {{-- Lead Status Table --}}
+                    <h6 class="mb-3">Lead Status Breakdown</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Status Category</th>
+                                    <th class="text-center">Count</th>
+                                    <th>Sub-Status Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($row['statuses'] as $bucket => $bucketData)
+                                    @if($bucketData['count'] > 0)
+                                        <tr>
+                                            <td>
+                                                <strong>{{ $bucket }}</strong>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge
+                                                                                    @if($bucket == 'Converted') bg-success
+                                                                                    @elseif($bucket == 'Lost') bg-danger
+                                                                                    @elseif($bucket == 'Counselling in Progress') bg-primary
+                                                                                    @else bg-secondary
+                                                                                    @endif
+                                                                                ">{{ $bucketData['count'] }}</span>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    @foreach($bucketData['sub_status'] as $status => $count)
+                                                        @if($count > 0)
+                                                            <span class="badge bg-light text-dark">
+                                                                {{ $status }}: <strong>{{ $count }}</strong>
                                                             </span>
                                                         @endif
-                                                    </div>
-
-                                                    {{-- Lead Details --}}
-                                                    <div class="card-body">
-                                                        {{-- Name Section --}}
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold text-dark">Lead Name</label>
-                                                            <p class="form-control-plaintext fw-bold text-primary">
-                                                                {{ $hotLead['lead_name'] }}
-                                                            </p>
-                                                        </div>
-
-                                                        {{-- Contact Information --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Email</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-envelope text-primary me-2"></i>
-                                                                    {{ $hotLead['email'] }}
-                                                                </p>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Contact</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-telephone text-success me-2"></i>
-                                                                    {{ $hotLead['contact_no'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Education Details --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Applying Country</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-geo-alt text-danger me-2"></i>
-                                                                    {{ $hotLead['country'] }}
-                                                                </p>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Course</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-book text-info me-2"></i>
-                                                                    {{ $hotLead['course'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Campaign & Platform Info --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-12">
-                                                                <label class="form-label fw-semibold text-dark">Campaign</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-megaphone text-warning me-2"></i>
-                                                                    {{ $hotLead['campaign_name'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Location & Date Info --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-12">
-                                                                <label class="form-label fw-semibold text-dark">Lead Date</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-calendar-event text-muted me-2"></i>
-                                                                    @if($hotLead['date'] != 'N/A')
-                                                                        {{ \Carbon\Carbon::parse($hotLead['date'])->format('M d, Y') }}
-                                                                    @else
-                                                                        N/A
-                                                                    @endif
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                    @endforeach
                                                 </div>
-                                            @endforeach
-                                        </div>
-                                    @else
-                                        <div class="alert alert-info" role="alert">
-                                            <i class="bi bi-info-circle me-2"></i>No hot leads found for this period.
-                                        </div>
+                                            </td>
+                                        </tr>
                                     @endif
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                </div>
-                            </div>
+                                @empty
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted py-3">No lead data available</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Follow-up Activities --}}
+                    <h6 class="mt-4 mb-3">Follow-up Activities</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Activity Type</th>
+                                    <th class="text-center">Total</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Call</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge bg-danger">{{ $row['followups']['Call'] ?? 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            Connected: {{ $row['call_stats']['Call']['Connected'] ?? 0 }} |
+                                            Not Connected: {{ $row['call_stats']['Call']['Not Connected'] ?? 0 }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>WhatsApp Call</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ $row['followups']['WhatsApp Call'] ?? 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            Connected: {{ $row['call_stats']['WhatsApp Call']['Connected'] ?? 0 }} |
+                                            Not Connected: {{ $row['call_stats']['WhatsApp Call']['Not Connected'] ?? 0 }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>WhatsApp Message</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ $row['followups']['Whatsapp'] ?? 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            Discussion Start: {{ $row['whatsapp_stats']['Discussion Start'] ?? 0 }} |
+                                            No Response: {{ $row['whatsapp_stats']['No Response'] ?? 0 }}
+                                        </small>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- ===== HOT LEADS SECTION ===== --}}
+                @if(count($row['hot_leads']) > 0)
+                    <div class="report-section">
+                        <h5><i class="bi bi-fire me-2" style="color: #dc3545;"></i>Hot Leads ({{ count($row['hot_leads']) }})</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Lead Name</th>
+                                        <th>Email</th>
+                                        <th>Contact</th>
+                                        <th>Country</th>
+                                        <th>Course</th>
+                                        <th>Campaign</th>
+                                        <th>Date</th>
+                                        <th>Verified</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($row['hot_leads'] as $index => $lead)
+                                        <tr>
+                                            <td><strong>{{ $index + 1 }}</strong></td>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                                                        style="width: 32px; height: 32px; font-size: 12px; font-weight: bold;">
+                                                        {{ substr($lead['lead_name'], 0, 1) }}
+                                                    </div>
+                                                    <span>{{ $lead['lead_name'] }}</span>
+                                                </div>
+                                            </td>
+                                            <td>{{ $lead['email'] }}</td>
+                                            <td>{{ $lead['contact_no'] }}</td>
+                                            <td>{{ $lead['country'] }}</td>
+                                            <td>{{ $lead['course'] }}</td>
+                                            <td>{{ $lead['campaign_name'] }}</td>
+                                            <td>{{ $lead['date'] !== 'N/A' ? \Carbon\Carbon::parse($lead['date'])->format('M d, Y') : 'N/A' }}
+                                            </td>
+                                            <td>
+                                                @if($lead['verified_lead'])
+                                                    <span class="badge bg-success">✓ Yes</span>
+                                                @else
+                                                    <span class="badge bg-secondary">No</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                @endforeach
+                @endif
 
-                {{-- WARM TO HOT & HOT TO WARM MODALS --}}
-                @foreach($final as $userId => $row)
-                    {{-- WARM TO HOT MODAL --}}
-                    <div class="modal fade" id="warmToHotModal-{{ $userId }}" tabindex="-1"
-                        aria-labelledby="warmToHotModalLabel-{{ $userId }}" aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header bg-success text-white">
-                                    <h5 class="modal-title" id="warmToHotModalLabel-{{ $userId }}">
-                                        <i class="bi bi-arrow-up-circle me-2"></i>Warm → Hot Leads - {{ $row['name'] }}
-                                    </h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                        aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                                    @if(count($row['warm_to_hot']) > 0)
-                                        <div class="lead-list">
+                {{-- ===== PREVIOUS LEADS - STATUS TRANSITIONS ===== --}}
+                <div class="report-section">
+                    <h5><i class="bi bi-arrow-left-right me-2" style="color: #6c757d;"></i>Lead Status Transitions</h5>
+
+                    @if(count($row['warm_to_hot']) > 0 || count($row['hot_to_warm']) > 0)
+                        {{-- Warm to Hot --}}
+                        @if(count($row['warm_to_hot']) > 0)
+                            <div class="mb-4">
+                                <h6 class="mb-3">
+                                    <i class="bi bi-arrow-up-circle me-2" style="color: #28a745;"></i>
+                                    Warm → Hot Transitions ({{ count($row['warm_to_hot']) }})
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Lead Name</th>
+                                                <th>Email</th>
+                                                <th>Contact</th>
+                                                <th>Country</th>
+                                                <th>Course</th>
+                                                <th>Campaign</th>
+                                                <th>Date</th>
+                                                <th>Verified</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             @foreach($row['warm_to_hot'] as $index => $lead)
-                                                <div class="card mb-3 border shadow-sm">
-                                                    {{-- Lead Header Card --}}
-                                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <tr style="background: #f0fff4; border-left: 4px solid #28a745;">
+                                                    <td><strong>{{ $index + 1 }}</strong></td>
+                                                    <td>
                                                         <div class="d-flex align-items-center gap-2">
-                                                            <span class="badge bg-success fs-6">{{ $index + 1 }}</span>
-                                                            <h6 class="mb-0 fw-bold">Lead #{{ $lead['id'] }}</h6>
+                                                            <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                style="width: 32px; height: 32px; font-size: 12px; font-weight: bold;">
+                                                                {{ substr($lead['lead_name'], 0, 1) }}
+                                                            </div>
+                                                            <span>{{ $lead['lead_name'] }}</span>
                                                         </div>
+                                                    </td>
+                                                    <td>{{ $lead['email'] }}</td>
+                                                    <td>{{ $lead['contact_no'] }}</td>
+                                                    <td>{{ $lead['country'] }}</td>
+                                                    <td>{{ $lead['course'] }}</td>
+                                                    <td>{{ $lead['campaign_name'] }}</td>
+                                                    <td>{{ $lead['date'] !== 'N/A' ? \Carbon\Carbon::parse($lead['date'])->format('M d, Y') : 'N/A' }}
+                                                    </td>
+                                                    <td>
                                                         @if($lead['verified_lead'])
-                                                            <span class="badge bg-success">
-                                                                <i class="bi bi-check-circle me-1"></i>Verified
-                                                            </span>
+                                                            <span class="badge bg-success">✓ Yes</span>
+                                                        @else
+                                                            <span class="badge bg-secondary">No</span>
                                                         @endif
-                                                    </div>
-
-                                                    {{-- Lead Details --}}
-                                                    <div class="card-body">
-                                                        {{-- Name Section --}}
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold text-dark">Lead Name</label>
-                                                            <p class="form-control-plaintext fw-bold text-primary">
-                                                                {{ $lead['lead_name'] }}
-                                                            </p>
-                                                        </div>
-
-                                                        {{-- Contact Information --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Email</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-envelope text-primary me-2"></i>
-                                                                    {{ $lead['email'] }}
-                                                                </p>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Contact</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-telephone text-success me-2"></i>
-                                                                    {{ $lead['contact_no'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Education Details --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Applying Country</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-geo-alt text-danger me-2"></i>
-                                                                    {{ $lead['country'] }}
-                                                                </p>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Course</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-book text-info me-2"></i>
-                                                                    {{ $lead['course'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Campaign & Platform Info --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-12">
-                                                                <label class="form-label fw-semibold text-dark">Campaign</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-megaphone text-warning me-2"></i>
-                                                                    {{ $lead['campaign_name'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Status Transition Info --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-12">
-                                                                <label class="form-label fw-semibold text-dark">Lead Date</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-calendar-event text-muted me-2"></i>
-                                                                    @if($lead['date'] != 'N/A')
-                                                                        {{ \Carbon\Carbon::parse($lead['date'])->format('M d, Y') }}
-                                                                    @else
-                                                                        N/A
-                                                                    @endif
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        <div class="alert alert-success" role="alert">
-                                                            <i class="bi bi-arrow-up-circle me-2"></i>
-                                                            <strong>Status:</strong> Warm → Hot
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                    </td>
+                                                </tr>
                                             @endforeach
-                                        </div>
-                                    @else
-                                        <div class="alert alert-info" role="alert">
-                                            <i class="bi bi-info-circle me-2"></i>No warm to hot transitions found for this period.
-                                        </div>
-                                    @endif
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        @endif
 
-                    {{-- HOT TO WARM MODAL --}}
-                    <div class="modal fade" id="hotToWarmModal-{{ $userId }}" tabindex="-1"
-                        aria-labelledby="hotToWarmModalLabel-{{ $userId }}" aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header bg-warning text-dark">
-                                    <h5 class="modal-title" id="hotToWarmModalLabel-{{ $userId }}">
-                                        <i class="bi bi-arrow-down-circle me-2"></i>Hot → Warm Leads - {{ $row['name'] }}
-                                    </h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                                    @if(count($row['hot_to_warm']) > 0)
-                                        <div class="lead-list">
+                        {{-- Hot to Warm --}}
+                        @if(count($row['hot_to_warm']) > 0)
+                            <div class="mb-4">
+                                <h6 class="mb-3">
+                                    <i class="bi bi-arrow-down-circle me-2" style="color: #ffc107;"></i>
+                                    Hot → Warm Transitions ({{ count($row['hot_to_warm']) }})
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Lead Name</th>
+                                                <th>Email</th>
+                                                <th>Contact</th>
+                                                <th>Country</th>
+                                                <th>Course</th>
+                                                <th>Campaign</th>
+                                                <th>Date</th>
+                                                <th>Verified</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             @foreach($row['hot_to_warm'] as $index => $lead)
-                                                <div class="card mb-3 border shadow-sm">
-                                                    {{-- Lead Header Card --}}
-                                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                                <tr style="background: #fffbf0; border-left: 4px solid #ffc107;">
+                                                    <td><strong>{{ $index + 1 }}</strong></td>
+                                                    <td>
                                                         <div class="d-flex align-items-center gap-2">
-                                                            <span class="badge bg-warning fs-6">{{ $index + 1 }}</span>
-                                                            <h6 class="mb-0 fw-bold">Lead #{{ $lead['id'] }}</h6>
+                                                            <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                style="width: 32px; height: 32px; font-size: 12px; font-weight: bold;">
+                                                                {{ substr($lead['lead_name'], 0, 1) }}
+                                                            </div>
+                                                            <span>{{ $lead['lead_name'] }}</span>
                                                         </div>
+                                                    </td>
+                                                    <td>{{ $lead['email'] }}</td>
+                                                    <td>{{ $lead['contact_no'] }}</td>
+                                                    <td>{{ $lead['country'] }}</td>
+                                                    <td>{{ $lead['course'] }}</td>
+                                                    <td>{{ $lead['campaign_name'] }}</td>
+                                                    <td>{{ $lead['date'] !== 'N/A' ? \Carbon\Carbon::parse($lead['date'])->format('M d, Y') : 'N/A' }}
+                                                    </td>
+                                                    <td>
                                                         @if($lead['verified_lead'])
-                                                            <span class="badge bg-success">
-                                                                <i class="bi bi-check-circle me-1"></i>Verified
-                                                            </span>
+                                                            <span class="badge bg-success">✓ Yes</span>
+                                                        @else
+                                                            <span class="badge bg-secondary">No</span>
                                                         @endif
-                                                    </div>
-
-                                                    {{-- Lead Details --}}
-                                                    <div class="card-body">
-                                                        {{-- Name Section --}}
-                                                        <div class="mb-3">
-                                                            <label class="form-label fw-semibold text-dark">Lead Name</label>
-                                                            <p class="form-control-plaintext fw-bold text-primary">
-                                                                {{ $lead['lead_name'] }}
-                                                            </p>
-                                                        </div>
-
-                                                        {{-- Contact Information --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Email</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-envelope text-primary me-2"></i>
-                                                                    {{ $lead['email'] }}
-                                                                </p>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Contact</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-telephone text-success me-2"></i>
-                                                                    {{ $lead['contact_no'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Education Details --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Applying Country</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-geo-alt text-danger me-2"></i>
-                                                                    {{ $lead['country'] }}
-                                                                </p>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <label class="form-label fw-semibold text-dark">Course</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-book text-info me-2"></i>
-                                                                    {{ $lead['course'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Campaign & Platform Info --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-12">
-                                                                <label class="form-label fw-semibold text-dark">Campaign</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-megaphone text-warning me-2"></i>
-                                                                    {{ $lead['campaign_name'] }}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Status Transition Info --}}
-                                                        <div class="row mb-3">
-                                                            <div class="col-md-12">
-                                                                <label class="form-label fw-semibold text-dark">Lead Date</label>
-                                                                <p class="form-control-plaintext">
-                                                                    <i class="bi bi-calendar-event text-muted me-2"></i>
-                                                                    @if($lead['date'] != 'N/A')
-                                                                        {{ \Carbon\Carbon::parse($lead['date'])->format('M d, Y') }}
-                                                                    @else
-                                                                        N/A
-                                                                    @endif
-                                                                </p>
-                                                            </div>
-                                                        </div>
-
-                                                        <div class="alert alert-warning" role="alert">
-                                                            <i class="bi bi-arrow-down-circle me-2"></i>
-                                                            <strong>Status:</strong> Hot → Warm
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                    </td>
+                                                </tr>
                                             @endforeach
-                                        </div>
-                                    @else
-                                        <div class="alert alert-info" role="alert">
-                                            <i class="bi bi-info-circle me-2"></i>No hot to warm transitions found for this period.
-                                        </div>
-                                    @endif
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
+                        @endif
+                    @else
+                        <div class="alert alert-info" role="alert">
+                            <i class="bi bi-info-circle me-2"></i>No status transitions found for this period.
                         </div>
-                    </div>
-                @endforeach
-            </div>
+                    @endif
+                </div>
+
+            @empty
+                <div class="empty-state">
+                    <i class="bi bi-inbox" style="font-size: 48px; color: #ccc;"></i>
+                    <p class="mt-3">No data available for the selected criteria.</p>
+                </div>
+            @endforelse
+
         </div>
+
     </div>
 
     <script>

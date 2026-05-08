@@ -1201,6 +1201,11 @@ class LeadController extends Controller
             ->whereIn('id', $allUsers)
             ->pluck('name', 'id');
 
+        // Get user images
+        $userImages = DB::table('users')
+            ->whereIn('id', $allUsers)
+            ->pluck('image', 'id');
+
         // ✅ TOTAL (ONLY THESE BUCKETS)
         $totalData = CallBack::select(
             'created_by',
@@ -1460,7 +1465,7 @@ class LeadController extends Controller
                 }
             }
         }
-        return view('crm.lead.new-daily-report', compact('final', 'statusColumns'));
+        return view('crm.lead.new-daily-report', compact('final', 'statusColumns', 'userImages'));
     }
 
     public function updateEngagementStatus(Request $request, Leads $lead)
