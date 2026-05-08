@@ -1273,6 +1273,46 @@ class LeadController extends Controller
 
         $engagementData = $engagementQuery->groupBy('lead_owner', 'lead_engagement_status')->get();
 
+        // ✅ HOT LEADS DATA WITH DETAILS (current hot leads)
+        $hotLeads = Leads::with('user')
+            ->select('id', 'lead_owner', 'campaign_name', 'lead_engagement_status', 'uid', 'applying_country_for_a_visa', 'what_course_are_you_planning_to_study', 'verified_lead', 'date')
+            ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
+            ->where('lead_engagement_status', 'hot')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        // ✅ STATUS TRANSITIONS DATA (WARM->HOT and HOT->WARM from callback_messages)
+        $allStatusTransitions = [];
+        foreach ($allUsers as $userId) {
+            $transitions = CallBack::getStatusTransitions($userId, $from, $to);
+            if (!empty($transitions)) {
+                $allStatusTransitions[$userId] = $transitions;
+            }
+        }
+
+        // ✅ FETCH LEAD DETAILS FOR TRANSITIONS (with user info for lead names)
+        $warmToHotLeadIds = [];
+        $hotToWarmLeadIds = [];
+
+        foreach ($allStatusTransitions as $userId => $transitions) {
+            if (isset($transitions['warm_to_hot'])) {
+                $warmToHotLeadIds = array_merge($warmToHotLeadIds, $transitions['warm_to_hot']);
+            }
+            if (isset($transitions['hot_to_warm'])) {
+                $hotToWarmLeadIds = array_merge($hotToWarmLeadIds, $transitions['hot_to_warm']);
+            }
+        }
+
+        // Get lead details with user info for display
+        $leadsForTransitions = [];
+        if (!empty($warmToHotLeadIds) || !empty($hotToWarmLeadIds)) {
+            $leadsForTransitions = Leads::with('user')
+                ->select('id', 'lead_owner', 'campaign_name', 'lead_engagement_status', 'uid', 'applying_country_for_a_visa', 'what_course_are_you_planning_to_study', 'verified_lead', 'date')
+                ->whereIn('id', array_merge($warmToHotLeadIds, $hotToWarmLeadIds))
+                ->get()
+                ->keyBy('id');
+        }
+
         $final = [];
 
         foreach ($allUsers as $userId) {
@@ -1298,7 +1338,10 @@ class LeadController extends Controller
                     'hot' => 0,
                     'warm' => 0,
                     'cold' => 0,
-                ]
+                ],
+                'hot_leads' => [],
+                'warm_to_hot' => [],
+                'hot_to_warm' => []
             ];
 
             foreach ($followupData as $f) {
@@ -1330,6 +1373,63 @@ class LeadController extends Controller
             foreach ($engagementData as $e) {
                 if ($e->lead_owner == $userId && isset($final[$userId]['engagement'][$e->lead_engagement_status])) {
                     $final[$userId]['engagement'][$e->lead_engagement_status] = $e->total;
+                }
+            }
+
+            // ✅ PROCESS HOT LEADS (current hot leads)
+            foreach ($hotLeads as $lead) {
+                if ($lead->lead_owner == $userId) {
+                    $final[$userId]['hot_leads'][] = [
+                        'id' => $lead->id,
+                        'campaign_name' => $lead->campaign_name ?? 'N/A',
+                        'lead_name' => $lead->user->name ?? 'N/A',
+                        'email' => $lead->user->email ?? 'N/A',
+                        'contact_no' => $lead->user->contact_no ?? 'N/A',
+                        'verified_lead' => $lead->verified_lead ?? false,
+                        'country' => $lead->applying_country_for_a_visa ?? 'N/A',
+                        'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
+                        'date' => $lead->date ?? 'N/A',
+                    ];
+                }
+            }
+
+            // ✅ PROCESS STATUS TRANSITIONS - WARM TO HOT
+            if (isset($allStatusTransitions[$userId]['warm_to_hot'])) {
+                foreach ($allStatusTransitions[$userId]['warm_to_hot'] as $leadId) {
+                    if (isset($leadsForTransitions[$leadId])) {
+                        $lead = $leadsForTransitions[$leadId];
+                        $final[$userId]['warm_to_hot'][] = [
+                            'id' => $lead->id,
+                            'campaign_name' => $lead->campaign_name ?? 'N/A',
+                            'lead_name' => $lead->user->name ?? 'N/A',
+                            'email' => $lead->user->email ?? 'N/A',
+                            'contact_no' => $lead->user->contact_no ?? 'N/A',
+                            'verified_lead' => $lead->verified_lead ?? false,
+                            'country' => $lead->applying_country_for_a_visa ?? 'N/A',
+                            'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
+                            'date' => $lead->date ?? 'N/A',
+                        ];
+                    }
+                }
+            }
+
+            // ✅ PROCESS STATUS TRANSITIONS - HOT TO WARM
+            if (isset($allStatusTransitions[$userId]['hot_to_warm'])) {
+                foreach ($allStatusTransitions[$userId]['hot_to_warm'] as $leadId) {
+                    if (isset($leadsForTransitions[$leadId])) {
+                        $lead = $leadsForTransitions[$leadId];
+                        $final[$userId]['hot_to_warm'][] = [
+                            'id' => $lead->id,
+                            'campaign_name' => $lead->campaign_name ?? 'N/A',
+                            'lead_name' => $lead->user->name ?? 'N/A',
+                            'email' => $lead->user->email ?? 'N/A',
+                            'contact_no' => $lead->user->contact_no ?? 'N/A',
+                            'verified_lead' => $lead->verified_lead ?? false,
+                            'country' => $lead->applying_country_for_a_visa ?? 'N/A',
+                            'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
+                            'date' => $lead->date ?? 'N/A',
+                        ];
+                    }
                 }
             }
 
