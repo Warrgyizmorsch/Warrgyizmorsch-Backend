@@ -19,9 +19,14 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CRM\NewleadController;
 use App\Http\Controllers\CRM\UniversityDetailController;
+use App\Http\Controllers\WhatsAppController;
 
+Route::get('/send-whatsapp/{userId}', [WhatsAppController::class, 'send'])->name('send.whatsapp.report');
 
+Route::get('/get-leads-by-type', [LeadController::class, 'getLeadsByType'])
+    ->name('get.leads.by.type');
 
+Route::get('/get-user-report-data',[LeadController::class, 'getUserReportData'])->name('get.user.report.data');
 
 Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])

@@ -1272,6 +1272,16 @@ class LeadController extends Controller
             ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
             ->whereIn('lead_engagement_status', ['hot', 'warm', 'cold']);
 
+        $statusQuery = Leads::select(
+            'lead_owner',
+            'lead_bucket_id',
+            DB::raw("COUNT(*) as total")
+        )
+            ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
+            ->whereIn('lead_bucket_id', [15, 23, 30, 48])
+            ->groupBy('lead_owner', 'lead_bucket_id')
+            ->get();
+
         if ($engagementFilter) {
             $engagementQuery->where('lead_engagement_status', $engagementFilter);
         }
@@ -1344,6 +1354,12 @@ class LeadController extends Controller
                     'warm' => 0,
                     'cold' => 0,
                 ],
+                'status_counts' => [
+                    15 => 0,
+                    23 => 0,
+                    30 => 0,
+                    48 => 0,
+                ],
                 'hot_leads' => [],
                 'warm_to_hot' => [],
                 'hot_to_warm' => []
@@ -1381,6 +1397,13 @@ class LeadController extends Controller
                 }
             }
 
+            foreach ($statusQuery as $s) {
+
+                if ($s->lead_owner == $userId) {
+
+                    $final[$userId]['status_counts'][$s->lead_bucket_id] = $s->total;
+                }
+            }
             // ✅ PROCESS HOT LEADS (current hot leads)
             foreach ($hotLeads as $lead) {
                 if ($lead->lead_owner == $userId) {
@@ -2075,5 +2098,158 @@ class LeadController extends Controller
     public function exportLeads(Request $request)
     {
         return Excel::download(new LeadsExcelExport($request->all()), 'leads.xlsx');
+    }
+
+    public function getLeadsByType(Request $request)
+    {
+        try {
+
+            $bucketId = $request->bucket_id;
+            $userId = $request->ower_id;
+
+            $from = $request->from;
+            $to = $request->to;
+
+            $range = $request->range;
+
+            $today = now()->toDateString();
+
+            $bucketNames = [
+                15 => 'Counselling in Progress',
+                23 => 'Application Process',
+                30 => 'Offer Stage',
+                48 => 'Converted',
+            ];
+
+            $title = $bucketNames[$bucketId] ?? 'Leads';
+
+            $query = Leads::with('user');
+
+            // HOT LEADS
+            if ($bucketId == 'hot') {
+
+                $title = 'Hot Leads';
+
+                $query->where('lead_engagement_status', 'hot');
+            } else {
+
+                $query->where('lead_bucket_id', $bucketId);
+            }
+
+            // USER FILTER
+            if (!empty($userId)) {
+                $query->where('lead_owner', $userId);
+            }
+
+            // DATE FILTER
+            if (!empty($from) && !empty($to)) {
+
+                if ($range == 'today') {
+
+                    $query->whereBetween('date', [$from, $to]);
+                } else {
+
+                    $query->whereDate('date', '<', $from);
+                }
+            } else {
+
+                if ($range == 'today') {
+
+                    $query->whereDate('date', $today);
+                } else {
+
+                    $query->whereDate('date', '!=', now()->toDateString());
+                }
+            }
+
+            $leads = $query->latest()
+                ->get()
+                ->map(function ($lead) {
+
+                    return [
+
+                        'id' => $lead->id,
+
+                        'lead_name' => $lead->user->name ?? 'N/A',
+                        'email' => $lead->user->email ?? 'N/A',
+                        'contact_no' => $lead->user->contact_no ?? 'N/A',
+
+                        'country' => $lead->applying_country_for_a_visa ?? 'N/A',
+                        'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
+                        'campaign_name' => $lead->campaign_name ?? 'N/A',
+
+                        'date' => $lead->date ?? null,
+                        'verified_lead' => $lead->verified_lead ?? 0,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'title' => $title,
+                'leads' => $leads
+            ]);
+        } catch (\Throwable $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getUserReportData(Request $request)
+    {
+        $userId = $request->user_id;
+
+        $range = $request->range;
+
+        $from = $request->from;
+        $to = $request->to;
+
+        $today = now()->toDateString();
+
+        $query = Leads::where('lead_owner', $userId);
+
+        // DATE FILTER
+        if (!empty($from) && !empty($to)) {
+
+            if ($range == 'today') {
+
+                $query->whereBetween('date', [$from, $to]);
+            } else {
+
+                $query->whereDate('date', '<', $from);
+            }
+        } else {
+
+            if ($range == 'today') {
+
+                $query->whereDate('date', $today);
+            } else {
+
+                $query->whereDate('date', '!=', now()->toDateString());
+            }
+        }
+
+        $leads = $query->get();
+
+        return response()->json([
+
+            'total' => $leads->count(),
+
+            'status_counts' => [
+                15 => $leads->where('lead_bucket_id', 15)->count(),
+                23 => $leads->where('lead_bucket_id', 23)->count(),
+                30 => $leads->where('lead_bucket_id', 30)->count(),
+                48 => $leads->where('lead_bucket_id', 48)->count(),
+            ],
+
+            'engagement' => [
+                'hot' => $leads->where('lead_engagement_status', 'hot')->count(),
+                'warm' => $leads->where('lead_engagement_status', 'warm')->count(),
+                'cold' => $leads->where('lead_engagement_status', 'cold')->count(),
+            ]
+
+        ]);
     }
 }

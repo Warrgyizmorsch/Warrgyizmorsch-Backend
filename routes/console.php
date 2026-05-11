@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 Schedule::command('currency:fetch')->daily();
 // Schedule::command('currency:fetch')->everyMinute();
 
+Schedule::command('report:send-whatsapp')
+    ->dailyAt('14:48');
+
