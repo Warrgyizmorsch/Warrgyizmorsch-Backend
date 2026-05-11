@@ -55,10 +55,9 @@ class CallBack extends Model
      * Get status transitions for a user within a date range
      * Identifies warm->hot and hot->warm transitions efficiently
      */
-    public static function getStatusTransitions($userId, $fromDate, $toDate)
+    public static function getStatusTransitions($fromDate, $toDate)
     {
-        $callbacks = self::where('created_by', $userId)
-            ->whereBetween(DB::raw('DATE(created_at)'), [$fromDate, $toDate])
+        $callbacks = self::whereBetween(DB::raw('DATE(created_at)'), [$fromDate, $toDate])
             ->whereNotNull('lead_engagement_status')
             ->orderBy('lead_id')
             ->orderBy('created_at')
@@ -67,6 +66,7 @@ class CallBack extends Model
                 'lead_engagement_status',
                 'created_at'
             ]);
+
 
         $warmToHot = [];
         $hotToWarm = [];

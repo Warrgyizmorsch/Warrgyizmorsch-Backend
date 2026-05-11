@@ -1188,14 +1188,23 @@ class LeadController extends Controller
         ];
 
         // 👉 Users
-        $allUsers = CallBack::whereIn('created_by', function ($query) {
+        // $allUsers = CallBack::whereIn('created_by', function ($query) {
+        //     $query->select('id')
+        //         ->from('users')
+        //         ->where('is_deleted', 0);
+        // })
+        //     ->select('created_by')
+        //     ->distinct()
+        //     ->pluck('created_by');
+
+        $allUsers = Leads::whereIn('lead_owner', function ($query) {
             $query->select('id')
                 ->from('users')
                 ->where('is_deleted', 0);
         })
-            ->select('created_by')
+            ->select('lead_owner')
             ->distinct()
-            ->pluck('created_by');
+            ->pluck('lead_owner');
 
         $userNames = DB::table('users')
             ->whereIn('id', $allUsers)
@@ -1207,14 +1216,13 @@ class LeadController extends Controller
             ->pluck('image', 'id');
 
         // ✅ TOTAL (ONLY THESE BUCKETS)
-        $totalData = CallBack::select(
-            'created_by',
-            DB::raw("COUNT(DISTINCT CONCAT(lead_id, '-', status)) as total")
+        $totalData = Leads::select(
+            'lead_owner',
+            DB::raw("COUNT(*) as total")
         )
-            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
-            ->whereIn('bucket', $statusColumns) // 🔥 IMPORTANT
-            ->groupBy('created_by')
-            ->pluck('total', 'created_by');
+            ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
+            ->groupBy('lead_owner')
+            ->pluck('total', 'lead_owner');
 
         // ✅ BUCKET + SUB STATUS
         $data = CallBack::select(
@@ -1289,8 +1297,8 @@ class LeadController extends Controller
         $engagementData = $engagementQuery->groupBy('lead_owner', 'lead_engagement_status')->get();
 
         // ✅ HOT LEADS DATA WITH DETAILS (current hot leads)
-        $hotLeads = Leads::with('user')
-            ->select('id', 'lead_owner', 'campaign_name', 'lead_engagement_status', 'uid', 'applying_country_for_a_visa', 'what_course_are_you_planning_to_study', 'verified_lead', 'date')
+        $hotLeads = Leads::with('user', 'bucket')
+            ->select('id', 'lead_owner', 'lead_bucket_id', 'lead_status', 'campaign_name', 'lead_engagement_status', 'uid', 'applying_country_for_a_visa', 'what_course_are_you_planning_to_study', 'verified_lead', 'date')
             ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
             ->where('lead_engagement_status', 'hot')
             ->orderBy('id', 'desc')
@@ -1298,25 +1306,12 @@ class LeadController extends Controller
 
         // ✅ STATUS TRANSITIONS DATA (WARM->HOT and HOT->WARM from callback_messages)
         $allStatusTransitions = [];
-        foreach ($allUsers as $userId) {
-            $transitions = CallBack::getStatusTransitions($userId, $from, $to);
-            if (!empty($transitions)) {
-                $allStatusTransitions[$userId] = $transitions;
-            }
-        }
+        $allStatusTransitions = CallBack::getStatusTransitions($from, $to);
 
         // ✅ FETCH LEAD DETAILS FOR TRANSITIONS (with user info for lead names)
-        $warmToHotLeadIds = [];
-        $hotToWarmLeadIds = [];
+        $warmToHotLeadIds = $allStatusTransitions['warm_to_hot'] ?? [];
 
-        foreach ($allStatusTransitions as $userId => $transitions) {
-            if (isset($transitions['warm_to_hot'])) {
-                $warmToHotLeadIds = array_merge($warmToHotLeadIds, $transitions['warm_to_hot']);
-            }
-            if (isset($transitions['hot_to_warm'])) {
-                $hotToWarmLeadIds = array_merge($hotToWarmLeadIds, $transitions['hot_to_warm']);
-            }
-        }
+        $hotToWarmLeadIds = $allStatusTransitions['hot_to_warm'] ?? [];
 
         // Get lead details with user info for display
         $leadsForTransitions = [];
@@ -1416,16 +1411,21 @@ class LeadController extends Controller
                         'verified_lead' => $lead->verified_lead ?? false,
                         'country' => $lead->applying_country_for_a_visa ?? 'N/A',
                         'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
+                        'lead_bucket_name' => $lead->bucket->name ?? 'N/A',
+                        'lead_status' => ucfirst($lead->lead_status ?? 'N/A'),
                         'date' => $lead->date ?? 'N/A',
                     ];
                 }
             }
 
             // ✅ PROCESS STATUS TRANSITIONS - WARM TO HOT
-            if (isset($allStatusTransitions[$userId]['warm_to_hot'])) {
-                foreach ($allStatusTransitions[$userId]['warm_to_hot'] as $leadId) {
+            if (isset($allStatusTransitions['warm_to_hot'])) {
+                foreach ($allStatusTransitions['warm_to_hot'] as $leadId) {
                     if (isset($leadsForTransitions[$leadId])) {
                         $lead = $leadsForTransitions[$leadId];
+                        if ($lead->lead_owner != $userId) {
+                            continue;
+                        }
                         $final[$userId]['warm_to_hot'][] = [
                             'id' => $lead->id,
                             'campaign_name' => $lead->campaign_name ?? 'N/A',
@@ -1442,10 +1442,13 @@ class LeadController extends Controller
             }
 
             // ✅ PROCESS STATUS TRANSITIONS - HOT TO WARM
-            if (isset($allStatusTransitions[$userId]['hot_to_warm'])) {
-                foreach ($allStatusTransitions[$userId]['hot_to_warm'] as $leadId) {
+            if (isset($allStatusTransitions['hot_to_warm'])) {
+                foreach ($allStatusTransitions['hot_to_warm'] as $leadId) {
                     if (isset($leadsForTransitions[$leadId])) {
                         $lead = $leadsForTransitions[$leadId];
+                        if ($lead->lead_owner != $userId) {
+                            continue;
+                        }
                         $final[$userId]['hot_to_warm'][] = [
                             'id' => $lead->id,
                             'campaign_name' => $lead->campaign_name ?? 'N/A',
@@ -2123,7 +2126,7 @@ class LeadController extends Controller
 
             $title = $bucketNames[$bucketId] ?? 'Leads';
 
-            $query = Leads::with('user');
+            $query = Leads::with('user','bucket');
 
             // HOT LEADS
             if ($bucketId == 'hot') {
@@ -2180,6 +2183,8 @@ class LeadController extends Controller
 
                         'date' => $lead->date ?? null,
                         'verified_lead' => $lead->verified_lead ?? 0,
+                        'lead_bucket_name' => $lead->bucket->name ?? 'N/A',
+                         'lead_status' => $lead->lead_status ?? 'N/A',
                     ];
                 });
 

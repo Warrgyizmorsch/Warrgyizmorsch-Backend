@@ -124,6 +124,11 @@
                         data-bs-target="#collapseDailyReportFilter">
                         <i class="feather-filter"></i>Filter
                     </a>
+                    <a href="{{ route('send.whatsapp.all') }}"
+                        class="btn btn-success">
+                        <i class="bi bi-whatsapp me-1"></i>
+                        Send WhatsApp Report
+                    </a>
                 </div>
             </div>
         </div>
@@ -234,7 +239,7 @@
                         style="
         border-radius:10px;
         border-color:#dbe4ff !important;
-    ">
+              ">
 
                         <i class="bi bi-people-fill text-primary fs-5"></i>
 
@@ -252,22 +257,22 @@
                         role="group"
                         data-user="{{ $userId }}"
                         style="
-        background:#eef2ff;
-        padding:5px;
-        border-radius:50px;
-    ">
+                                 background:#eef2ff;
+                                 padding:5px;
+                                 border-radius:50px;
+                             ">
 
                         <button type="button"
                             class="btn btn-primary lead-date-btn active"
                             data-range="today"
                             data-user="{{ $userId }}"
                             style="
-            border-radius:50px;
-            padding:8px 18px;
-            font-weight:600;
-            border:none;
-            box-shadow:none;
-        ">
+                                   border-radius:50px;
+                                   padding:8px 18px;
+                                   font-weight:600;
+                                   border:none;
+                                   box-shadow:none;
+                               ">
 
                             <i class="bi bi-lightning-charge-fill me-1"></i>
                             Today
@@ -279,12 +284,12 @@
                             data-range="past"
                             data-user="{{ $userId }}"
                             style="
-            border-radius:50px;
-            padding:8px 18px;
-            font-weight:600;
-            border:none;
-            background:transparent;
-        ">
+                                border-radius:50px;
+                                padding:8px 18px;
+                                font-weight:600;
+                                border:none;
+                                background:transparent;
+                            ">
 
                             <i class="bi bi-calendar2-week me-1"></i>
                             Past
@@ -639,12 +644,13 @@
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Lead Name</th>
-                            <th>Email</th>
+                            <th class="text-start">Lead Details</th>
+                            <!-- <th>Email</th>
                             <th>Contact</th>
-                            <th>Country</th>
+                            <th>Country</th> -->
                             <th>Course</th>
-                            <th>Campaign</th>
+                            <th>Status</th>
+                            <th>Sub Status</th>
                             <th>Date</th>
                             <th>Verified</th>
                         </tr>
@@ -656,24 +662,41 @@
                         @foreach($row['hot_leads'] as $index => $lead)
 
                         <tr>
+
                             <td><strong>{{ $index + 1 }}</strong></td>
 
                             <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center flex-shrink-0"
-                                        style="width: 32px; height: 32px; font-size: 12px; font-weight: bold;">
-                                        {{ substr($lead['lead_name'], 0, 1) }}
+                                <div class="d-flex flex-column align-items-start">
+                                    <div class="fw-bold text-dark mb-1" style="font-size:14px;">
+                                        {{ $lead['lead_name'] }}
                                     </div>
 
-                                    <span>{{ $lead['lead_name'] }}</span>
+                                    <!-- CONTACT -->
+                                    <div class="text-muted mb-1" style="font-size:12px;">
+                                        {{ $lead['contact_no'] }}
+                                    </div>
+
+                                    <!-- EMAIL -->
+                                    <div class="text-muted mb-1" style="font-size:12px;">
+                                        {{ $lead['email'] }}
+                                    </div>
+
+                                    <!-- COUNTRY -->
+                                    <div class="text-muted" style="font-size:12px;">
+                                        <i class="fas fa-map-marker-alt  me-1"></i>
+                                        {{ $lead['country'] }}
+                                    </div>
                                 </div>
                             </td>
 
-                            <td>{{ $lead['email'] }}</td>
-                            <td>{{ $lead['contact_no'] }}</td>
-                            <td>{{ $lead['country'] }}</td>
+
+
+
+
                             <td>{{ $lead['course'] }}</td>
-                            <td>{{ $lead['campaign_name'] }}</td>
+
+                            <td>{{ $lead['lead_bucket_name'] ?? 'N/A' }}</td>
+                            <td>{{ ucfirst($lead['lead_status'] ?? 'N/A') }}</td>
 
                             <td>
                                 {{ $lead['date'] !== 'N/A'
@@ -772,7 +795,7 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Lead Name</th>
+                                <th>Lead Details</th>
                                 <th>Email</th>
                                 <th>Contact</th>
                                 <th>Country</th>
@@ -1236,34 +1259,75 @@
                 data.leads.forEach((lead, index) => {
 
                     table.innerHTML += `
-                <tr>
+<tr>
 
-                    <td>${index + 1}</td>
+    <td>
+        <strong>${index + 1}</strong>
+    </td>
 
-                    <td>${lead.lead_name}</td>
+   <td>
 
-                    <td>${lead.email ?? ''}</td>
+    <div class="d-flex flex-column align-items-start">
 
-                    <td>${lead.contact_no ?? ''}</td>
+        <!-- NAME -->
+        <div class="fw-bold text-dark mb-1" style="font-size:14px; line-height:1.3;">
+            ${lead.lead_name ?? 'N/A'}
+        </div>
 
-                    <td>${lead.country ?? ''}</td>
+        <!-- CONTACT -->
+        <div class="d-flex align-items-center text-muted mb-1"
+            style="font-size:12px; line-height:1.3;">
+            <span>${lead.contact_no ?? 'N/A'}</span>
 
-                    <td>${lead.course ?? ''}</td>
+        </div>
 
-                    <td>${lead.campaign_name ?? ''}</td>
+        <!-- EMAIL -->
+        <div class="d-flex align-items-center text-muted mb-1"
+            style="font-size:12px; line-height:1.3;">
+            <span>${lead.email ?? 'N/A'}</span>
 
-                    <td>${lead.date ?? ''}</td>
+        </div>
 
-                    <td>
-                        ${
-                            lead.verified_lead == 1
-                            ? '<span class="badge bg-success">Yes</span>'
-                            : '<span class="badge bg-secondary">No</span>'
-                        }
-                    </td>
+        <!-- COUNTRY -->
+        <div class="d-flex align-items-center text-muted"
+            style="font-size:12px; line-height:1.3;">
 
-                </tr>
-            `;
+            <i class="fas fa-map-marker-alt  me-2"
+                style="width:14px;"></i>
+
+            <span>${lead.country ?? 'N/A'}</span>
+
+        </div>
+
+    </div>
+
+</td>
+
+    <td>
+        ${lead.course ?? 'N/A'}
+    </td>
+
+   <td>
+    ${lead.lead_bucket_name ?? 'N/A'}
+</td>
+
+<td>
+    ${lead.lead_status ?? 'N/A'}
+</td>
+    <td>
+        ${lead.date ? new Date(lead.date).toDateString().slice(4)  : 'N/A'}
+    </td>
+
+    <td>
+        ${
+            lead.verified_lead == 1
+            ? '<span class="badge bg-success">✓ Yes</span>'
+            : '<span class="badge bg-secondary">No</span>'
+        }
+    </td>
+
+</tr>
+`;
                 });
 
             });

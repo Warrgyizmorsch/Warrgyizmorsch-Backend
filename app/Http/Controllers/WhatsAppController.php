@@ -202,4 +202,97 @@ class WhatsAppController extends Controller
 
         return back()->with('success', 'WhatsApp Report Sent Successfully');
     }
+
+    public function sendAll()
+    {
+        $from = request('from') ?? now()->toDateString();
+        $to   = request('to') ?? now()->toDateString();
+
+        $allUsers = Leads::whereIn('lead_owner', function ($query) {
+            $query->select('id')
+                ->from('users')
+                ->where('is_deleted', 0);
+        })
+            ->select('lead_owner')
+            ->distinct()
+            ->pluck('lead_owner');
+
+        $sent = 0;
+
+
+        foreach ($allUsers as $userId) {
+
+            try {
+                $this->sendUserReport($userId, $from, $to);
+            } catch (\Exception $e) {
+                // dd($e->getMessage());
+                \Log::error("Lead Owner WhatsApp Error", [
+                    'user_id' => $userId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        return back()->with('success', "WhatsApp sent to {$sent} users successfully");
+    }
+
+    private function sendUserReport($userId, $from, $to)
+    {
+        $statusColumns = [
+            'Untouched leads',
+            'Not Connected',
+            'Counselling in Progress',
+            'Application Process',
+            'Offer Stage',
+            'Visa Process',
+            'Converted',
+            'Lost'
+        ];
+
+        $user = DB::table('users')->where('id', $userId)->first();
+
+        if (!$user) return;
+
+        // TOTAL
+        $total = CallBack::where('created_by', $userId)
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
+            ->whereIn('bucket', $statusColumns)
+            ->select(DB::raw("COUNT(DISTINCT CONCAT(lead_id, '-', status)) as total"))
+            ->value('total') ?? 0;
+
+        // ENGAGEMENT
+        $engagementData = Leads::select(
+            'lead_engagement_status',
+            DB::raw("COUNT(*) as total")
+        )
+            ->where('lead_owner', $userId)
+            ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
+            ->groupBy('lead_engagement_status')
+            ->pluck('total', 'lead_engagement_status');
+
+        $hot  = $engagementData['hot'] ?? 0;
+        $warm = $engagementData['warm'] ?? 0;
+        $cold = $engagementData['cold'] ?? 0;
+
+        // MESSAGE
+        $message = "📊 Daily Lead Report\n\n";
+        $message .= "👤 User: {$user->name}\n";
+        $message .= "📅 {$from} to {$to}\n\n";
+        $message .= "📈 Total: {$total}\n";
+        $message .= "🔥 Hot: {$hot}\n";
+        $message .= "🌤 Warm: {$warm}\n";
+        $message .= "❄ Cold: {$cold}\n";
+
+        // MOBILE
+        $mobile = "916265455843";
+        $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
+
+        $twilio->messages->create(
+            "whatsapp:+{$mobile}",
+            [
+                "from" => env('TWILIO_WHATSAPP_FROM'),
+                "body" => $message
+            ]
+        );
+    }
 }

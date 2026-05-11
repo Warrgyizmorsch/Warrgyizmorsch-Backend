@@ -1074,7 +1074,8 @@ $isDeletedActive = request('deleted_leads') == 1;
 
                                                         <div class="activity-item mb-3">
                                                             <div class="fw-semibold d-flex gap-1 position-relative">
-                                                                <span class="{{ $class }}"> {{ $label }} : </span> for <span class="text_muted fw-bold">{{ $followup->user->name }}</span>
+                                                               
+                                                                <span class="{{ $class }}"> {{ $label }} : </span> for <span class="text_muted fw-bold">{{ $followup?->user->name ?? 'N/A' }}</span>
                                                                 <button class="btn p-0 border-0 bg-transparent"
                                                                     type="button"
                                                                     data-bs-toggle="collapse"
@@ -1089,7 +1090,7 @@ $isDeletedActive = request('deleted_leads') == 1;
                                                                     <div><strong>Date:</strong> <span class="text-muted">{{ \Carbon\Carbon::parse($followup->next_followup_date)->format('d M Y h:i A') }}</span></div>
                                                                     <div><strong>Status:</strong> <span class="text-muted">{{ $followup->bucket ?? '-' }}</span></div>
                                                                     <div><strong>Sub Status:</strong> <span class="text-muted">{{ $followup->status ?? '-' }}</span></div>
-                                                                    <div><strong>Created By:</strong> <span class="text-muted">{{ $followup->user->name ?? '-' }}</span></div>
+                                                                    <div><strong>Created By:</strong> <span class="text-muted">{{ $followup?->user->name ?? '-' }}</span></div>
                                                                     <div><strong>Followup Type:</strong> <span class="text-muted">{{ $followup->followup_type ?? '-' }}</span></div>
 
                                                                 </div>
@@ -1176,7 +1177,7 @@ $isDeletedActive = request('deleted_leads') == 1;
 
                                                             <!-- HEADER -->
                                                             <div class="fw-semibold d-flex align-items-center gap-1 position-relative">
-                                                                <span class="text_muted fw-bold">{{ $followup->user->name }} </span>
+                                                                <span class="text_muted fw-bold">{{ $followup?->user->name ?? 'N/A' }} </span>
                                                                 <span class="text-muted" style="font-size: 11px;">
                                                                     {{ \Carbon\Carbon::parse($followup->created_at)->format('g:i A') }}
                                                                 </span>
@@ -1212,7 +1213,7 @@ $isDeletedActive = request('deleted_leads') == 1;
                                                         <div class="activity-item mb-3">
 
                                                             <div class="fw-semibold d-flex align-items-center gap-1">
-                                                                <span class="fw-bold text_muted">{{ $followup->user->name }}</span>
+                                                                <span class="fw-bold text_muted">{{ $followup?->user->name ?? 'N/A' }}</span>
 
                                                                 <span class="text-muted" style="font-size:11px;">
                                                                     {{ \Carbon\Carbon::parse($followup->created_at)->format('d M Y g:i A') }}
@@ -1258,7 +1259,7 @@ $isDeletedActive = request('deleted_leads') == 1;
                                                                 <span class="text-danger">
                                                                     Overdue by {{ $days }} day{{ $days > 1 ? 's' : '' }} :
                                                                 </span>
-                                                                for <span class="fw-bold text_muted">{{ $followup->user->name }}</span>
+                                                                for <span class="fw-bold text_muted">{{ $followup?->user->name ?? 'N/A' }}</span>
 
                                                                 <button class="btn p-0 border-0 bg-transparent"
                                                                     type="button"
@@ -1274,7 +1275,7 @@ $isDeletedActive = request('deleted_leads') == 1;
                                                                     <div><strong>Date:</strong> <span class="text-muted">{{ \Carbon\Carbon::parse($followup->next_followup_date)->format('d M Y h:i A') }}</span></div>
                                                                     <div><strong>Status:</strong> <span class="text-muted">{{ $followup->bucket ?? '-' }}</span></div>
                                                                     <div><strong>Sub Status:</strong> <span class="text-muted">{{ $followup->status ?? '-' }}</span></div>
-                                                                    <div><strong>Created By:</strong> <span class="text-muted">{{ $followup->user->name ?? '-' }}</span></div>
+                                                                    <div><strong>Created By:</strong> <span class="text-muted">{{ $followup?->user->name ?? '-' }}</span></div>
                                                                     <div><strong>Followup Type:</strong> <span class="text-muted">{{ $followup->followup_type ?? '-' }}</span></div>
 
                                                                 </div>
@@ -1350,7 +1351,7 @@ $isDeletedActive = request('deleted_leads') == 1;
                                                                 <span class="text-success">
                                                                     Done :
                                                                 </span>
-                                                                by <span class="fw-bold text_muted">{{ $followup->user->name }}</span>
+                                                                by <span class="fw-bold text_muted">{{ $followup?->user->name ?? 'N/A' }}</span>
                                                                 <span class="text-muted" style="font-size: 11px;">
                                                                     {{\Carbon\Carbon::parse($followup->created_at)->format('d M Y')}} {{ \Carbon\Carbon::parse($followup->created_at)->format('g:i A') }}
                                                                 </span>
