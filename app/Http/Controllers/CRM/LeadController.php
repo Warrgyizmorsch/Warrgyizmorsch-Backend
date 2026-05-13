@@ -1286,15 +1286,37 @@ class LeadController extends Controller
             DB::raw("COUNT(*) as total")
         )
             ->whereBetween(DB::raw('DATE(date)'), [$from, $to])
-            ->whereIn('lead_bucket_id', [15, 23, 30, 48])
+            ->whereIn('lead_bucket_id', [15, 23, 30, 48, 8])
             ->groupBy('lead_owner', 'lead_bucket_id')
             ->get();
+
+
 
         if ($engagementFilter) {
             $engagementQuery->where('lead_engagement_status', $engagementFilter);
         }
 
         $engagementData = $engagementQuery->groupBy('lead_owner', 'lead_engagement_status')->get();
+
+        // ================================
+        // DUPLICATE HOT LEADS COUNT
+        // ================================
+
+        // ================================
+        // DUPLICATE HOT LEADS COUNT
+        // ================================
+
+
+
+        $duplicateHotCounts = $this->getDuplicateHotLeads(
+
+            Leads::query()
+                ->whereBetween('date', [$from, $to])
+
+        )
+            ->groupBy('lead_owner')
+            ->map(fn($items) => $items->count());
+
 
         // ✅ HOT LEADS DATA WITH DETAILS (current hot leads)
         $hotLeads = Leads::with('user', 'bucket')
@@ -1348,12 +1370,14 @@ class LeadController extends Controller
                     'hot' => 0,
                     'warm' => 0,
                     'cold' => 0,
+                    'duplicate_hot' => 0,
                 ],
                 'status_counts' => [
                     15 => 0,
                     23 => 0,
                     30 => 0,
                     48 => 0,
+                    8  => 0,
                 ],
                 'hot_leads' => [],
                 'warm_to_hot' => [],
@@ -1391,6 +1415,8 @@ class LeadController extends Controller
                     $final[$userId]['engagement'][$e->lead_engagement_status] = $e->total;
                 }
             }
+            $final[$userId]['engagement']['duplicate_hot'] =
+                $duplicateHotCounts[$userId] ?? 0;
 
             foreach ($statusQuery as $s) {
 
@@ -2122,11 +2148,12 @@ class LeadController extends Controller
                 23 => 'Application Process',
                 30 => 'Offer Stage',
                 48 => 'Converted',
+                8  => 'Not Connceted',
             ];
 
             $title = $bucketNames[$bucketId] ?? 'Leads';
 
-            $query = Leads::with('user','bucket');
+            $query = Leads::with('user', 'bucket');
 
             // HOT LEADS
             if ($bucketId == 'hot') {
@@ -2134,6 +2161,16 @@ class LeadController extends Controller
                 $title = 'Hot Leads';
 
                 $query->where('lead_engagement_status', 'hot');
+            } elseif ($bucketId == 'duplicate_hot') {
+
+                $title = 'Duplicate Hot Leads';
+
+                $duplicateLeadIds = $this->getDuplicateHotLeads(
+                    clone $query,
+                    $range
+                )->pluck('id');
+
+                $query->whereIn('id', $duplicateLeadIds);
             } else {
 
                 $query->where('lead_bucket_id', $bucketId);
@@ -2145,11 +2182,45 @@ class LeadController extends Controller
             }
 
             // DATE FILTER
+            // if (!empty($from) && !empty($to)) {
+
+            //     if ($range == 'today') {
+
+            //         $query->whereBetween('date', [$from, $to]);
+            //     } else {
+
+            //         $query->whereDate('date', '<', $from);
+            //     }
+            // } else {
+
+            //     if ($range == 'today') {
+
+            //         $query->whereDate('date', $today);
+            //     } else {
+
+            //         $query->whereDate('date', '!=', now()->toDateString());
+            //     }
+            // }
+
+            $isDuplicateHot = ($bucketId == 'duplicate_hot');
+
+
             if (!empty($from) && !empty($to)) {
 
                 if ($range == 'today') {
 
                     $query->whereBetween('date', [$from, $to]);
+                } elseif ($range == 'previous') {
+
+                    // 🔥 NEW ADDITION (previous)
+                    if ($isDuplicateHot) {
+                        $query->whereDate('date', '!=', $today);
+                    } else {
+                        $query->whereDate('date', '!=', $today)
+                            ->whereHas('messages', function ($q) use ($today) {
+                                $q->whereDate('created_at', $today);
+                            });
+                    }
                 } else {
 
                     $query->whereDate('date', '<', $from);
@@ -2157,41 +2228,78 @@ class LeadController extends Controller
             } else {
 
                 if ($range == 'today') {
-
                     $query->whereDate('date', $today);
+                } elseif ($range == 'previous') {
+
+                    // 🔥 NEW ADDITION (previous)
+                    if ($isDuplicateHot) {
+                        $query->whereDate('date', '!=', $today);
+                    } else {
+                        $query->whereDate('date', '!=', $today)
+                            ->whereHas('messages', function ($q) use ($today) {
+                                $q->whereDate('created_at', $today);
+                            });
+                    }
                 } else {
 
                     $query->whereDate('date', '!=', now()->toDateString());
                 }
             }
 
-            $leads = $query->latest()
-                ->get()
-                ->map(function ($lead) {
 
-                    return [
+            if ($isDuplicateHot) {
 
-                        'id' => $lead->id,
+                $leads = CallBack::with('lead.user')
+                    ->whereIn('lead_id', function ($q) use ($userId, $today, $range) {
 
-                        'lead_name' => $lead->user->name ?? 'N/A',
-                        'email' => $lead->user->email ?? 'N/A',
-                        'contact_no' => $lead->user->contact_no ?? 'N/A',
+                        $q->select('callback_messages.lead_id')
+                            ->from('callback_messages')
+                            ->join('leads', 'leads.id', '=', 'callback_messages.lead_id')
+                            ->where('leads.lead_owner', $userId)
+                            ->when($range == 'today', function ($q) use ($today) {
+                                $q->whereDate('leads.date', $today);
+                            })
+                            ->groupBy('callback_messages.lead_id')
+                            ->havingRaw("SUM(callback_messages.lead_engagement_status = 'hot') >= 2")
+                            ->havingRaw("MIN(callback_messages.lead_engagement_status) <> MAX(callback_messages.lead_engagement_status)");
+                    })
+                    ->when($range == 'today', function ($q) use ($today) {
+                        $q->whereDate('created_at', $today);
+                    })
+                    ->orderBy('lead_id')
+                    ->orderBy('created_at')
+                    ->get();
+            } else {
 
-                        'country' => $lead->applying_country_for_a_visa ?? 'N/A',
-                        'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
-                        'campaign_name' => $lead->campaign_name ?? 'N/A',
+                $leads = $query->latest()
+                    ->get()
+                    ->map(function ($lead) {
 
-                        'date' => $lead->date ?? null,
-                        'verified_lead' => $lead->verified_lead ?? 0,
-                        'lead_bucket_name' => $lead->bucket->name ?? 'N/A',
-                         'lead_status' => $lead->lead_status ?? 'N/A',
-                    ];
-                });
+                        return [
+
+                            'id' => $lead->id,
+
+                            'lead_name' => $lead->user->name ?? 'N/A',
+                            'email' => $lead->user->email ?? 'N/A',
+                            'contact_no' => $lead->user->contact_no ?? 'N/A',
+
+                            'country' => $lead->applying_country_for_a_visa ?? 'N/A',
+                            'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
+                            'campaign_name' => $lead->campaign_name ?? 'N/A',
+
+                            'date' => $lead->date ?? null,
+                            'verified_lead' => $lead->verified_lead ?? 0,
+                            'lead_bucket_name' => $lead->bucket->name ?? 'N/A',
+                            'lead_status' => $lead->lead_status ?? 'N/A',
+                        ];
+                    });
+            }
 
             return response()->json([
                 'success' => true,
                 'title' => $title,
-                'leads' => $leads
+                'leads' => $leads,
+                'is_history' => $isDuplicateHot ? true : false,
             ]);
         } catch (\Throwable $e) {
 
@@ -2216,28 +2324,52 @@ class LeadController extends Controller
         $query = Leads::where('lead_owner', $userId);
 
         // DATE FILTER
-        if (!empty($from) && !empty($to)) {
+        if ($range == 'previous') {
 
-            if ($range == 'today') {
-
-                $query->whereBetween('date', [$from, $to]);
-            } else {
-
-                $query->whereDate('date', '<', $from);
-            }
+            $query->whereDate('date', '!=', $today)
+                ->whereHas('messages', function ($q) use ($today) {
+                    $q->whereDate('created_at', $today);
+                });
         } else {
+            if (!empty($from) && !empty($to)) {
 
-            if ($range == 'today') {
+                if ($range == 'today') {
 
-                $query->whereDate('date', $today);
+                    $query->whereBetween('date', [$from, $to]);
+                } else {
+
+                    $query->whereDate('date', '<', $from);
+                }
             } else {
+                if ($range == 'today') {
 
-                $query->whereDate('date', '!=', now()->toDateString());
+                    $query->whereDate('date', $today);
+                } else {
+
+                    $query->whereDate('date', '!=', now()->toDateString());
+                }
             }
         }
 
         $leads = $query->get();
+        $duplicateQuery = Leads::where('lead_owner', $userId);
 
+        // previous me sirf itna check hoga ki lead aaj ki nahi ho
+        if ($range == 'previous') {
+
+            $duplicateQuery->whereDate('date', '!=', $today);
+        } elseif ($range == 'today') {
+
+            $duplicateQuery->whereDate('date', $today);
+        } else {
+
+            $duplicateQuery->whereDate('date', '!=', $today);
+        }
+
+        $duplicateHotCount = $this->getDuplicateHotLeads(
+            $duplicateQuery,
+            $range
+        )->count();
         return response()->json([
 
             'total' => $leads->count(),
@@ -2247,14 +2379,63 @@ class LeadController extends Controller
                 23 => $leads->where('lead_bucket_id', 23)->count(),
                 30 => $leads->where('lead_bucket_id', 30)->count(),
                 48 => $leads->where('lead_bucket_id', 48)->count(),
+                8  => $leads->where('lead_bucket_id', 8)->count(),
             ],
 
             'engagement' => [
                 'hot' => $leads->where('lead_engagement_status', 'hot')->count(),
                 'warm' => $leads->where('lead_engagement_status', 'warm')->count(),
                 'cold' => $leads->where('lead_engagement_status', 'cold')->count(),
+                'duplicate_hot' => $duplicateHotCount,
             ]
 
         ]);
+    }
+
+    private function getDuplicateHotLeads($query, $range = 'today')
+    {
+        $today = now()->toDateString();
+
+        return $query->with(['messages' => function ($q) use ($range, $today) {
+
+            // PREVIOUS
+
+
+            // TODAY
+            if ($range == 'today') {
+
+                $q->whereDate('created_at', $today);
+            }
+        }])->get()
+
+            ->filter(function ($lead) {
+
+                $statuses = $lead->messages
+                    ->sortBy('created_at')
+                    ->pluck('lead_engagement_status')
+                    ->map(fn($s) => strtolower(trim($s)))
+                    ->toArray();
+
+                $firstHot = array_search('hot', $statuses);
+
+                if ($firstHot === false) {
+                    return false;
+                }
+
+                $nonHotAfter = false;
+
+                for ($i = $firstHot + 1; $i < count($statuses); $i++) {
+
+                    if ($statuses[$i] !== 'hot') {
+                        $nonHotAfter = true;
+                    }
+
+                    if ($nonHotAfter && $statuses[$i] === 'hot') {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
     }
 }

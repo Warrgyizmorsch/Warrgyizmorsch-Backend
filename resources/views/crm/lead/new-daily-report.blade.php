@@ -3,6 +3,13 @@
 @section('content')
 
 <style>
+    td.active-status {
+        background: #e8f0ff !important;
+        border-radius: 8px;
+        transition: 0.2s;
+    }
+
+
     .table-responsive {
         overflow-x: auto;
         max-height: 70vh;
@@ -135,7 +142,7 @@
     </div>
 
     {{-- Filters Section --}}
-    <!-- <div id="collapseDailyReportFilter" class="accordion-collapse show page-header-collapse">
+    <div id="collapseDailyReportFilter" class="accordion-collapse show page-header-collapse">
         <div class="accordion-body pb-2">
             <form method="GET" action="{{ route('lead.newdailyReport') }}" class="row g-3 mb-4" id="date-filter-form">
 
@@ -196,7 +203,7 @@
 
             </form>
         </div>
-    </div> -->
+    </div>
 
     {{-- ===================== MAIN CONTENT ===================== --}}
     <div class="main-content mt-4">
@@ -281,6 +288,20 @@
 
                         <button type="button"
                             class="btn btn-outline-primary lead-date-btn"
+                            data-range="previous"
+                            data-user="{{ $userId }}"
+                            style="
+                                border-radius:50px;
+                                padding:8px 18px;
+                                font-weight:600;
+                                border:none;
+                                background:transparent;
+                            ">
+                            Previous
+                        </button>
+
+                        <button type="button"
+                            class="btn btn-outline-primary lead-date-btn"
                             data-range="past"
                             data-user="{{ $userId }}"
                             style="
@@ -336,6 +357,12 @@
                                 Converted
                             </th>
 
+                            {{-- NOT CONNECTED --}}
+                            <th class="text-center" style="width: 20%;">
+                                <i class="bi bi-x-circle-fill me-1 text-danger"></i>
+                                Not Connected
+                            </th>
+
                         </tr>
                     </thead>
 
@@ -367,6 +394,33 @@
                                     </div>
 
                                     <div
+                                        class="d-flex justify-content-between align-items-center px-2 py-1 rounded bg-primary-subtle">
+
+                                        <span class="fw-semibold text-primary">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Duplicate Hot
+                                        </span>
+
+                                        <span
+                                            class="badge bg-primary cursor-pointer hot-count-btn"
+                                            id="duplicateHotCount{{ $userId }}"
+                                            data-user="{{ $userId }}"
+                                            data-type="duplicate_hot"
+                                            style="
+                                                cursor:pointer;
+                                                padding:7px 12px;
+                                                border-radius:8px;
+                                                transition:.2s;
+                                            ">
+
+                                            {{ $row['engagement']['duplicate_hot'] ?? 0 }}
+
+
+                                        </span>
+
+                                    </div>
+
+
+                                    <div
                                         class="d-flex justify-content-between align-items-center px-2 py-1 rounded bg-warning-subtle">
                                         <span class="fw-semibold text-warning">
                                             <i class="bi bi-brightness-high me-1"></i> Warm
@@ -394,7 +448,7 @@
                             {{-- CIP --}}
                             <td class="text-center">
 
-                                <div class="status-box cursor-pointer lead-filter-btn"
+                                <div class="status-box cursor-pointer lead-filter-btn "
                                     data-user="{{ $userId }}"
                                     data-type="15">
 
@@ -463,6 +517,25 @@
 
                                     <small class="text-muted fw-semibold">
                                         Converted
+                                    </small>
+                                </div>
+
+                            </td>
+
+                            <td class="text-center">
+
+                                <div class="status-box cursor-pointer lead-filter-btn"
+                                    data-user="{{ $userId }}"
+                                    data-type="8">
+
+                                    <div class="stat-value text-success"
+                                        id="count8_{{ $userId }}"
+                                        style="font-size: 28px;">
+                                        {{ $row['status_counts'][8] ?? 0 }}
+                                    </div>
+
+                                    <small class="text-muted fw-semibold">
+                                        Not Connected
                                     </small>
                                 </div>
 
@@ -641,7 +714,7 @@
 
             <div class="table-responsive">
                 <table class="table table-sm table-hover">
-                    <thead>
+                    <thead id="dynamicLeadHead{{ $userId }}">
                         <tr>
                             <th>#</th>
                             <th class="text-start">Lead Details</th>
@@ -1127,7 +1200,17 @@
                 this.classList.remove('btn-outline-primary');
                 this.classList.add('btn-primary', 'active');
 
-                loadUserReport(userId, range);
+                let from = '';
+                let to = '';
+
+                // ONLY for today
+                if (range === 'today') {
+
+                    from = document.getElementById('start-date')?.value || '';
+                    to = document.getElementById('end-date')?.value || '';
+                }
+
+                loadUserReport(userId, range, from, to);
             });
 
         });
@@ -1137,8 +1220,22 @@
 
             button.addEventListener('click', function() {
 
-                let bucketId = this.dataset.type;
                 let userId = this.dataset.user;
+                let bucketId = this.dataset.type;
+
+                // 🔥 remove active from all TDs of this user
+                document.querySelectorAll(`#count${bucketId}_${userId}`).forEach(() => {});
+
+                let section = this.closest('.report-section');
+
+                section.querySelectorAll('.active-status')
+                    .forEach(el => el.classList.remove('active-status'));
+
+                // 🔥 add active to clicked TD
+                let td = this.closest('td');
+                if (td) {
+                    td.classList.add('active-status');
+                }
 
                 let range = selectedRanges[userId] || 'today';
 
@@ -1150,14 +1247,28 @@
         // HOT COUNT CLICK
         document.querySelectorAll('.hot-count-btn').forEach(btn => {
 
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function(e) {
+
+                e.stopPropagation();
 
                 let userId = this.dataset.user;
-
                 let range = selectedRanges[userId] || 'today';
+                let type = this.dataset.type || 'hot';
 
-                // hot table load
-                loadLeadTable(userId, 'hot', range);
+                let section = this.closest('.report-section');
+
+                // 🔥 REMOVE ACTIVE FROM ALL STATUS BOXES (CIP / APPLICATION / etc.)
+                section.querySelectorAll('.lead-filter-btn').forEach(el => {
+                    el.classList.remove('active-status');
+                });
+
+                // optional: also remove direct TD highlight if any
+                section.querySelectorAll('td.active-status').forEach(td => {
+                    td.classList.remove('active-status');
+                });
+
+                // 🔥 NOW LOAD HOT / DUPLICATE HOT DATA
+                loadLeadTable(userId, type, range);
 
             });
 
@@ -1167,9 +1278,14 @@
 
 
     // LOAD COUNTS
-    function loadUserReport(userId, range) {
+    function loadUserReport(userId, range, from = '', to = '') {
+        let url = `{{ route('get.user.report.data') }}?user_id=${userId}&range=${range}`;
 
-        fetch(`{{ route('get.user.report.data') }}?user_id=${userId}&range=${range}`)
+        if (range === 'today' && from && to) {
+            url += `&from=${from}&to=${to}`;
+        }
+
+        fetch(url)
 
             .then(res => res.json())
 
@@ -1201,6 +1317,9 @@
                 document.getElementById(`count48_${userId}`).innerHTML =
                     data.status_counts[48] ?? 0;
 
+                document.getElementById(`count8_${userId}`).innerHTML =
+                    data.status_counts[8] ?? 0;
+
                 document.getElementById(`hotCount${userId}`).innerHTML =
                     data.engagement.hot ?? 0;
 
@@ -1209,6 +1328,9 @@
 
                 document.getElementById(`coldCount${userId}`).innerHTML =
                     data.engagement.cold ?? 0;
+
+                document.getElementById(`duplicateHotCount${userId}`).innerHTML =
+                    data.engagement.duplicate_hot ?? 0;
 
                 // DEFAULT HOT TABLE LOAD
                 loadLeadTable(userId, 'hot', range);
@@ -1239,99 +1361,153 @@
             .then(data => {
 
                 table.innerHTML = '';
-                title.innerHTML = `
-    <i class="bi bi-list-check me-2 text-primary"></i>
-    ${data.title} (${data.leads.length})
-`;
 
-                if (data.leads.length == 0) {
-                    table.innerHTML = `
-                <tr>
-                    <td colspan="9" class="text-center">
-                        No Leads Found
-                    </td>
-                </tr>
+                if (data.is_history) {
+
+                    setHistoryHeader(userId);
+
+                } else {
+
+                    setNormalHeader(userId);
+                }
+
+                title.innerHTML = `
+                <i class="bi bi-list-check me-2 text-primary"></i>
+                ${data.title} (${data.leads.length})
             `;
 
+                if (data.leads.length == 0) {
+
+                    table.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center">
+                            No Data Found
+                        </td>
+                    </tr>
+                `;
                     return;
                 }
 
-                data.leads.forEach((lead, index) => {
+                // 🔥 CHECK IF HISTORY MODE
+                if (data.is_history) {
 
-                    table.innerHTML += `
-<tr>
+                    // ===============================
+                    //  CALLBACK HISTORY TABLE VIEW
+                    // ===============================
 
-    <td>
-        <strong>${index + 1}</strong>
-    </td>
+                    data.leads.forEach((cm, index) => {
 
-   <td>
+                        table.innerHTML += `
+                        <tr style="background:#f8f9ff">
 
-    <div class="d-flex flex-column align-items-start">
+                            <td><strong>${index + 1}</strong></td>
 
-        <!-- NAME -->
-        <div class="fw-bold text-dark mb-1" style="font-size:14px; line-height:1.3;">
-            ${lead.lead_name ?? 'N/A'}
-        </div>
+                            <td>
+                                <div class="d-flex flex-column">
 
-        <!-- CONTACT -->
-        <div class="d-flex align-items-center text-muted mb-1"
-            style="font-size:12px; line-height:1.3;">
-            <span>${lead.contact_no ?? 'N/A'}</span>
+                                    <div class="fw-bold text-dark">
+                                     ${cm.lead && cm.lead.user ? cm.lead.user.name : 'N/A'}                               
+                                    </div>
 
-        </div>
+                                    <small class="text-muted">
+                                        Lead ID: ${cm.lead_id}
+                                    </small>
+                                    <small class="text-muted">
+                                        ${cm.lead_engagement_status}
+                                    </small>
 
-        <!-- EMAIL -->
-        <div class="d-flex align-items-center text-muted mb-1"
-            style="font-size:12px; line-height:1.3;">
-            <span>${lead.email ?? 'N/A'}</span>
+                                </div>
+                            </td>
 
-        </div>
+                            <td>
+                                ${cm.lead_engagement_status}
+                            </td>
 
-        <!-- COUNTRY -->
-        <div class="d-flex align-items-center text-muted"
-            style="font-size:12px; line-height:1.3;">
+                            <td>
+                                ${cm.created_at ? new Date(cm.created_at).toLocaleString() : ''}
+                            </td>
 
-            <i class="fas fa-map-marker-alt  me-2"
-                style="width:14px;"></i>
+                            <td>
+                                <span class="badge bg-info">
+                                    History
+                                </span>
+                            </td>
 
-            <span>${lead.country ?? 'N/A'}</span>
+                        </tr>
+                    `;
+                    });
 
-        </div>
+                } else {
 
-    </div>
+                    // ===============================
+                    // 📌 NORMAL LEADS TABLE VIEW
+                    // ===============================
 
-</td>
+                    data.leads.forEach((lead, index) => {
 
-    <td>
-        ${lead.course ?? 'N/A'}
-    </td>
+                        table.innerHTML += `
+                        <tr>
 
-   <td>
-    ${lead.lead_bucket_name ?? 'N/A'}
-</td>
+                            <td><strong>${index + 1}</strong></td>
 
-<td>
-    ${lead.lead_status ?? 'N/A'}
-</td>
-    <td>
-        ${lead.date ? new Date(lead.date).toDateString().slice(4)  : 'N/A'}
-    </td>
+                            <td>
+                                <div class="fw-bold">${lead.lead_name}</div>
+                                <small>${lead.email}</small>
+                            </td>
 
-    <td>
-        ${
-            lead.verified_lead == 1
-            ? '<span class="badge bg-success">✓ Yes</span>'
-            : '<span class="badge bg-secondary">No</span>'
-        }
-    </td>
+                            <td>${lead.course}</td>
 
-</tr>
-`;
-                });
+                            <td>${lead.lead_bucket_name}</td>
+
+                            <td>${lead.lead_status}</td>
+
+                            <td>
+                                ${lead.date ? new Date(lead.date).toDateString() : ''}
+                            </td>
+
+                            <td>
+                                ${
+                                    lead.verified_lead == 1
+                                    ? '<span class="badge bg-success">Yes</span>'
+                                    : '<span class="badge bg-secondary">No</span>'
+                                }
+                            </td>
+
+                        </tr>
+                    `;
+                    });
+                }
 
             });
 
+    }
+
+    function setNormalHeader(userId) {
+
+        document.getElementById(`dynamicLeadHead${userId}`).innerHTML = `
+        <tr>
+            <th>#</th>
+            <th>Lead Details</th>
+            <th>Course</th>
+            <th>Bucket</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Verified</th>
+        </tr>
+    `;
+    }
+
+    function setHistoryHeader(userId) {
+
+        document.getElementById(`dynamicLeadHead${userId}`).innerHTML = `
+        <tr>
+            <th>#</th>
+            <th>Lead ID</th>
+            <th>Status</th>
+            <th>Changed At</th>
+            <th>Type</th>
+        </tr>
+    `;
     }
 </script>
 

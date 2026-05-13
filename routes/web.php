@@ -30,6 +30,9 @@ Route::get('/get-leads-by-type', [LeadController::class, 'getLeadsByType'])
 
 Route::get('/get-user-report-data',[LeadController::class, 'getUserReportData'])->name('get.user.report.data');
 
+Route::get('/get-lead-transitions', [LeadController::class, 'getLeadTransitions'])
+    ->name('get.lead.transitions');
+
 Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
