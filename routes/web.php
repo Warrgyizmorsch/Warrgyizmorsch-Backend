@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CRM\BlogController;
 use App\Http\Controllers\CRM\UserController;
 use App\Http\Controllers\CRM\RouteController;
@@ -32,6 +33,31 @@ Route::get('/get-user-report-data',[LeadController::class, 'getUserReportData'])
 
 Route::get('/get-lead-transitions', [LeadController::class, 'getLeadTransitions'])
     ->name('get.lead.transitions');
+
+Route::post('/lead/bulk-owner-update', [LeadController::class, 'bulkOwnerUpdate'])
+    ->name('lead.bulkOwnerUpdate');  
+    
+    
+    Route::prefix('categories')->group(function () {
+
+    Route::get('/', [CategoryController::class, 'index'])
+        ->name('category.index');
+
+    Route::post('/store', [CategoryController::class, 'store'])
+        ->name('category.store');
+
+    Route::get('/edit/{id}', [CategoryController::class, 'edit'])
+        ->name('category.edit');
+
+    Route::put('/update/{id}', [CategoryController::class, 'update'])
+        ->name('category.update');
+
+    Route::delete('/destroy/{id}', [CategoryController::class, 'destroy'])
+        ->name('category.destroy');
+
+    Route::post('/recover/{id}', [CategoryController::class, 'recover'])
+        ->name('category.recover');
+});
 
 Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])

@@ -254,6 +254,7 @@ class LeadController extends Controller
             'applying_country_for_a_visa' => 'nullable|string',
             'what_course_are_you_planning_to_study' => 'nullable|string',
             'description' => 'nullable|string',
+            'category_id' => 'nullable',
         ]);
 
         // 🔍 Search existing user by mobile number
@@ -368,6 +369,7 @@ class LeadController extends Controller
             'applying_country_for_a_visa' => 'nullable|string',
             'what_course_are_you_planning_to_study' => 'nullable|string',
             'description' => 'nullable|string',
+            'category_id' => 'nullable',
         ]);
 
         // ----------------------------
@@ -1611,7 +1613,7 @@ class LeadController extends Controller
         }
         $query->groupBy('created_by');
 
-        $leads = $query->paginate(10);
+        $leads = $query->get();
 
         return view('crm.lead.lead-data', compact('leads'));
     }
@@ -1654,51 +1656,14 @@ class LeadController extends Controller
         return back()->with('success', 'Callback status updated');
     }
 
-    // public function campaignPerformance()
-    // {
-
-    //     $query = Leads::select(
-    //         'campaign_name',
-    //         DB::raw('COUNT(*) as total_leads'),
-    //         DB::raw('COUNT(followup_type) as followup_count'),
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Untouched leads' THEN 1 ELSE 0 END) as untouched"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Not Connected' THEN 1 ELSE 0 END) as not_connected"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Counselling in Progress' THEN 1 ELSE 0 END) as counselling"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Application Process' THEN 1 ELSE 0 END) as application"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Offer Stage' THEN 1 ELSE 0 END) as offer_stage"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Visa Process' THEN 1 ELSE 0 END) as visa_process"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Converted' AND buckets.parent_id IS NULL  THEN 1 ELSE 0 END) as converted"),
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Lost' THEN 1 ELSE 0 END) as lost"),
-
-
-    //     )
-    //         ->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
-    //         ->whereNotNull('campaign_name')
-    //         ->groupBy('campaign_name');
-
-    //     if (request()->has('campaign_name') && !empty(request()->campaign_name)) {
-    //         $query->where('campaign_name', request()->campaign_name);
-    //     }
-    //     $totals = (clone $query)->get();
-    //     $data = $query->paginate(10);
-
-
-    //     $campaigns = Leads::whereNotNull('campaign_name')
-    //         ->distinct()
-    //         ->pluck('campaign_name', 'campaign_name');
-
-    //     return view('crm.lead.campaign-performance', compact('data', 'campaigns', 'totals'));
-    // }
-
     public function campaignPerformance(Request $request)
     {
-        // 👉 default grouping
+        $buckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->orderBy('id')
+            ->get();
+
+        //  default grouping
         $groupBy = request('group_by', 'campaign_name');
 
         // 👉 allowed columns (security)
@@ -1714,27 +1679,29 @@ class LeadController extends Controller
 
         $query = Leads::select(
             $column . ' as name',
+            DB::raw('COUNT(*) as total_leads')
+        );
 
-            DB::raw('COUNT(*) as total_leads'),
+        // ================= DYNAMIC BUCKET COUNTS =================
+        foreach ($buckets as $bucket) {
 
-            DB::raw("SUM(CASE WHEN buckets.name = 'Untouched leads' THEN 1 ELSE 0 END) as untouched"),
+            $slug = \Str::slug($bucket->name, '_');
 
-            DB::raw("SUM(CASE WHEN buckets.name = 'Not Connected' THEN 1 ELSE 0 END) as not_connected"),
+            $query->selectRaw("
+            SUM(
+                CASE
+                    WHEN leads.lead_bucket_id = {$bucket->id}
+                    THEN 1
+                    ELSE 0
+                END
+            ) as `$slug`
+        ");
+        }
 
-            DB::raw("SUM(CASE WHEN buckets.name = 'Counselling in Progress' THEN 1 ELSE 0 END) as counselling"),
-
-            DB::raw("SUM(CASE WHEN buckets.name = 'Application Process' THEN 1 ELSE 0 END) as application"),
-
-            DB::raw("SUM(CASE WHEN buckets.name = 'Offer Stage' THEN 1 ELSE 0 END) as offer_stage"),
-
-            DB::raw("SUM(CASE WHEN buckets.name = 'Visa Process' THEN 1 ELSE 0 END) as visa_process"),
-
-            DB::raw("SUM(CASE WHEN buckets.name = 'Converted' AND buckets.parent_id IS NULL THEN 1 ELSE 0 END) as converted"),
-
-            DB::raw("SUM(CASE WHEN buckets.name = 'Lost' THEN 1 ELSE 0 END) as lost"),
-        )
-            ->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
+        // ================= JOIN + GROUP =================
+        $query->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
             ->whereNotNull($column)
+            ->where($column, '!=', '')
             ->groupBy($column)
             ->orderByRaw('MAX(leads.created_at) DESC');
 
@@ -1757,10 +1724,11 @@ class LeadController extends Controller
             $query->where('leads.created_at', '>=', $from);
         }
 
-
+        $perPage = $request->per_page ?? 20;
         $totals = (clone $query)->get();
-        $data = $query->paginate(10);
-
+        $data = $query
+            ->paginate($perPage)
+            ->appends($request->query());
         $campaigns = Leads::whereNotNull('campaign_name')
             ->distinct()
             ->pluck('campaign_name', 'campaign_name');
@@ -1770,46 +1738,8 @@ class LeadController extends Controller
             ->pluck('adset_name', 'adset_name');
 
 
-        return view('crm.lead.campaign-performance', compact('data', 'totals', 'groupBy', 'campaigns', 'adsets'));
+        return view('crm.lead.campaign-performance', compact('data', 'totals', 'groupBy', 'campaigns', 'adsets', 'buckets'));
     }
-
-    // public function sourcePerformance()
-    // {
-    //     $query = Leads::select(
-    //         'platform',
-    //         DB::raw('COUNT(*) as total_leads'),
-    //         DB::raw('COUNT(followup_type) as followup_count'),
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Untouched leads' THEN 1 ELSE 0 END) as untouched"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Not Connected' THEN 1 ELSE 0 END) as not_connected"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Counselling in Progress' THEN 1 ELSE 0 END) as counselling"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Application Process' THEN 1 ELSE 0 END) as application"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Offer Stage' THEN 1 ELSE 0 END) as offer_stage"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Visa Process' THEN 1 ELSE 0 END) as visa_process"),
-
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Converted' THEN 1 ELSE 0 END) as converted"),
-    //         DB::raw("SUM(CASE WHEN buckets.name = 'Lost' THEN 1 ELSE 0 END) as lost"),
-
-    //     )
-    //         ->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
-    //         ->groupBy('platform');
-    //     if (request()->has('source') && !empty(request()->source)) {
-    //         $query->where('platform', request()->source);
-    //     }
-
-    //     $totals = (clone $query)->get();
-    //     $sourcesData = $query->paginate(10);
-
-    //     $sources = Leads::whereNotNull('platform')
-    //         ->distinct()
-    //         ->pluck('platform', 'platform');
-
-    //     return view('crm.lead.source-performance', compact('sourcesData', 'sources', 'totals'));
-    // }
 
     public function sourcePerformance(Request $request)
     {
@@ -1825,6 +1755,11 @@ class LeadController extends Controller
             'landing page',
             'manual import'
         ];
+
+        $buckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->orderBy('id')
+            ->get();
 
 
         $baseQuery = Leads::select(DB::raw("
@@ -1890,23 +1825,30 @@ class LeadController extends Controller
             ->mergeBindings($baseQuery->getQuery())
             ->select(
                 'source_group',
-                DB::raw('COUNT(*) as total_leads'),
+                DB::raw('COUNT(*) as total_leads')
+            );
 
-                DB::raw("SUM(CASE WHEN buckets.name = 'Untouched leads' THEN 1 ELSE 0 END) as untouched"),
-                DB::raw("SUM(CASE WHEN buckets.name = 'Not Connected' THEN 1 ELSE 0 END) as not_connected"),
-                DB::raw("SUM(CASE WHEN buckets.name = 'Counselling in Progress' THEN 1 ELSE 0 END) as counselling"),
-                DB::raw("SUM(CASE WHEN buckets.name = 'Application Process' THEN 1 ELSE 0 END) as application"),
-                DB::raw("SUM(CASE WHEN buckets.name = 'Offer Stage' THEN 1 ELSE 0 END) as offer_stage"),
-                DB::raw("SUM(CASE WHEN buckets.name = 'Visa Process' THEN 1 ELSE 0 END) as visa_process"),
-                DB::raw("SUM(CASE WHEN buckets.name = 'Converted' AND buckets.parent_id IS NULL THEN 1 ELSE 0 END) as converted"),
-                DB::raw("SUM(CASE WHEN buckets.name = 'Lost' THEN 1 ELSE 0 END) as lost")
-            )
-            ->leftJoin('buckets', 'buckets.id', '=', 'mapped.lead_bucket_id')
+        foreach ($buckets as $bucket) {
+
+            $slug = \Str::slug($bucket->name, '_');
+
+            $query->selectRaw("
+        SUM(
+            CASE
+                WHEN mapped.lead_bucket_id = {$bucket->id}
+                THEN 1
+                ELSE 0
+            END
+        ) as `$slug`
+    ");
+        }
+
+        $query->leftJoin('buckets', 'buckets.id', '=', 'mapped.lead_bucket_id')
             ->groupBy('source_group')
             ->orderByDesc('total_leads');
 
         $totals = (clone $query)->get();
-        $sourcesData = $query->paginate(10);
+        $sourcesData = $query->get();
 
         $sources = collect([
             'Website',
@@ -1923,54 +1865,117 @@ class LeadController extends Controller
 
         return view(
             'crm.lead.source-performance',
-            compact('sourcesData', 'sources', 'totals')
+            compact('sourcesData', 'sources', 'totals', 'buckets')
         );
     }
+    // public function councillorReport(Request $request)
+    // {
+    //     $query = Leads::with('owner')->select(
+    //         'lead_owner',
+    //         DB::raw('COUNT(*) as total_leads'),
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Untouched leads' THEN 1 ELSE 0 END) as untouched"),
+
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Not Connected' THEN 1 ELSE 0 END) as not_connected"),
+
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Counselling in Progress' THEN 1 ELSE 0 END) as counselling"),
+
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Application Process' THEN 1 ELSE 0 END) as application"),
+
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Offer Stage' THEN 1 ELSE 0 END) as offer_stage"),
+
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Visa Process' THEN 1 ELSE 0 END) as visa_process"),
+
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Converted' AND buckets.parent_id IS NULL  THEN 1 ELSE 0 END) as converted"),
+    //         DB::raw("SUM(CASE WHEN buckets.name = 'Lost' THEN 1 ELSE 0 END) as lost"),
+    //     )
+    //         ->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
+    //         ->groupBy('lead_owner');
+
+    //     if (request()->has('councillor_name') && !empty(request()->councillor_name)) {
+    //         $query->where('lead_owner', request()->councillor_name);
+    //     }
+
+    //     if ($request->filled('from') && $request->filled('to')) {
+    //         $from = \Carbon\Carbon::parse($request->from)->startOfDay();
+    //         $to = \Carbon\Carbon::parse($request->to)->endOfDay();
+
+    //         $query->whereBetween('leads.created_at', [$from, $to]);
+    //     }
+    //     if ($request->filled('from')) {
+    //         $from = \Carbon\Carbon::parse($request->from)->toDateString();
+    //         $query->where('leads.created_at', '>=', $from);
+    //     }
+
+    //     $totals = (clone $query)->get();
+    //     $data = $query->get();
+
+    //     $councillors = User::whereIn('id', Leads::pluck('lead_owner')->unique())->pluck('name', 'id');
+    //     return view('crm.lead.councillor-report', compact('data', 'councillors', 'totals'));
+    // }
+
     public function councillorReport(Request $request)
     {
-        $query = Leads::with('owner')->select(
-            'lead_owner',
-            DB::raw('COUNT(*) as total_leads'),
-            DB::raw("SUM(CASE WHEN buckets.name = 'Untouched leads' THEN 1 ELSE 0 END) as untouched"),
+        // parent null buckets
+        $buckets = Bucket::whereNull('parent_id')->where('is_deleted', 0)->get();
 
-            DB::raw("SUM(CASE WHEN buckets.name = 'Not Connected' THEN 1 ELSE 0 END) as not_connected"),
+        $query = Leads::with('owner')
+            ->select('lead_owner')
+            ->selectRaw('COUNT(*) as total_leads');
 
-            DB::raw("SUM(CASE WHEN buckets.name = 'Counselling in Progress' THEN 1 ELSE 0 END) as counselling"),
+        // dynamic bucket counts
+        foreach ($buckets as $bucket) {
 
-            DB::raw("SUM(CASE WHEN buckets.name = 'Application Process' THEN 1 ELSE 0 END) as application"),
+            $slug = \Str::slug($bucket->name, '_');
 
-            DB::raw("SUM(CASE WHEN buckets.name = 'Offer Stage' THEN 1 ELSE 0 END) as offer_stage"),
-
-            DB::raw("SUM(CASE WHEN buckets.name = 'Visa Process' THEN 1 ELSE 0 END) as visa_process"),
-
-            DB::raw("SUM(CASE WHEN buckets.name = 'Converted' AND buckets.parent_id IS NULL  THEN 1 ELSE 0 END) as converted"),
-            DB::raw("SUM(CASE WHEN buckets.name = 'Lost' THEN 1 ELSE 0 END) as lost"),
-        )
-            ->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
-            ->groupBy('lead_owner');
-
-        if (request()->has('councillor_name') && !empty(request()->councillor_name)) {
-            $query->where('lead_owner', request()->councillor_name);
+            $query->selectRaw("
+            SUM(
+                CASE 
+                    WHEN leads.lead_bucket_id = {$bucket->id}
+                    THEN 1 
+                    ELSE 0 
+                END
+            ) as `$slug`
+        ");
         }
 
+        $query->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
+            ->groupBy('lead_owner');
+
+        // councillor filter
+        if ($request->filled('councillor_name')) {
+
+            $query->where('lead_owner', $request->councillor_name);
+        }
+
+        // date filter
         if ($request->filled('from') && $request->filled('to')) {
+
             $from = \Carbon\Carbon::parse($request->from)->startOfDay();
+
             $to = \Carbon\Carbon::parse($request->to)->endOfDay();
 
             $query->whereBetween('leads.created_at', [$from, $to]);
-        }
-        if ($request->filled('from')) {
-            $from = \Carbon\Carbon::parse($request->from)->toDateString();
+        } elseif ($request->filled('from')) {
+
+            $from = \Carbon\Carbon::parse($request->from)->startOfDay();
+
             $query->where('leads.created_at', '>=', $from);
         }
 
         $totals = (clone $query)->get();
+
         $data = $query->get();
 
-        $councillors = User::whereIn('id', Leads::pluck('lead_owner')->unique())->pluck('name', 'id');
-        return view('crm.lead.councillor-report', compact('data', 'councillors', 'totals'));
-    }
+        $councillors = User::whereIn(
+            'id',
+            Leads::pluck('lead_owner')->unique()
+        )->pluck('name', 'id');
 
+        return view(
+            'crm.lead.councillor-report',
+            compact('data', 'councillors', 'totals', 'buckets')
+        );
+    }
     public function bulkDelete(Request $request)
     {
         if (!$request->filled('ids')) {
@@ -2118,7 +2123,7 @@ class LeadController extends Controller
 
         $callbacks = $query->paginate(10);
 
-        $owners = User::whereIn('role_id', [1, 3])->get();
+        $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
 
 
 
@@ -2246,10 +2251,10 @@ class LeadController extends Controller
                 }
             }
 
-
+            $dublicate_hots = '';
             if ($isDuplicateHot) {
 
-                $leads = CallBack::with('lead.user')
+                $dublicate_hots = CallBack::with('lead.user','user')
                     ->whereIn('lead_id', function ($q) use ($userId, $today, $range) {
 
                         $q->select('callback_messages.lead_id')
@@ -2267,38 +2272,40 @@ class LeadController extends Controller
                         $q->whereDate('created_at', $today);
                     })
                     ->orderBy('lead_id')
-                    ->orderBy('created_at')
+                    ->orderBy('created_at', 'desc')
                     ->get();
-            } else {
 
-                $leads = $query->latest()
-                    ->get()
-                    ->map(function ($lead) {
-
-                        return [
-
-                            'id' => $lead->id,
-
-                            'lead_name' => $lead->user->name ?? 'N/A',
-                            'email' => $lead->user->email ?? 'N/A',
-                            'contact_no' => $lead->user->contact_no ?? 'N/A',
-
-                            'country' => $lead->applying_country_for_a_visa ?? 'N/A',
-                            'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
-                            'campaign_name' => $lead->campaign_name ?? 'N/A',
-
-                            'date' => $lead->date ?? null,
-                            'verified_lead' => $lead->verified_lead ?? 0,
-                            'lead_bucket_name' => $lead->bucket->name ?? 'N/A',
-                            'lead_status' => $lead->lead_status ?? 'N/A',
-                        ];
-                    });
             }
+
+
+            $leads = $query->latest()
+                ->get()
+                ->map(function ($lead) {
+
+                    return [
+
+                        'id' => $lead->id,
+
+                        'lead_name' => $lead->user->name ?? 'N/A',
+                        'email' => $lead->user->email ?? 'N/A',
+                        'contact_no' => $lead->user->contact_no ?? 'N/A',
+
+                        'country' => $lead->applying_country_for_a_visa ?? 'N/A',
+                        'course' => $lead->what_course_are_you_planning_to_study ?? 'N/A',
+                        'campaign_name' => $lead->campaign_name ?? 'N/A',
+
+                        'date' => $lead->date ?? null,
+                        'verified_lead' => $lead->verified_lead ?? 0,
+                        'lead_bucket_name' => $lead->bucket->name ?? 'N/A',
+                        'lead_status' => $lead->lead_status ?? 'N/A',
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
                 'title' => $title,
                 'leads' => $leads,
+                'dublicate_hots' => $dublicate_hots,
                 'is_history' => $isDuplicateHot ? true : false,
             ]);
         } catch (\Throwable $e) {
@@ -2437,5 +2444,25 @@ class LeadController extends Controller
 
                 return false;
             });
+    }
+
+    public function bulkOwnerUpdate(Request $request)
+    {
+        $request->validate([
+            'lead_ids' => 'required',
+            'lead_owner' => 'required'
+        ]);
+
+        $leadIds = explode(',', $request->lead_ids);
+
+        Leads::whereIn('id', $leadIds)
+            ->update([
+                'lead_owner' => $request->lead_owner
+            ]);
+
+        return redirect()->back()->with(
+            'success',
+            'Lead owner updated successfully'
+        );
     }
 }

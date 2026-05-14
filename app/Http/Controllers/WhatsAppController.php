@@ -224,8 +224,9 @@ class WhatsAppController extends Controller
 
             try {
                 $this->sendUserReport($userId, $from, $to);
+                $sent++;
             } catch (\Exception $e) {
-                // dd($e->getMessage());
+                dd($e->getMessage());
                 \Log::error("Lead Owner WhatsApp Error", [
                     'user_id' => $userId,
                     'error' => $e->getMessage()
@@ -284,15 +285,15 @@ class WhatsAppController extends Controller
         $message .= "❄ Cold: {$cold}\n";
 
         // MOBILE
-        $mobile = "916265455843";
         $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
 
-        $twilio->messages->create(
-            "whatsapp:+{$mobile}",
+        $response = $twilio->messages->create(
+            "whatsapp:+916265455843",
             [
-                "from" => env('TWILIO_WHATSAPP_FROM'),
+                "from" => 'whatsapp:+14155238886',
                 "body" => $message
             ]
         );
+        
     }
 }

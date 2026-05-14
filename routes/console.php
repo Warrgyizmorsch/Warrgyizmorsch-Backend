@@ -12,5 +12,5 @@ Schedule::command('currency:fetch')->daily();
 // Schedule::command('currency:fetch')->everyMinute();
 
 Schedule::command('report:send-whatsapp')
-    ->dailyAt('14:48');
+    ->dailyAt('14:37');
 

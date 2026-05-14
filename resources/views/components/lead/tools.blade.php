@@ -1,4 +1,4 @@
-@props(['buckets', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners'])
+@props(['buckets','filterBucket', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners','categories'])
 
 <div class="page-header">
     <div class="page-header-left d-flex align-items-center">
@@ -51,7 +51,7 @@
                     </a>
 
                     @foreach($buckets as $bucket)
-                    <a href="{{ route('modern.leads.index', array_merge(request()->query(), ['bucket_id' => $bucket->id])) }}"
+                    <a href="{{ route('modern.leads.index', array_merge(request()->query(), ['bucket_id' => $bucket->id, 'lead_status' => ''])) }}"
                         class="dropdown-item {{ request('bucket_id') == $bucket->id ? 'active' : '' }}">
                         {{ $bucket->name }}
                     </a>
@@ -106,6 +106,12 @@
             <input type="hidden" name="bucket_id" value="{{ request('bucket_id') }}">
             @endif
 
+            @if(request('lead_status'))
+            <input type="hidden"
+                name="lead_status"
+                value="{{ request('lead_status') }}">
+            @endif
+
             <div class="row g-3">
 
                 <div class="col-12 col-md-2 d-block d-md-block">
@@ -139,7 +145,7 @@
                 <div class="col-md-3 d-none d-md-block">
                     <select name="status" class="form-select">
                         <option value="">All Status</option>
-                        @foreach($buckets as $bucket)
+                        @foreach($filterBucket as $bucket)
                         @if($bucket->children)
                         <optgroup label="{{ $bucket->name }}">
                             @foreach($bucket->children as $child)
@@ -206,6 +212,19 @@
                     <input type="text" name="ad_name" class="form-control"
                         placeholder="Ad Name"
                         value="{{ request('ad_name') }}">
+                </div>
+
+                <div class="col-md-2 d-none d-md-block">
+                    <select name="category_id" class="form-select">
+                        <option value="">All Categories</option>
+
+                        @foreach($categories ?? [] as $category)
+                        <option value="{{ $category->id }}"
+                            {{ request('category_id') == $category->id ? 'selected' : '' }}>
+                            {{ $category->category_name }}
+                        </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <!-- <div class="col-12 col-md-6 p-2 d-flex gap-2 flex-wrap">

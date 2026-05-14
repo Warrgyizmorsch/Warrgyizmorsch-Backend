@@ -32,6 +32,7 @@ class Leads extends Model
         'imported_by',
         'followup_type',
         'english_test_status',
+        'category_id',
     ];
 
     public function user()
@@ -88,5 +89,9 @@ class Leads extends Model
     public function latestAssignHistory()
     {
         return $this->hasOne(LeadAssignHistory::class, 'lead_id')->latestOfMany();
+    }
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
     }
 }

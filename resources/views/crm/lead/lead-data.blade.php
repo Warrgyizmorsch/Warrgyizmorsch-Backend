@@ -381,9 +381,7 @@
 
                         </div>
 
-                        <div class="m-4" style="display: flex; justify-content: center;">
-                            {{ $leads->withQueryString()->links('pagination::bootstrap-4') }}
-                        </div>
+                       
                     </div>
                 </div>
             </div>

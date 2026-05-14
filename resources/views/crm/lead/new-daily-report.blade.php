@@ -930,6 +930,31 @@
 
 </div>
 
+<!-- HISTORY MODAL -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold">
+                    <i class="feather-clock text-primary me-2"></i>
+                    Lead History
+                </h5>
+
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body bg-white">
+
+                <ul class="list-unstyled mb-0 activity-feed-1" id="historyContent">
+                </ul>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const presetButtons = document.querySelectorAll('.preset-btn');
@@ -1395,43 +1420,43 @@
                     //  CALLBACK HISTORY TABLE VIEW
                     // ===============================
 
-                    data.leads.forEach((cm, index) => {
+                    data.leads.forEach((lead, index) => {
 
                         table.innerHTML += `
-                        <tr style="background:#f8f9ff">
+                         <tr>
 
                             <td><strong>${index + 1}</strong></td>
 
                             <td>
-                                <div class="d-flex flex-column">
+                                <div class="fw-bold">${lead.lead_name}</div>
+                                <small>${lead.email}</small>
+                            </td>
 
-                                    <div class="fw-bold text-dark">
-                                     ${cm.lead && cm.lead.user ? cm.lead.user.name : 'N/A'}                               
-                                    </div>
+                            <td>${lead.course}</td>
 
-                                    <small class="text-muted">
-                                        Lead ID: ${cm.lead_id}
-                                    </small>
-                                    <small class="text-muted">
-                                        ${cm.lead_engagement_status}
-                                    </small>
+                            <td>${lead.lead_bucket_name}</td>
 
-                                </div>
+                            <td>${lead.lead_status}</td>
+
+                            <td>
+                                ${lead.date ? new Date(lead.date).toDateString() : ''}
                             </td>
 
                             <td>
-                                ${cm.lead_engagement_status}
-                            </td>
-
-                            <td>
-                                ${cm.created_at ? new Date(cm.created_at).toLocaleString() : ''}
-                            </td>
-
-                            <td>
-                                <span class="badge bg-info">
-                                    History
-                                </span>
-                            </td>
+                                ${
+                                    lead.verified_lead == 1
+                                    ? '<span class="badge bg-success">Yes</span>'
+                                    : '<span class="badge bg-secondary">No</span>'
+                                }
+                          <td class="text-end">
+                              <button 
+                                  class="btn btn-sm btn-outline-secondary rounded-circle"
+                                  onclick='showHistoryModal(${JSON.stringify(data.dublicate_hots)})'
+                                  title="History"
+                              >
+                                  <i class="feather-clock"></i>
+                              </button>
+                          </td>
 
                         </tr>
                     `;
@@ -1501,13 +1526,81 @@
 
         document.getElementById(`dynamicLeadHead${userId}`).innerHTML = `
         <tr>
-            <th>#</th>
-            <th>Lead ID</th>
+             <th>#</th>
+            <th>Lead Details</th>
+            <th>Course</th>
+            <th>Bucket</th>
             <th>Status</th>
-            <th>Changed At</th>
-            <th>Type</th>
+            <th>Date</th>
+            <th>Verified</th>
+            <th>History</th>
         </tr>
     `;
+    }
+</script>
+<script>
+    function showHistoryModal(histories) {
+        let html = '';
+
+        if (histories.length > 0) {
+            histories.forEach((item) => {
+
+                html += `
+
+            <li class="feed-item feed-item-primary mb-4">
+
+                <div class="d-flex gap-4 justify-content-between">
+
+                    <div>
+
+                        <div class="mb-2">
+                            <a href="javascript:void(0)" class="fw-semibold text-dark">
+
+                                ${item.lead?.user?.name ?? 'N/A'} <span>${item.lead_id ?? 'N/A'}</span>
+                            </a>
+
+                        </div>
+
+                        <p class="fs-12 text-muted mb-2">
+                            ${item.message ?? 'No Message'}
+                        </p>
+
+                        <div class="d-flex flex-wrap gap-2">
+
+                            <span class="badge text-success border border-dashed border-gray-500">
+                                ${item.lead_engagement_status ?? 'N/A'}
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                    <div class="fs-10 fw-medium text-uppercase text-muted text-nowrap">
+
+                         ${item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</br>
+                         ${item?.user?.name ?? 'N/A'}
+
+                    </div>
+
+                </div>
+
+            </li>
+
+            `;
+            });
+        } else {
+            html = `
+            <div class="text-center text-muted py-5">
+                No History Found
+            </div>
+        `;
+        }
+
+        document.getElementById('historyContent').innerHTML = html;
+
+        let modal = new bootstrap.Modal(document.getElementById('historyModal'));
+
+        modal.show();
     }
 </script>
 

@@ -29,3 +29,7 @@ ALTER TABLE university_details ADD COLUMN ranking_info LONGTEXT NULL;
  2 migrations - 
  2025_04_08_create_university_details_table.php
  2026_04_09_114750_add_timestamps_to_courses_table.php
+
+ <!-- Manish-13-5-26 -->
+ ALTER TABLE `leads` ADD `category_id` INT NULL DEFAULT NULL AFTER `uid`;
+

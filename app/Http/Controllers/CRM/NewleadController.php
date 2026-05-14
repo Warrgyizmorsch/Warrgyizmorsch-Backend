@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CallBack;
 use App\Models\Leads;
 use App\Models\Bucket;
+use App\Models\Category;
 use App\Models\User;
 use App\Models\LeadSource;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class NewleadController extends Controller
             'attributes',
             'todoTasks.assignee',
             'latestAssignHistory',
+            'category',
         ])->withCount([
             'messages as call_followup_count' => function ($q) {
                 $q->where('followup_type', 'Call');
@@ -106,6 +108,16 @@ class NewleadController extends Controller
         if ($request->filled('country')) $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
         if ($request->filled('course')) $query->where('what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
         if ($request->filled('bucket_id')) $query->where('lead_bucket_id', $request->bucket_id);
+        if ($request->filled('bucket_id') && $request->filled('lead_status')) {
+
+            $query->where('lead_bucket_id', $request->bucket_id)
+                ->where('lead_status', $request->lead_status);
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
         if ($request->filled('campaign_name')) $query->where('campaign_name', 'like', "%{$request->campaign_name}%");
         if ($request->filled('adset_name')) $query->where('adset_name', 'like', "%{$request->adset_name}%");
         if ($request->filled('ad_name')) $query->where('ad_name', 'like', "%{$request->ad_name}%");
@@ -173,8 +185,8 @@ class NewleadController extends Controller
             'Converted',
             'Lost'
         ];
-
-        $buckets = Bucket::whereNull('parent_id')->where('is_deleted', 0)
+        $buckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
             ->withCount(['leads' => function ($q) {
                 if (auth()->check() && auth()->user()->role_id == 3) {
                     $q->where('lead_owner', auth()->id());
@@ -183,10 +195,67 @@ class NewleadController extends Controller
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
             ->get();
 
-            $mainBucketIds = Bucket::whereNull('parent_id')
-    ->where('is_deleted', 0)
-    ->pluck('id')
-    ->toArray();
+        $childBuckets = collect();
+        $childtotalLeadsCount = 0;
+        if ($request->filled('bucket_id')) {
+
+            // current bucket ke children lao
+            $childBuckets = Bucket::where('parent_id', $request->bucket_id)
+                ->where('is_deleted', 0)
+                ->select('buckets.*')
+                ->selectSub(function ($q) use ($request) {
+
+                    $q->from('leads')
+                        ->selectRaw('COUNT(*)')
+                        ->where('leads.lead_bucket_id', $request->bucket_id)
+                        ->whereColumn('leads.lead_status', 'buckets.name')
+                        ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
+                            $qq->where('leads.lead_owner', auth()->id());
+                        });
+                }, 'leads_count')
+                ->get();
+
+            $childtotalLeadsCount = Leads::where('lead_bucket_id', $request->bucket_id)->count();
+
+            $filterBucket = Bucket::where('id', $request->bucket_id)
+                ->whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->withCount(['leads' => function ($q) {
+                    if (auth()->check() && auth()->user()->role_id == 3) {
+                        $q->where('lead_owner', auth()->id());
+                    }
+                }])
+                ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
+                ->get();
+        } else {
+
+            // ✅ default parent buckets
+
+            $filterBucket = Bucket::whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->withCount(['leads' => function ($q) {
+                    if (auth()->check() && auth()->user()->role_id == 3) {
+                        $q->where('lead_owner', auth()->id());
+                    }
+                }])
+                ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
+                ->get();
+        }
+
+        $mainbuckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->withCount(['leads' => function ($q) {
+                if (auth()->check() && auth()->user()->role_id == 3) {
+                    $q->where('lead_owner', auth()->id());
+                }
+            }])
+            ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
+            ->get();
+
+        $mainBucketIds = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->pluck('id')
+            ->toArray();
 
         $deletedLeadsCount = Leads::whereNotNull('lead_bucket_id')
             ->where('lead_bucket_id', '!=', '')
@@ -195,6 +264,8 @@ class NewleadController extends Controller
                 $q->where('lead_owner', auth()->id());
             })
             ->count();
+
+        $categorys = Category::where('is_active', 1)->get();
 
         $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
         $sources = LeadSource::pluck('source_name')->toArray();
@@ -223,7 +294,7 @@ class NewleadController extends Controller
 
 
         // Return to your new view
-        return view('crm.lead.newindex', compact('leads', 'buckets','deletedLeadsCount', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'followupsCount'));
+        return view('crm.lead.newindex', compact('leads', 'childBuckets', 'filterBucket', 'mainbuckets', 'childtotalLeadsCount', 'categorys', 'buckets', 'deletedLeadsCount', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'followupsCount'));
     }
 
     public function updateQuick(Request $request, Leads $lead)
