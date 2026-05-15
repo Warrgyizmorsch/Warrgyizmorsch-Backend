@@ -139,7 +139,8 @@
         }
     </script>
     {{-- Page Header --}}
-    <x-lead.tools :buckets="$buckets" :totalLeadsCount="$totalLeadsCount" :filteredLeadCount="$filteredLeadCount" />
+    <x-lead.tools :filterBucket="$filterBucket" :buckets="$buckets" :totalLeadsCount="$totalLeadsCount" :filteredLeadCount="$filteredLeadCount" />
+
     {{-- [ Page Header ] end --}}
         @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show mt-2" role="alert">

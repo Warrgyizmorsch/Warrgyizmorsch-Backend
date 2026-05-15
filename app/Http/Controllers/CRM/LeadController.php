@@ -163,6 +163,7 @@ class LeadController extends Controller
             ->values();
 
         $buckets = Bucket::whereNull('parent_id')->with('children')->get();
+        $filterBucket=Bucket::whereNull('parent_id')->with('children')->get();
 
         $mainBucketIds = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
@@ -190,7 +191,7 @@ class LeadController extends Controller
         $sources = LeadSource::pluck('source_name')->toArray();
 
 
-        return view('crm.lead.index', compact('leads', 'oldbuckets', 'oldSubStatus', 'extraFieldNames', 'buckets', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources'));
+        return view('crm.lead.index', compact('leads', 'oldbuckets','filterBucket', 'oldSubStatus', 'extraFieldNames', 'buckets', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources'));
     }
 
     public function application(Request $request)
@@ -1677,6 +1678,9 @@ class LeadController extends Controller
         // 👉 map dropdown value → column
         $column = $allowed[$groupBy] ?? 'campaign_name';
 
+        $sortBy = $request->sort_by ?? '';
+        $sortOrder = $request->sort_order ?? 'asc';
+
         $query = Leads::select(
             $column . ' as name',
             DB::raw('COUNT(*) as total_leads')
@@ -1699,11 +1703,28 @@ class LeadController extends Controller
         }
 
         // ================= JOIN + GROUP =================
+        // $query->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
+        //     ->whereNotNull($column)
+        //     ->where($column, '!=', '')
+        //     ->groupBy($column)
+        //     ->orderByRaw('MAX(leads.created_at) DESC');
+
         $query->leftJoin('buckets', 'buckets.id', '=', 'leads.lead_bucket_id')
             ->whereNotNull($column)
             ->where($column, '!=', '')
-            ->groupBy($column)
-            ->orderByRaw('MAX(leads.created_at) DESC');
+            ->groupBy($column);
+
+        // SORTING
+        if ($sortBy == 'name') {
+
+            $query->orderBy('name', $sortOrder);
+        } elseif ($sortBy == 'total_leads') {
+
+            $query->orderBy('total_leads', $sortOrder);
+        } else {
+
+            $query->orderByRaw('MAX(leads.created_at) DESC');
+        }
 
         // 👉 optional campaign filter
         if (request()->filled('campaign_name')) {
@@ -2254,7 +2275,7 @@ class LeadController extends Controller
             $dublicate_hots = '';
             if ($isDuplicateHot) {
 
-                $dublicate_hots = CallBack::with('lead.user','user')
+                $dublicate_hots = CallBack::with('lead.user', 'user')
                     ->whereIn('lead_id', function ($q) use ($userId, $today, $range) {
 
                         $q->select('callback_messages.lead_id')
@@ -2274,7 +2295,6 @@ class LeadController extends Controller
                     ->orderBy('lead_id')
                     ->orderBy('created_at', 'desc')
                     ->get();
-
             }
 
 
