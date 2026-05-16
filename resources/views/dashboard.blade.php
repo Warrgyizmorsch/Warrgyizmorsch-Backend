@@ -159,9 +159,9 @@
     <style>
         /* Optional: make active preset more visible */
         .preset-btn.active {
-            background-color: #0d6efd;
+            background-color: #006FC9;
             color: white;
-            border-color: #0d6efd;
+            border-color: #006FC9;
         }
 
         .preset-btn:hover {
@@ -210,7 +210,7 @@
         $color = 'text-info'; // info blue = in progress / selection
     } elseif (str_contains($bucketName, 'application') || str_contains($bucketName, 'apply')) {
         $icon = 'bi-file-earmark-person'; // application form with person
-        $color = 'text-primary'; // primary blue = core process step
+        $color = 'text-info'; // info blue = core process step (changed to avoid clash with brand blue)
     } elseif (str_contains($bucketName, 'offer letter') || str_contains($bucketName, 'offer')) {
         $icon = 'bi-envelope-check'; // envelope with check = offer sent/approved
         $color = 'text-success'; // green = positive milestone
@@ -222,7 +222,7 @@
         $color = 'text-info'; // info = verification step
     } elseif (str_contains($bucketName, 'visa')) {
         $icon = 'bi-globe'; // globe = international / visa
-        $color = 'text-primary'; // primary = important international step
+        $color = 'text-info'; // info = important international step (changed to avoid clash with brand blue)
     } elseif (str_contains($bucketName, 'enrollment') || str_contains($bucketName, 'enrol')) {
         $icon = 'bi-mortarboard-fill'; // graduation cap = enrollment / admission
         $color = 'text-success'; // green = final academic step
@@ -240,7 +240,7 @@
     // Optional fallback if nothing matches
     if ($icon === 'bi-folder2-open' && str_contains($bucketName, 'lead')) {
         $icon = 'bi-person-lines-fill';
-        $color = 'text-primary';
+        $color = 'text-info';
     }
                             @endphp
 
@@ -366,7 +366,7 @@
                                         data-bs-toggle="remove"></a>
                                 </div>
                                 <div data-bs-toggle="tooltip" title="Refresh">
-                                    <a href="javascript:void(0);" class="avatar-text avatar-xs bg-warning"
+                                    <a href="javascript:void(0);" class="avatar-text avatar-xs bg-brand"
                                         data-bs-toggle="refresh"></a>
                                 </div>
                                 <div data-bs-toggle="tooltip" title="Maximize/Minimize">
@@ -414,16 +414,16 @@ $engagementItems = [
     [
         'key' => 'warm',
         'label' => 'Warm Leads',
-        'color' => '#fd7e14',
+        'color' => '#006FC9',
         'icon' => 'bi-thermometer-half',
-        'iconClass' => 'text-warning',
+        'iconClass' => 'text-brand',
     ],
     [
         'key' => 'cold',
         'label' => 'Cold Leads',
-        'color' => '#0d6efd',
+        'color' => '#02a0e4', // Info Blue/Cyan to differentiate from brand blue
         'icon' => 'bi-snow',
-        'iconClass' => 'text-primary',
+        'iconClass' => 'text-info',
     ],
     [
         'key' => 'dead',
@@ -1151,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     data-bs-toggle="remove"> </a>
                             </div>
                             <div data-bs-toggle="tooltip" title="Refresh">
-                                <a href="javascript:void(0);" class="avatar-text avatar-xs bg-warning"
+                                <a href="javascript:void(0);" class="avatar-text avatar-xs bg-brand"
                                     data-bs-toggle="refresh"> </a>
                             </div>
                             <div data-bs-toggle="tooltip" title="Maximize/Minimize">
@@ -1220,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                             </p>
 
                                             @if($isLong)
-                                            <span class="text-primary read-more-btn"
+                                            <span class="text-brand read-more-btn"
                                                 onclick="toggleComment({{ $lead->id }})" id="btn-{{ $lead->id }}">
                                                 Read More
                                             </span>
@@ -1259,7 +1259,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                                     <!-- Action -->
                                     <td class="text-end">
-                                        <a href="{{ route('lead.index') }}" class="btn btn-sm btn-outline-primary">
+                                        <a href="{{ route('lead.index') }}" class="btn btn-sm btn-brand">
                                             View
                                         </a>
                                     </td>

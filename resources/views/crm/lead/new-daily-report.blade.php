@@ -341,7 +341,7 @@
 
                             {{-- APPLICATION PROCESS --}}
                             <th class="text-center" style="width: 20%;">
-                                <i class="bi bi-file-earmark-text-fill me-1 text-warning"></i>
+                                <i class="bi bi-file-earmark-text-fill me-1" style="color: #006FC9;"></i>
                                 Application Process
                             </th>
 
@@ -401,7 +401,7 @@
                                         </span>
 
                                         <span
-                                            class="badge bg-primary cursor-pointer hot-count-btn"
+                                            class="badge cursor-pointer hot-count-btn"
                                             id="duplicateHotCount{{ $userId }}"
                                             data-user="{{ $userId }}"
                                             data-type="duplicate_hot"
@@ -410,6 +410,8 @@
                                                 padding:7px 12px;
                                                 border-radius:8px;
                                                 transition:.2s;
+                                                background-color: #6610f2;
+                                                color: #fff;
                                             ">
 
                                             {{ $row['engagement']['duplicate_hot'] ?? 0 }}
@@ -421,12 +423,12 @@
 
 
                                     <div
-                                        class="d-flex justify-content-between align-items-center px-2 py-1 rounded bg-warning-subtle">
-                                        <span class="fw-semibold text-warning">
+                                        class="d-flex justify-content-between align-items-center px-2 py-1 rounded" style="background-color: #e6f0ff;">
+                                        <span class="fw-semibold" style="color: #006FC9;">
                                             <i class="bi bi-brightness-high me-1"></i> Warm
                                         </span>
 
-                                        <span class="badge bg-warning text-dark" id="warmCount{{ $userId }}">
+                                        <span class="badge text-white" id="warmCount{{ $userId }}" style="background-color: #006FC9;">
                                             {{ $row['engagement']['warm'] ?? 0 }}
                                         </span>
                                     </div>
@@ -471,9 +473,9 @@
                                     data-user="{{ $userId }}"
                                     data-type="23">
 
-                                    <div class="stat-value text-warning"
+                                    <div class="stat-value"
                                         id="count23_{{ $userId }}"
-                                        style="font-size: 28px;">
+                                        style="font-size: 28px; color: #006FC9;">
                                         {{ $row['status_counts'][23] ?? 0 }}
                                     </div>
 
@@ -490,9 +492,9 @@
                                     data-user="{{ $userId }}"
                                     data-type="30">
 
-                                    <div class="stat-value text-primary"
+                                    <div class="stat-value"
                                         id="count30_{{ $userId }}"
-                                        style="font-size: 28px;">
+                                        style="font-size: 28px; color: #6610f2;">
                                         {{ $row['status_counts'][30] ?? 0 }}
                                     </div>
 

@@ -3,8 +3,9 @@
         <div class="m-header">
             <a href="{{ route('dashboard') }}" class="b-brand">
                 <!-- Logo -->
-                <img src="{{ asset('/crm-assets/assets/images/logo/logo-wts.webp') }}" alt="Full Logo" class="logo logo-lg" style="max-height: 50px;">
-                <img src="{{ asset('/crm-assets/assets/images/logo/wts.webp') }}" alt="Small Logo" class="logo logo-sm">
+                <img src="{{ asset('/images/WARR LOGO.webp') }}" alt="Full Logo" class="logo logo-lg"
+                    style="max-height: 50px;">
+                <img src="{{ asset('/images/image copy.png') }}" alt="Small Logo" class="logo logo-sm">
             </a>
         </div>
 
@@ -20,15 +21,16 @@
 
 @php
     // 🔁 Recursive function to render unlimited levels
-    function renderMenu($menu) {
+    function renderMenu($menu)
+    {
         $hasChildren = $menu->children && $menu->children->count();
-        $html = '<li class="nxl-item '.($hasChildren ? 'nxl-hasmenu' : '').'">';
+        $html = '<li class="nxl-item ' . ($hasChildren ? 'nxl-hasmenu' : '') . '">';
 
-        $html .= '<a href="'.($menu->route ? route($menu->route->route_name) : 'javascript:void(0);').'" class="nxl-link">';
+        $html .= '<a href="' . ($menu->route ? route($menu->route->route_name) : 'javascript:void(0);') . '" class="nxl-link">';
         if ($menu->icon) {
-            $html .= '<span class="nxl-micon"><i class="'.$menu->icon.'"></i></span>';
+            $html .= '<span class="nxl-micon"><i class="' . $menu->icon . '"></i></span>';
         }
-        $html .= '<span class="nxl-mtext">'.$menu->title.'</span>';
+        $html .= '<span class="nxl-mtext">' . $menu->title . '</span>';
         if ($hasChildren) {
             $html .= '<span class="nxl-arrow"><i class="feather-chevron-right"></i></span>';
         }

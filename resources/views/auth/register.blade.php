@@ -8,7 +8,7 @@
             <form class="form" method="POST" action="{{ route('register') }}">
                 @csrf
 
-                <div style="height: 60px; width: 190px"><img src="/images/logo-wts.png" alt=""></div>
+                <div style="height: 60px; width: 190px"><img src="/images/WARR LOGO.webp" alt=""></div>
                 <span class="header">Create Account</span>
 
                 <!-- Name -->
@@ -52,14 +52,14 @@
     <script>
         // --------- NAME VALIDATION (letters + numbers + spaces) ---------
         const regName = document.querySelector("input[name='name']");
-    
+
         if (regName) {
             regName.setAttribute("maxlength", "30");
-    
+
             ["paste", "copy", "cut"].forEach(evt => {
                 regName.addEventListener(evt, e => e.preventDefault());
             });
-    
+
             regName.addEventListener("input", function () {
                 this.value = this.value
                     .replace(/[^a-zA-Z0-9 ]/g, '')   // only letters + numbers + spaces
@@ -68,42 +68,42 @@
                     .slice(0, 30);
             });
         }
-    
-    
+
+
         // --------- EMAIL VALIDATION (safe only) ---------
         const regEmail = document.querySelector("input[name='email']");
-    
+
         if (regEmail) {
             ["paste"].forEach(evt => {
                 regEmail.addEventListener(evt, e => e.preventDefault());
             });
-    
+
             regEmail.addEventListener("input", function () {
                 this.value = this.value
                     .replace(/[^a-zA-Z0-9@._\-]/g, '')   // only safe email chars
                     .trim();
             });
         }
-    
-    
+
+
         // --------- PASSWORD PREVENTION ---------
         const regPass = document.querySelector("input[name='password']");
         const regPass2 = document.querySelector("input[name='password_confirmation']");
-    
+
         function preventBadPassword(input) {
             input.addEventListener("input", function () {
                 this.value = this.value
                     .replace(/\s/g, '')   // no spaces in password
                     .replace(/<|>|script|{|}|\\/gi, '');
             });
-    
+
             input.addEventListener("paste", e => e.preventDefault());
         }
-    
+
         if (regPass) preventBadPassword(regPass);
         if (regPass2) preventBadPassword(regPass2);
-    
-    
+
+
         // --------- CLEAN EMPTY SPACES ON PAGE LOAD ---------
         document.addEventListener("DOMContentLoaded", function () {
             if (regName && regName.value.trim() === "") regName.value = "";

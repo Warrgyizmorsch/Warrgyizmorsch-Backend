@@ -12,10 +12,10 @@
   <meta name="keywords" content="">
   <meta name="author" content="theme_ocean">
 
-  <title>@yield('title', 'WTS || CRM')</title>
+  <title>@yield('title', 'Warrgyizmorsch || CRM')</title>
 
   {{-- Favicon --}}
-  <link rel="shortcut icon" type="image/x-icon" href="{{ asset('images/favicon.png') }}">
+  <link rel="shortcut icon" type="image/x-icon" href="{{ asset('images/image.png') }}">
 
   {{-- Vendors CSS --}}
   <link rel="stylesheet" href="{{ asset('crm-assets/assets/css/bootstrap.min.css') }}">
@@ -58,7 +58,7 @@
     }
 
     .btn-edit {
-      color: #3490dc;
+      color: #006FC9;
       background: none;
       border: none;
       font-weight: 500;
@@ -76,7 +76,7 @@
     .btn-history {
       background: none;
       border: none;
-      color: orange;
+      color: #006FC9;
       font-weight: 500;
       cursor: pointer;
     }
@@ -85,6 +85,63 @@
       border-radius: 8px;
       font-size: 13px;
       padding: 6px 12px;
+    }
+
+    /* Brand Color Styles */
+    .bg-brand {
+      background-color: #006FC9 !important;
+      color: #ffffff !important;
+    }
+
+    .btn-brand {
+      background-color: #006FC9 !important;
+      border-color: #006FC9 !important;
+      color: #ffffff !important;
+    }
+
+    .btn-brand:hover {
+      background-color: #00569e !important;
+      border-color: #00569e !important;
+      color: #ffffff !important;
+    }
+
+    .text-brand {
+      color: #006FC9 !important;
+    }
+
+    .bg-soft-brand {
+      background-color: rgba(0, 111, 201, 0.1) !important;
+      color: #006FC9 !important;
+    }
+
+    /* Override for existing blue when clashing with brand blue */
+    .btn-primary {
+      background-color: #006FC9 !important;
+      border-color: #006FC9 !important;
+      color: #ffffff !important;
+    }
+
+    .btn-primary:hover {
+      background-color: #00569e !important;
+      border-color: #00569e !important;
+    }
+
+    .btn-light-brand {
+      background-color: rgba(0, 111, 201, 0.1) !important;
+      color: #006FC9 !important;
+      border: none !important;
+    }
+
+    .btn-light-brand:hover {
+      background-color: rgba(0, 111, 201, 0.2) !important;
+      color: #006FC9 !important;
+    }
+    
+    /* If both are together, we might want to differentiate primary further */
+    .btn-primary-alt {
+      background-color: #6610f2 !important; /* Indigo */
+      border-color: #6610f2 !important;
+      color: #fff !important;
     }
 
     th,
@@ -102,6 +159,16 @@
       .crm-page-container {
         padding: 20px 15px;
       }
+    }
+
+    /* Prevent logo color inversion in dark mode */
+    html.app-skin-dark .nxl-navigation .m-header .logo-lg,
+    html.app-navigation-dark .nxl-navigation .m-header .logo-lg,
+    html.app-header-dark .nxl-navigation .m-header .logo-lg,
+    html.app-skin-dark .nxl-navigation .m-header .logo-sm,
+    html.app-navigation-dark .nxl-navigation .m-header .logo-sm,
+    html.app-header-dark .nxl-navigation .m-header .logo-sm {
+      filter: none !important;
     }
   </style>
 </head>

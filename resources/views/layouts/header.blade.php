@@ -32,7 +32,7 @@
                 @endphp
 
                 <div class="d-flex align-items-center bg-light text-dark px-3 py-2 rounded border">
-                    <i class="fas fa-clock text-primary me-2"></i>
+                    <i class="fas fa-clock text-brand me-2"></i>
                     <span id="activeWorkTimer" class="fw-bold fs-5">00:00:00</span>
                     <span id="timerStatus" class="badge bg-success ms-3">Active</span>
                 </div>
@@ -125,7 +125,7 @@
                             @forelse($pendingNotifications ?? [] as $notification)
                             <div class="notifications-item d-flex p-3 border-bottom hover-bg-light">
                                 <div class="rounded me-3 border bg-light d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;">
-                                    <i class="feather-user text-primary fs-5"></i>
+                                    <i class="feather-user text-brand fs-5"></i>
                                 </div>
 
                                 <div class="notifications-desc flex-grow-1">
@@ -319,7 +319,7 @@
                 }
 
                 if (!isUserActive) {
-                    updateUIStatus("Paused", "badge bg-warning ms-3");
+                    updateUIStatus("Paused", "badge bg-brand ms-3");
                     return;
                 }
 

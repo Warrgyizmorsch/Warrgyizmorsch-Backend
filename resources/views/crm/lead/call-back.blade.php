@@ -28,7 +28,7 @@
                     </p>
 
                     @if($message->next_followup_date)
-                        <div class="p-2 mb-3 rounded-1" style="background-color: #fef5e7; border-left: 3px solid #f47b20; font-size: 13px;">
+                        <div class="p-2 mb-3 rounded-1" style="background-color: #e6f0ff; border-left: 3px solid #006FC9; font-size: 13px;">
                             <span class="text-dark">Follow-up: {{ \Carbon\Carbon::parse($message->next_followup_date)->format('d M y, h:i A') }}</span>
                         </div>
                     @endif

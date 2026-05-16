@@ -23,20 +23,20 @@ $gray-900: #212529;
 $black: #000000;
 
 // fusv-enable
-$blue: #3454d1;
+$blue: #6610f2; /* Changed from #3454d1 to Indigo to distinguish from brand blue */
 $indigo: #6610f2;
 $purple: #6f42c1;
 $pink: #e83e8c;
 $red: #ea4d4d;
-$orange: #fd7e14;
-$yellow: #ffa21d;
+$orange: #f47b20;
+$yellow: #ffc107;
 $green: #17c666;
 $teal: #41b2c4;
 $cyan: #3dc7be;
 $white: #ffffff;
 $secondary: #727981;
 $success: #25b865;
-$warning: #e49e3d;
+$warning: #ffc107;
 $info: #02a0e4;
 $danger: #d13b4c;
 $dark: #283c50; // new added
@@ -48,7 +48,7 @@ $body-color: #4b5563;
 $text-muted: #64748b;
 
 // Colors Map
-$primary: $blue;
+$primary: #006FC9; /* Brand Blue */
 $secondary: $gray-600;
 $success: $green;
 $info: $cyan;

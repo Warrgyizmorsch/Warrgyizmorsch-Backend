@@ -17,7 +17,7 @@
         }
 
         .action-links .btn-edit i {
-            color: #0d6efd;
+            color: #006FC9;
         }
 
         .action-links .btn-delete i {

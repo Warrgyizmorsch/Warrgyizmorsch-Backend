@@ -29,16 +29,16 @@ Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
 Route::get('/get-leads-by-type', [LeadController::class, 'getLeadsByType'])
     ->name('get.leads.by.type');
 
-Route::get('/get-user-report-data',[LeadController::class, 'getUserReportData'])->name('get.user.report.data');
+Route::get('/get-user-report-data', [LeadController::class, 'getUserReportData'])->name('get.user.report.data');
 
 Route::get('/get-lead-transitions', [LeadController::class, 'getLeadTransitions'])
     ->name('get.lead.transitions');
 
 Route::post('/lead/bulk-owner-update', [LeadController::class, 'bulkOwnerUpdate'])
-    ->name('lead.bulkOwnerUpdate');  
-    
-    
-    Route::prefix('categories')->group(function () {
+    ->name('lead.bulkOwnerUpdate');
+
+
+Route::prefix('categories')->group(function () {
 
     Route::get('/', [CategoryController::class, 'index'])
         ->name('category.index');

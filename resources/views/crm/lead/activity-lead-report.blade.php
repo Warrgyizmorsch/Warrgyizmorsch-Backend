@@ -210,7 +210,7 @@ $isAllActive = !request()->has('bucket_id') && !request()->has('has_followups');
 
                                         {{-- Message --}}
                                         @if($cb->message)
-                                        <div><i class="fas fa-comment-dots text-warning me-1"></i> <strong>Message:</strong> {{ $cb->message }}</div>
+                                        <div><i class="fas fa-comment-dots me-1" style="color: #006FC9;"></i> <strong>Message:</strong> {{ $cb->message }}</div>
                                         @endif
 
                                         {{-- Lead Engagement --}}
@@ -230,7 +230,7 @@ $isAllActive = !request()->has('bucket_id') && !request()->has('has_followups');
 
                                         {{-- Next Followup Date --}}
                                         @if(!empty($cb->next_followup_date))
-                                        <div class="text-warning">
+                                        <div style="color: #006FC9;">
                                             <i class="fas fa-clock me-1"></i>
                                             <strong>Next Followup:</strong>
                                             {{ \Carbon\Carbon::parse($cb->next_followup_date)->format('d M Y, h:i A') }}

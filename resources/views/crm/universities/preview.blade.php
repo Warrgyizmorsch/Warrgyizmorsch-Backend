@@ -82,7 +82,7 @@
                                 <div class="card text-center shadow-sm">
                                     <div class="card-body">
                                         <h5 class="card-title">Global Diversity</h5>
-                                        <h3 class="text-warning">{{ $detail->global_diversity }}</h3>
+                                        <h3 style="color: #006FC9;">{{ $detail->global_diversity }}</h3>
                                     </div>
                                 </div>
                             </div>
@@ -300,13 +300,13 @@
         }
 
         .nav-tabs .nav-link:hover {
-            border-top-color: #007bff;
-            color: #007bff;
+            border-top-color: #006FC9;
+            color: #006FC9;
         }
 
         .nav-tabs .nav-link.active {
-            border-top-color: #007bff;
-            color: #007bff;
+            border-top-color: #006FC9;
+            color: #006FC9;
             background-color: transparent;
             border-bottom: none;
         }

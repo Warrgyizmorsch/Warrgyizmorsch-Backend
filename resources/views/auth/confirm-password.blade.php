@@ -8,7 +8,7 @@
             <form method="POST" action="{{ route('password.confirm') }}" class="form">
                 @csrf
 
-                <div style="height: 60px; width: 190px"><img src="/images/logo-wts.png" alt="Logo"></div>
+                <div style="height: 60px; width: 190px"><img src="/images/WARR LOGO.webp" alt="Logo"></div>
                 <span class="header">Confirm Password</span>
 
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">

@@ -163,7 +163,7 @@
                                         @endpush
 
                                         <td class="text-center d-flex justify-content-center gap-2 flex-wrap">
-                                            <button class="btn btn-sm btn-warning edit-btn" data-id="{{ $s->id }}"
+                                            <button class="btn btn-sm btn-brand edit-btn" data-id="{{ $s->id }}"
                                                 data-name="{{ $s->source_name }}" data-description="{{ $s->description }}"
                                                 data-status="{{ $s->is_active }}">
                                                 <i class="feather-edit"></i>
