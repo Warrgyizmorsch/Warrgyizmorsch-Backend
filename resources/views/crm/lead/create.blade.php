@@ -209,6 +209,22 @@ if ($lead->platform && !in_array($lead->platform, $sources)) {
                                     @enderror
                                 </div>
 
+                                <!-- Category -->
+                                <div class="col-lg-4 mb-4">
+                                    <label class="form-label">Category</label>
+                                    <select name="category_id" class="form-control" data-select2-selector="tag">
+                                        <option value="">Select Category</option>
+                                        @foreach($categories as $category)
+                                            <option value="{{ $category->id }}" {{ old('category_id', $lead->category_id) == $category->id ? 'selected' : '' }}>
+                                                {{ $category->category_name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('category_id')
+                                        <small class="text-danger">{{ $message }}</small>
+                                    @enderror
+                                </div>
+
                                 <!-- Budget -->
                                 <div class="col-lg-4 mb-4">
                                     <label class="form-label">Budget</label>

@@ -33,10 +33,10 @@ class NewleadController extends Controller
             'latestAssignHistory',
             'category',
         ])->withCount([
-            'messages as call_followup_count' => function ($q) {
-                $q->where('followup_type', 'Call');
-            }
-        ]);
+                    'messages as call_followup_count' => function ($q) {
+                        $q->where('followup_type', 'Call');
+                    }
+                ]);
 
         // 2. Role-based restrictions
         if (auth()->check() && auth()->user()->role_id == 3) {
@@ -73,8 +73,10 @@ class NewleadController extends Controller
         }
 
         // Other Filters
-        if ($request->filled('source'))  $query->where('platform', 'like', "%{$request->source}%");
-        if ($request->filled('status')) $query->where('lead_status', $request->status);
+        if ($request->filled('source'))
+            $query->where('platform', 'like', "%{$request->source}%");
+        if ($request->filled('status'))
+            $query->where('lead_status', $request->status);
         if ($request->filled('owner_id')) {
 
             if ($request->owner_id === 'null') {
@@ -105,9 +107,12 @@ class NewleadController extends Controller
                 ->whereNotIn('lead_bucket_id', $mainBucketIds);
         }
 
-        if ($request->filled('country')) $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
-        if ($request->filled('course')) $query->where('what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
-        if ($request->filled('bucket_id')) $query->where('lead_bucket_id', $request->bucket_id);
+        if ($request->filled('country'))
+            $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
+        if ($request->filled('course'))
+            $query->where('what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
+        if ($request->filled('bucket_id'))
+            $query->where('lead_bucket_id', $request->bucket_id);
         if ($request->filled('bucket_id') && $request->filled('lead_status')) {
 
             $query->where('lead_bucket_id', $request->bucket_id)
@@ -118,9 +123,12 @@ class NewleadController extends Controller
             $query->where('category_id', $request->category_id);
         }
 
-        if ($request->filled('campaign_name')) $query->where('campaign_name', 'like', "%{$request->campaign_name}%");
-        if ($request->filled('adset_name')) $query->where('adset_name', 'like', "%{$request->adset_name}%");
-        if ($request->filled('ad_name')) $query->where('ad_name', 'like', "%{$request->ad_name}%");
+        if ($request->filled('campaign_name'))
+            $query->where('campaign_name', 'like', "%{$request->campaign_name}%");
+        if ($request->filled('adset_name'))
+            $query->where('adset_name', 'like', "%{$request->adset_name}%");
+        if ($request->filled('ad_name'))
+            $query->where('ad_name', 'like', "%{$request->ad_name}%");
         if ($request->filled('has_followups')) {
 
             $today = \Carbon\Carbon::today();
@@ -187,11 +195,13 @@ class NewleadController extends Controller
         ];
         $buckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
-            ->withCount(['leads' => function ($q) {
-                if (auth()->check() && auth()->user()->role_id == 3) {
-                    $q->where('lead_owner', auth()->id());
+            ->withCount([
+                'leads' => function ($q) {
+                    if (auth()->check() && auth()->user()->role_id == 3) {
+                        $q->where('lead_owner', auth()->id());
+                    }
                 }
-            }])
+            ])
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
             ->get();
 
@@ -220,11 +230,13 @@ class NewleadController extends Controller
             $filterBucket = Bucket::where('id', $request->bucket_id)
                 ->whereNull('parent_id')
                 ->where('is_deleted', 0)
-                ->withCount(['leads' => function ($q) {
-                    if (auth()->check() && auth()->user()->role_id == 3) {
-                        $q->where('lead_owner', auth()->id());
+                ->withCount([
+                    'leads' => function ($q) {
+                        if (auth()->check() && auth()->user()->role_id == 3) {
+                            $q->where('lead_owner', auth()->id());
+                        }
                     }
-                }])
+                ])
                 ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
                 ->get();
         } else {
@@ -233,22 +245,26 @@ class NewleadController extends Controller
 
             $filterBucket = Bucket::whereNull('parent_id')
                 ->where('is_deleted', 0)
-                ->withCount(['leads' => function ($q) {
-                    if (auth()->check() && auth()->user()->role_id == 3) {
-                        $q->where('lead_owner', auth()->id());
+                ->withCount([
+                    'leads' => function ($q) {
+                        if (auth()->check() && auth()->user()->role_id == 3) {
+                            $q->where('lead_owner', auth()->id());
+                        }
                     }
-                }])
+                ])
                 ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
                 ->get();
         }
 
         $mainbuckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
-            ->withCount(['leads' => function ($q) {
-                if (auth()->check() && auth()->user()->role_id == 3) {
-                    $q->where('lead_owner', auth()->id());
+            ->withCount([
+                'leads' => function ($q) {
+                    if (auth()->check() && auth()->user()->role_id == 3) {
+                        $q->where('lead_owner', auth()->id());
+                    }
                 }
-            }])
+            ])
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
             ->get();
 
@@ -326,7 +342,7 @@ class NewleadController extends Controller
             'status' => $request->lead_status,
             'bucket' => $bucketName,
             'lead_engagement_status' => $request->lead_engagement_status,
-            'followup_type' =>  $request->followup_type,
+            'followup_type' => $request->followup_type,
             'followup_status' => $request->followup_status ?? null,
             'created_by' => auth()->user()->id,
             'next_followup_date' => $request->next_followup_date

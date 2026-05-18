@@ -128,21 +128,21 @@
             @endif
 
             <!-- @if($childBuckets->count())
-            @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
+                                @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
 
-            @php
-            $isActive = request('lead_status') == $bucket->name;
-            @endphp
+                                @php
+                                $isActive = request('lead_status') == $bucket->name;
+                                @endphp
 
-            <a href="?bucket_id={{ request('bucket_id') }}&lead_status={{ urlencode($bucket->name) }}"
-                class="{{ $isActive ? 'btn text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap" style="background-color: #006FC9;">
+                                <a href="?bucket_id={{ request('bucket_id') }}&lead_status={{ urlencode($bucket->name) }}"
+                                    class="{{ $isActive ? 'btn text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap" style="background-color: #006FC9;">
 
-                {{ $bucket->name }} ({{ $bucket->leads_count }})
+                                    {{ $bucket->name }} ({{ $bucket->leads_count }})
 
-            </a>
+                                </a>
 
-            @endforeach
-            @endif -->
+                                @endforeach
+                                @endif -->
             @php
                 $isDeletedActive = request('deleted_leads') == 1;
             @endphp
@@ -291,14 +291,14 @@
 
                 </a>
                 <!-- <form id="bulkDeleteForm" method="POST" action="{{ route('leads.bulkDelete') }}">
-                        @csrf
+                                            @csrf
 
-                        <input type="hidden" name="ids" id="deleteIds">
+                                            <input type="hidden" name="ids" id="deleteIds">
 
-                        <button type="submit" class="text-brand border-0 bg-transparent p-0" id="bulkDeleteBtn">
-                            <i class="fas fa-trash fs-5"></i>
-                        </button>
-                    </form> -->
+                                            <button type="submit" class="text-brand border-0 bg-transparent p-0" id="bulkDeleteBtn">
+                                                <i class="fas fa-trash fs-5"></i>
+                                            </button>
+                                        </form> -->
 
             </div>
         </div>
@@ -342,13 +342,13 @@
                                     $color = $bucketColors[$currentBucket] ?? '#6c757d'; // default gray
                                 @endphp
                                 <div class="rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="
-                                                width: 45px;
-                                                height: 45px;
-                                                background: conic-gradient(
-                                                    {{ $color }} {{ $percentage }}%, 
-                                                    #e9ecef {{ $percentage }}%
-                                                );
-                                            ">
+                                                                                        width: 45px;
+                                                                                        height: 45px;
+                                                                                        background: conic-gradient(
+                                                                                            {{ $color }} {{ $percentage }}%, 
+                                                                                            #e9ecef {{ $percentage }}%
+                                                                                        );
+                                                                                    ">
                                     <div class="rounded-circle bg-white d-flex justify-content-center align-items-center"
                                         style="width: 35px; height: 35px;">
                                         <span class="fs-12 fw-bold text-dark">{{ $percentage }}%</span>
@@ -357,8 +357,8 @@
                             </div>
                             <div class="d-flex align-items-start">
                                 <!-- <div class="form-check mt-1">
-                                        <input type="checkbox" class="form-check-input" value="{{ $lead->id }}" id="checkLead{{ $lead->id }}">
-                                    </div> -->
+                                                                                <input type="checkbox" class="form-check-input" value="{{ $lead->id }}" id="checkLead{{ $lead->id }}">
+                                                                            </div> -->
                                 @php
                                     $engStatus = strtolower($lead->lead_engagement_status ?? 'n/a');
                                     $badgeClass = 'bg-soft-secondary text-secondary';
@@ -406,11 +406,25 @@
                                     </div>
                                     <small
                                         class="text-muted d-block mt-1">{{ optional($lead->user)->contact_no ?? 'N/A' }}</small>
-                                    <div class="badge {{ $badgeClass }}  fw-semibold px-2 py-1 text-capitalize"
-                                        style="font-size: 14px;">
-                                        {{ $engStatus }}
+                                    <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                                        <div class="badge {{ $badgeClass }} fw-semibold px-2 py-1 text-capitalize"
+                                            style="font-size: 13px;">
+                                            {{ $engStatus }}
+                                        </div>
+                                        @php $catModel = $lead->relationLoaded('category') ? $lead->getRelation('category') : null; @endphp
+                                        @if($catModel)
+                                            <span class="badge fw-semibold px-2 py-1 text-capitalize"
+                                                style="font-size: 13px; background-color: rgba(0, 111, 201, 0.1); color: #006FC9; border: 1px solid rgba(0, 111, 201, 0.2);">
+                                                {{ $catModel->category_name }}
+                                            </span>
+                                        @else
+                                            <span class="badge fw-semibold px-2 py-1 text-capitalize text-muted"
+                                                style="font-size: 13px; background-color: rgba(108, 117, 125, 0.08); color: #6c757d; border: 1px solid rgba(108, 117, 125, 0.15);">
+                                                No Category
+                                            </span>
+                                        @endif
                                     </div>
-                                    <div>
+                                    <div class="mt-1">
                                         <small class="" style="font-size: .815em; line-height: 0.8;">Create On</small>
                                         <span class="text-muted  fw-semibold"
                                             style="font-size:.815em; line-height: 0.8;">{{ \Carbon\Carbon::parse($lead->created_at)->format('d M Y h:i A') }}</span>
@@ -618,7 +632,8 @@
                                         </div>
                                         <div class="d-none d-sm-block">
                                             <div class="fw-bold d-flex align-items-center">
-                                                {{ optional($lead->user)->name ?? 'User' }}</div>
+                                                {{ optional($lead->user)->name ?? 'User' }}
+                                            </div>
                                             <div class="d-flex align-items-center mt-1">
                                                 <span class="wd-7 ht-7 rounded-circle opacity-75 me-2 bg-success"></span>
                                                 <span
@@ -818,7 +833,7 @@
                                     <label class="form-label fw-semibold">Message</label>
                                     <textarea class="form-control flex-grow-1" rows="12" placeholder="Type your message...">
 
-                                        </textarea>
+                                                                                </textarea>
                                     <small class="text-muted mt-1 text-end">0/160</small>
                                 </div>
 
@@ -1090,6 +1105,7 @@
 
                                     <div class="tab-pane fade show active" id="personal-{{ $lead->id }}" role="tabpanel">
                                         <div class="row g-4">
+
                                             @if(!empty($lead->category))
                                                 <div class="col-md-3 col-sm-6">
                                                     <small class="text-muted text-uppercase d-block mb-1"
@@ -2364,8 +2380,8 @@
                             res.children.forEach(function (child) {
                                 statusSelect.append(
                                     `<option value="${child.name}" data-bg="${child.color}">
-                                ${child.name}
-                            </option>`
+                                                                        ${child.name}
+                                                                    </option>`
                                 );
                             });
 

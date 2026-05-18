@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\LeadHistory;
 use App\Models\LeadAttribute;
 use App\Models\LeadSource;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -227,7 +228,10 @@ class LeadController extends Controller
         // Dynamic lead sources
         $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
 
-        return view('crm.lead.create', compact('lead', 'buckets', 'sources', 'owners'));
+        // Active Categories
+        $categories = Category::where('is_active', 1)->get();
+
+        return view('crm.lead.create', compact('lead', 'buckets', 'sources', 'owners', 'categories'));
     }
 
 
@@ -341,7 +345,10 @@ class LeadController extends Controller
             ];
         });
 
-        return view('crm.lead.create', compact('lead', 'buckets', 'owners', 'sources', 'mergedAttributes'));
+        // Active Categories
+        $categories = Category::where('is_active', 1)->get();
+
+        return view('crm.lead.create', compact('lead', 'buckets', 'owners', 'sources', 'mergedAttributes', 'categories'));
     }
 
     public function update(Request $request, Leads $lead)

@@ -645,11 +645,25 @@ $exportColumns = [
                                             <td class="bg-white">
                                                 <!-- {{ $lead->id ?? 'N/A' }} -->
                                                 <div>
-                                                    <h6 class="mb-0 fw-semibold">
-                                                        Lead #{{ $lead->id }}
-                                                    </h6>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <h6 class="mb-0 fw-semibold">
+                                                            Lead #{{ $lead->id }}
+                                                        </h6>
+@php $catModel = $lead->relationLoaded('category') ? $lead->getRelation('category') : null; @endphp
+@if($catModel)
+    <span class="badge fw-semibold px-2 py-0.5 text-capitalize"
+        style="font-size: 11px; background-color: rgba(0, 111, 201, 0.1); color: #006FC9; border: 1px solid rgba(0, 111, 201, 0.2); line-height: 1.2;">
+        {{ $catModel->category_name }}
+    </span>
+@else
+    <span class="badge fw-semibold px-2 py-0.5 text-capitalize text-muted"
+        style="font-size: 11px; background-color: rgba(108, 117, 125, 0.08); color: #6c757d; border: 1px solid rgba(108, 117, 125, 0.15); line-height: 1.2;">
+        No Category
+    </span>
+@endif
+                                                    </div>
 
-                                                    <small class="text-muted d-block">
+                                                    <small class="text-muted d-block mt-1">
                                                         {{ $lead->user->name ?? 'N/A' }}
                                                     </small>
 
