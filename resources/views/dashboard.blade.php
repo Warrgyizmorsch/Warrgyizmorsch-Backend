@@ -506,7 +506,7 @@ $engagementItems = [
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">New Leads by Month</h5>
 
-                        @if(auth()->user()->role_id === 1 && count($monthlyChartData) > 1)
+                       @if(auth()->user()->role_id === 1 && collect($monthlyChartData)->count() > 1)
                         <select id="monthlyUserSelect" class="form-select form-select-sm w-auto">
                             @foreach($monthlyChartData as $index => $item)
                             <option value="{{ $index }}" {{ $index === 0 ? 'selected' : '' }}>
