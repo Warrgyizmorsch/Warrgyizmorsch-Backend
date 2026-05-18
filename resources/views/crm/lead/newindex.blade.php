@@ -128,21 +128,21 @@
             @endif
 
             <!-- @if($childBuckets->count())
-                                @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
+                                        @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
 
-                                @php
-                                $isActive = request('lead_status') == $bucket->name;
-                                @endphp
+                                        @php
+                                        $isActive = request('lead_status') == $bucket->name;
+                                        @endphp
 
-                                <a href="?bucket_id={{ request('bucket_id') }}&lead_status={{ urlencode($bucket->name) }}"
-                                    class="{{ $isActive ? 'btn text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap" style="background-color: #006FC9;">
+                                        <a href="?bucket_id={{ request('bucket_id') }}&lead_status={{ urlencode($bucket->name) }}"
+                                            class="{{ $isActive ? 'btn text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap" style="background-color: #006FC9;">
 
-                                    {{ $bucket->name }} ({{ $bucket->leads_count }})
+                                            {{ $bucket->name }} ({{ $bucket->leads_count }})
 
-                                </a>
+                                        </a>
 
-                                @endforeach
-                                @endif -->
+                                        @endforeach
+                                        @endif -->
             @php
                 $isDeletedActive = request('deleted_leads') == 1;
             @endphp
@@ -291,14 +291,14 @@
 
                 </a>
                 <!-- <form id="bulkDeleteForm" method="POST" action="{{ route('leads.bulkDelete') }}">
-                                            @csrf
+                                                    @csrf
 
-                                            <input type="hidden" name="ids" id="deleteIds">
+                                                    <input type="hidden" name="ids" id="deleteIds">
 
-                                            <button type="submit" class="text-brand border-0 bg-transparent p-0" id="bulkDeleteBtn">
-                                                <i class="fas fa-trash fs-5"></i>
-                                            </button>
-                                        </form> -->
+                                                    <button type="submit" class="text-brand border-0 bg-transparent p-0" id="bulkDeleteBtn">
+                                                        <i class="fas fa-trash fs-5"></i>
+                                                    </button>
+                                                </form> -->
 
             </div>
         </div>
@@ -342,13 +342,13 @@
                                     $color = $bucketColors[$currentBucket] ?? '#6c757d'; // default gray
                                 @endphp
                                 <div class="rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="
-                                                                                        width: 45px;
-                                                                                        height: 45px;
-                                                                                        background: conic-gradient(
-                                                                                            {{ $color }} {{ $percentage }}%, 
-                                                                                            #e9ecef {{ $percentage }}%
-                                                                                        );
-                                                                                    ">
+                                                                                                        width: 45px;
+                                                                                                        height: 45px;
+                                                                                                        background: conic-gradient(
+                                                                                                            {{ $color }} {{ $percentage }}%, 
+                                                                                                            #e9ecef {{ $percentage }}%
+                                                                                                        );
+                                                                                                    ">
                                     <div class="rounded-circle bg-white d-flex justify-content-center align-items-center"
                                         style="width: 35px; height: 35px;">
                                         <span class="fs-12 fw-bold text-dark">{{ $percentage }}%</span>
@@ -357,8 +357,8 @@
                             </div>
                             <div class="d-flex align-items-start">
                                 <!-- <div class="form-check mt-1">
-                                                                                <input type="checkbox" class="form-check-input" value="{{ $lead->id }}" id="checkLead{{ $lead->id }}">
-                                                                            </div> -->
+                                                                                                <input type="checkbox" class="form-check-input" value="{{ $lead->id }}" id="checkLead{{ $lead->id }}">
+                                                                                            </div> -->
                                 @php
                                     $engStatus = strtolower($lead->lead_engagement_status ?? 'n/a');
                                     $badgeClass = 'bg-soft-secondary text-secondary';
@@ -627,8 +627,8 @@
                                     <a href="javascript:void(0);" class="d-flex align-items-center justify-content-center gap-3"
                                         data-bs-toggle="offcanvas" data-bs-target="#userProfileDetails">
                                         <div class="avatar-image">
-                                            <img src="{{ $lead->user->image ? asset('storage/' . $lead->user->image) : '/images/blank.jpeg' }}"
-                                                class="img-fluid" alt="image">
+                                            <img
+                                                src="{{ $lead->user?->image ? asset('storage/' . $lead->user->image) : '/images/blank.jpeg' }}">
                                         </div>
                                         <div class="d-none d-sm-block">
                                             <div class="fw-bold d-flex align-items-center">
@@ -833,7 +833,7 @@
                                     <label class="form-label fw-semibold">Message</label>
                                     <textarea class="form-control flex-grow-1" rows="12" placeholder="Type your message...">
 
-                                                                                </textarea>
+                                                                                                </textarea>
                                     <small class="text-muted mt-1 text-end">0/160</small>
                                 </div>
 
@@ -2380,8 +2380,8 @@
                             res.children.forEach(function (child) {
                                 statusSelect.append(
                                     `<option value="${child.name}" data-bg="${child.color}">
-                                                                        ${child.name}
-                                                                    </option>`
+                                                                                        ${child.name}
+                                                                                    </option>`
                                 );
                             });
 
