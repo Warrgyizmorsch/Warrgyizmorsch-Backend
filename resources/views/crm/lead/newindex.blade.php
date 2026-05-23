@@ -148,7 +148,7 @@
             @endphp
 
             <a href="?deleted_leads=1"
-                class="{{ $isDeletedActive ? 'btn btn-dark text-white fw-bold px-4 py-2' : 'btn btn-soft-dark text-dark fw-semibold px-3 py-1' }} text-nowrap d-flex align-items-center gap-2 text-decoration-none">
+                class="d-none {{ $isDeletedActive ? 'btn btn-dark text-white fw-bold px-4 py-2' : 'btn btn-soft-dark text-dark fw-semibold px-3 py-1' }} text-nowrap align-items-center gap-2 text-decoration-none">
 
                 Old Leads ({{ $deletedLeadsCount }})
             </a>
@@ -372,7 +372,7 @@
                                         $badgeClass = 'bg-soft-dark text-dark';
                                     }
                                 @endphp
-                                <div style="width: 210px;">
+                                <div style="width: 280px;">
                                     <div class="d-flex align-items-center gap-2">
 
                                         <p class="mb-0 fw-bold text-dark">
@@ -433,7 +433,7 @@
                             </div>
 
                             {{-- EDIT STATUS AND ADD FOLLOW UP --}}
-                            <div class="flex" style="min-width: 150px;">
+                            <div class="flex" style="min-width: 190px;">
                                 <div class="d-inline-flex align-items-center justify-content-between bg-dark text-white rounded px-2 py-1 w-100"
                                     style="max-width: 160px; cursor:pointer;" data-bs-toggle="offcanvas"
                                     data-bs-target="#editStatusOffcanvas-{{ $lead->id }}">
@@ -511,20 +511,7 @@
                                 @endif
                             </div>
 
-                            {{-- EDIT COUNTRY OR INTAKE --}}
-                            <div class="flex" style="min-width: 150px;">
-                                <div class="d-inline-flex align-items-center justify-content-between bg-dark text-white rounded px-2 py-1 w-100"
-                                    style="max-width: 160px; cursor:pointer;" data-lead="{{ json_encode($lead ?? []) }}"
-                                    data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)">
 
-                                    <span class="fs-12 text-truncate">{{ $lead->applying_country_for_a_visa ?? 'N/A' }}</span>
-                                    <i class="fa-solid fa-pen-to-square text-secondary ms-2"></i>
-                                </div>
-
-                                <small class="text-muted d-block mt-1 text-truncate" style="max-width: 160px;">
-                                    {{ $lead->whats_your_preferred_intake ?? 'N/A' }}
-                                </small>
-                            </div>
                             <div style="margin: 0 auto;">
                                 <div class="d-flex flex-column justify-content-center align-items-center gap-2 text-center"
                                     style="min-width:100px;">
@@ -561,20 +548,7 @@
                                 </div>
                             </div>
                             <div>
-                                <div class="d-flex flex-wrap align-items-center  ms-auto fs-5" style="color: #006FC9;">
-                                    <div class="text-muted fs-14 me-2" title="Missed Calls">
-                                        <i class="fas fa-phone-slash" style="color: #006FC9;"></i>
-                                        {{$lead->call_followup_count ?? 0}}
-                                    </div>
-                                    <div class="text-muted fs-14 me-2" title="Messages">
-                                        <i class="far fa-comment-alt" style="color: #006FC9;"></i>
-                                        {{ $lead->messages ? $lead->messages->count() : 0 }}
-                                    </div>
-                                    <a href="tel:{{ optional($lead->user)->contact_no }}" class="me-2"
-                                        style="color: #006FC9;"><i class="fas fa-phone-alt"></i></a>
-                                    <a href="javascript:void(0);" class="open-callback me-2" style="color: #006FC9;"
-                                        data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}"><i
-                                            class="fas fa-comment-dots"></i></a>
+                                <div class="d-flex flex-wrap align-items-center ms-auto fs-5" style="color: #006FC9;">
                                     <a href="javascript:void(0);" class="open-whatsapp me-2" style="color: #006FC9;"
                                         data-bs-toggle="offcanvas" data-bs-target="#whatsappSent{{ $lead->id }}"><i
                                             class="fab fa-whatsapp fs-5"></i></a>
@@ -582,26 +556,45 @@
                                         data-bs-toggle="offcanvas" data-bs-target="#SMSSent{{ $lead->id }}"><i
                                             class="fa-solid fa-message"></i></a>
 
-                                    <a href="javascript:void(0);" class="me-2" style="color: #006FC9;" data-bs-toggle="modal"
-                                        data-bs-target="#composeMail">
-                                        <i class="fas fa-envelope"
-                                            onclick="openSingleEmail('{{ optional($lead->user)->email }}')"></i>
-                                    </a>
-
-
-                                    {{-- <a href="{{ route('lead.history', $lead->id) }}" class="text-secondary me-2"><i
-                                            class="fas fa-history"></i></a> --}}
-                                    <a href="javascript:void(0);" class="text-secondary" data-lead="{{ json_encode($lead) }}"
-                                        data-user="{{ json_encode($lead->user) }}" onclick="openEditModal(this)">
+                                    <a href="javascript:void(0);" class="text-secondary me-2" data-lead="{{ json_encode($lead ?? []) }}"
+                                        data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <!-- <a href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#todoOffcanvas-{{ $lead->id }}" class="text-secondary"><i class="fas fa-tasks"></i></a>  -->
 
-                                    <a class="text-dark p-1 collapsed me-2" data-bs-toggle="collapse"
-                                        href="#details-{{ $lead->id }}" role="button">
-                                        <i class="fas fa-chevron-down fs-6 p-2 rounded-circle border text-white"
-                                            style="background-color: #006FC9;"></i>
-                                    </a>
+                                    <div class="dropdown me-2">
+                                        <a class="text-secondary dropdown-toggle d-flex align-items-center" href="#" role="button" id="moreOptions{{ $lead->id }}" data-bs-toggle="dropdown" aria-expanded="false" style="color: #006FC9 !important;">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </a>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" aria-labelledby="moreOptions{{ $lead->id }}">
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center text-muted" href="javascript:void(0);" title="Missed Calls">
+                                                    <i class="fas fa-phone-slash me-2" style="color: #006FC9; width: 20px;"></i>
+                                                    {{$lead->call_followup_count ?? 0}} Missed Calls
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center text-muted" href="javascript:void(0);" title="Messages">
+                                                    <i class="far fa-comment-alt me-2" style="color: #006FC9; width: 20px;"></i>
+                                                    {{ $lead->messages ? $lead->messages->count() : 0 }} Messages
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center text-muted" href="tel:{{ optional($lead->user)->contact_no }}">
+                                                    <i class="fas fa-phone-alt me-2" style="color: #006FC9; width: 20px;"></i> Phone
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center text-muted open-callback" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}">
+                                                    <i class="fas fa-comment-dots me-2" style="color: #006FC9; width: 20px;"></i> Comments
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center text-muted" href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#composeMail" onclick="openSingleEmail('{{ optional($lead->user)->email }}')">
+                                                    <i class="fas fa-envelope me-2" style="color: #006FC9; width: 20px;"></i> Email
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                                 <div class="d-flex justify-content-between ">
                                     <div>
