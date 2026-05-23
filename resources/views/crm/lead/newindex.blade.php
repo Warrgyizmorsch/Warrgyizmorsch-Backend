@@ -34,7 +34,7 @@
 
         @media (min-width: 768px) {
             .card-width {
-                width: 20%;
+                width: 28%;
             }
         }
 
@@ -433,14 +433,14 @@
                             </div>
 
                             {{-- EDIT STATUS AND ADD FOLLOW UP --}}
-                            <div class="flex" style="min-width: 190px;">
-                                <div class="d-inline-flex align-items-center justify-content-between bg-dark text-white rounded px-2 py-1 w-100"
-                                    style="max-width: 160px; cursor:pointer;" data-bs-toggle="offcanvas"
+                            <div class="flex ms-2" style="min-width: 220px;">
+                                <div class="d-inline-flex align-items-center justify-content-between bg-dark text-white rounded px-2 py-2 w-100"
+                                    style="max-width: 190px; cursor:pointer;" data-bs-toggle="offcanvas"
                                     data-bs-target="#editStatusOffcanvas-{{ $lead->id }}">
                                     <span class="fs-12 text-truncate">{{ $lead->bucket->name ?? 'No Bucket' }}</span>
                                     <i class="fa-solid fa-pen-to-square text-secondary ms-2"></i>
                                 </div>
-                                <small class="text-muted d-block mt-1 text-truncate" style="max-width: 160px;">
+                                <small class="text-muted d-block mt-1 text-truncate" style="max-width: 190px;">
                                     {{ $lead->lead_status ?? 'No Status' }}
                                 </small>
                             </div>
@@ -452,7 +452,7 @@
                                 $isLong = strlen($message) > 80;
                             @endphp
 
-                            <div class="p-2 rounded-3 d-flex flex-column justify-content-between card-width"
+                            <div class="p-2 rounded-3 d-flex flex-column justify-content-between card-width mx-auto"
                                 style="{{$message ? 'background:#f3f4f6;' : ''}} ">
 
                                 @if($message || $followup)
@@ -512,7 +512,7 @@
                             </div>
 
 
-                            <div style="margin: 0 auto;">
+                            <div>
                                 <div class="d-flex flex-column justify-content-center align-items-center gap-2 text-center"
                                     style="min-width:100px;">
                                     @if($lead->owner)
