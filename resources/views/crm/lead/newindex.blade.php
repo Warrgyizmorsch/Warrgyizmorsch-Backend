@@ -595,6 +595,12 @@
                                             </li>
                                         </ul>
                                     </div>
+
+                                    <a class="text-dark p-1 collapsed me-2" data-bs-toggle="collapse"
+                                        href="#details-{{ $lead->id }}" role="button">
+                                        <i class="fas fa-chevron-down fs-6 p-2 rounded-circle border text-white"
+                                            style="background-color: #006FC9;"></i>
+                                    </a>
                                 </div>
                                 <div class="d-flex justify-content-between ">
                                     <div>
