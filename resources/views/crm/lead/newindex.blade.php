@@ -34,7 +34,7 @@
 
         @media (min-width: 768px) {
             .card-width {
-                width: 28%;
+                width: 24%;
             }
         }
 
@@ -452,7 +452,7 @@
                                 $isLong = strlen($message) > 80;
                             @endphp
 
-                            <div class="p-2 rounded-3 d-flex flex-column justify-content-between card-width mx-auto"
+                            <div class="p-2 rounded-3 d-flex flex-column justify-content-between card-width"
                                 style="{{$message ? 'background:#f3f4f6;' : ''}} ">
 
                                 @if($message || $followup)
@@ -512,7 +512,7 @@
                             </div>
 
 
-                            <div>
+                            <div style="margin: 0 auto;">
                                 <div class="d-flex flex-column justify-content-center align-items-center gap-2 text-center"
                                     style="min-width:100px;">
                                     @if($lead->owner)
