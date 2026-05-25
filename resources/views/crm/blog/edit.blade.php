@@ -83,7 +83,7 @@
                                     @if ($data['blog']->images)
                                         <img src="{{ asset($data['blog']->images) }}" alt="preview">
                                     @else
-                                        <img src="/images/blank.jpeg" alt="preview">
+                                        <img src="{{ asset('images/blank.jpeg') }}" alt="preview">
                                     @endif
                                 </div>
                                 <div>

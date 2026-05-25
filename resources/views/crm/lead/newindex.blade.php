@@ -537,7 +537,7 @@
                                     @else
                                         <div class="d-flex align-items-center gap-2 justify-content-center">
                                             <div class="avatar-image">
-                                                <img src="assets/images/avatar/1.png" alt="" class="img-fluid">
+                                                <img src="{{ asset('images/avatar/1.png') }}" alt="" class="img-fluid">
                                             </div>
                                             <div>
                                                 <a href="javascript:void(0);">Unknown</a>
@@ -627,7 +627,7 @@
                                         data-bs-toggle="offcanvas" data-bs-target="#userProfileDetails">
                                         <div class="avatar-image">
                                             <img
-                                                src="{{ $lead->user?->image ? asset('storage/' . $lead->user->image) : '/images/blank.jpeg' }}">
+                                                src="{{ $lead->user?->image ? asset('storage/' . $lead->user->image) : asset('images/blank.jpeg') }}">
                                         </div>
                                         <div class="d-none d-sm-block">
                                             <div class="fw-bold d-flex align-items-center">

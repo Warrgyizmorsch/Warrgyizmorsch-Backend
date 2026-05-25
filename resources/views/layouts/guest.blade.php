@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ $meta['title'] ?? '' }}</title>
-    <link rel="icon" type="image/png" href="/images/image.png">
+    <link rel="icon" type="image/png" href="{{ asset('images/image.png') }}">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">

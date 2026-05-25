@@ -127,7 +127,7 @@
                                         @if(!empty($blog->images))
                                             <img src="{{ asset($blog->images) }}" alt="thumb">
                                         @else
-                                            <img src="/images/blank.jpeg" alt="default_thumb" />
+                                            <img src="{{ asset('images/blank.jpeg') }}" alt="default_thumb" />
                                         @endif
                                     </div>
                                 </td>

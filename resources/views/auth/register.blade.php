@@ -8,7 +8,7 @@
             <form class="form" method="POST" action="{{ route('register') }}">
                 @csrf
 
-                <div style="height: 60px; width: 190px"><img src="/images/WARR LOGO.webp" alt=""></div>
+                <div style="height: 60px; width: 190px"><img src="{{ asset('images/WARR LOGO.webp') }}" alt="Logo"></div>
                 <span class="header">Create Account</span>
 
                 <!-- Name -->

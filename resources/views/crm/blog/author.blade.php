@@ -54,7 +54,7 @@
                             {{-- Photo Section --}}
                             <div class="text-center">
                                 <div class="image-preview" id="thumbPreview">
-                                    <img src="{{ isset($editAuthor) && $editAuthor->photo ? asset('storage/' . $editAuthor->photo) : '/images/blank.jpeg' }}" id="previewImg">
+                                    <img src="{{ isset($editAuthor) && $editAuthor->photo ? asset('storage/' . $editAuthor->photo) : asset('images/blank.jpeg') }}" id="previewImg">
                                 </div>
                                 <div class="mb-3">
                                     <label for="thumbInput" class="form-label btn btn-sm btn-light-primary border">
@@ -110,7 +110,7 @@
                                     <tr>
                                         <td class="ps-4">
                                             <div class="d-flex align-items-center gap-3">
-                                                <img src="{{ $author->photo ? asset('storage/' . $author->photo) : "/images/blank.jpeg" }}" alt="author">
+                                                <img src="{{ $author->photo ? asset('storage/' . $author->photo) : asset('images/blank.jpeg') }}" alt="author">
                                                 <div>
                                                     <div class="fw-bold text-dark">{{ $author->name }}</div>
                                                     <div class="small text-muted">ID: #{{ $author->id }}</div>

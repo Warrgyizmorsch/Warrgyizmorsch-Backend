@@ -33,7 +33,7 @@
                                             <img id="preview" src="{{ asset('storage/' . $user->image) }}"
                                                 alt="Profile Image">
                                         @else
-                                            <img id="preview" src="/images/blank.jpeg" alt="Profile Image">
+                                            <img id="preview" src="{{ asset('images/blank.jpeg') }}" alt="Profile Image">
                                         @endif
                                     </div>
                                     <label class="btn btn-outline-primary">

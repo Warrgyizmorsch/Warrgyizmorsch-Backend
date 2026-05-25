@@ -95,7 +95,7 @@
                                     @if($user->image)
                                     <img src="{{ asset('storage/' . $user->image) }}" alt="profile">
                                     @else
-                                    <img src="/images/blank.jpeg" alt="default_Img" />
+                                    <img src="{{ asset('images/blank.jpeg') }}" alt="default_Img" />
                                     @endif
                                 </div>
                             </td>

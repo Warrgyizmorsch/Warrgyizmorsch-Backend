@@ -79,7 +79,7 @@
                         <div class="col-lg-9">
                             <div class="d-flex align-items-center gap-3 flex-wrap">
                                 <div class="image-preview" id="thumbPreview">
-                                    <img src="/images/blank.jpeg" alt="preview">
+                                    <img src="{{ asset('images/blank.jpeg') }}" alt="preview">
                                 </div>
                                 <div>
                                     <label class="form-label mb-1">Upload image</label>
