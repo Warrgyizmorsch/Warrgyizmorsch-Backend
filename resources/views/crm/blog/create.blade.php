@@ -71,6 +71,7 @@
             <div class="card-body">
                 <form id="blogForm" action="{{ route('blog.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
+                    <input type="hidden" name="site" value="warrgyizmorsch">
 
                     {{-- Thumbnail --}}
                     <div class="row g-3 align-items-start mb-4">
@@ -90,19 +91,8 @@
                         </div>
                     </div>
 
-                    <!-- Site column -->
-                    <div class="row g-3 mb-4">
-                        <label class="col-lg-3 col-form-label fw-semibold">Website</label>
-                        <div class="col-lg-9">
-                            <select name="site" id="siteSelect" class="form-select">
-                                <option value="wts" selected>WTS</option>
-                                <option value="warrgyizmorsch">Warrgyizmorsch</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <!-- Category according to the site -->
-                    <div class="row g-3 mb-4" id="categoryRow" style="display:none;">
+                    <!-- Category for Warrgyizmorsch -->
+                    <div class="row g-3 mb-4" id="categoryRow">
                         <label class="col-lg-3 col-form-label fw-semibold">Category</label>
                         <div class="col-lg-9">
                             <select name="category" id="categorySelect" class="form-select">
@@ -119,7 +109,7 @@
                     </div>
 
                     <!-- Blog URL (only for Warrgyizmorsch) -->
-                    <div class="row g-3 mb-4" id="blogUrlRow" style="display:none;">
+                    <div class="row g-3 mb-4" id="blogUrlRow">
                         <label class="col-lg-3 col-form-label fw-semibold" for="blogUrl">Blog URL</label>
                         <div class="col-lg-9">
                             <div class="input-group">
@@ -127,7 +117,8 @@
                                 <input type="text" class="form-control" id="blogUrl" name="blogUrl"
                                     placeholder="Leave blank to auto-generate from title">
                             </div>
-                            <div class="form-text">Only for Warrgyizmorsch. If blank, slug will be created from Blog Title.</div>
+                            <div class="form-text">Only for Warrgyizmorsch. If blank, slug will be created from Blog Title.
+                            </div>
                         </div>
                     </div>
 
@@ -230,24 +221,26 @@
             </div>
         </div>
     </div>
-    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.js"></script>
-     <script>
-      $('#summernote').summernote({
-        placeholder: 'Hello stand alone ui',
-        tabsize: 2,
-        height: 120,
-        toolbar: [
-          ['style', ['style']],
-          ['font', ['bold', 'underline', 'clear']],
-          ['color', ['color']],
-          ['para', ['ul', 'ol', 'paragraph']],
-          ['table', ['table']],
-          ['insert', ['link', 'picture']],
-          ['view', ['codeview', 'help']]
-        ]
-      });
+    <script>
+        $('#summernote').summernote({
+            placeholder: 'Hello stand alone ui',
+            tabsize: 2,
+            height: 120,
+            toolbar: [
+                ['style', ['style']],
+                ['font', ['bold', 'underline', 'clear']],
+                ['color', ['color']],
+                ['para', ['ul', 'ol', 'paragraph']],
+                ['table', ['table']],
+                ['insert', ['link', 'picture']],
+                ['view', ['codeview', 'help']]
+            ]
+        });
     </script>
 
     <script>
@@ -266,7 +259,7 @@
             }
         })();
 
-        
+
 
         // FAQ add/remove + JSON pack on submit
         document.addEventListener("DOMContentLoaded", function () {
@@ -275,20 +268,20 @@
                 let wrapper = document.createElement("div");
                 wrapper.className = "faq-entry mb-3";
                 wrapper.innerHTML = `
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Question</label>
-                            <input type="text" class="form-control faq-question" required>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Question</label>
+                                <input type="text" class="form-control faq-question" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Answer</label>
+                                <textarea class="form-control faq-answer" rows="1" required></textarea>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-danger btn-sm remove-faq">Remove</button>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Answer</label>
-                            <textarea class="form-control faq-answer" rows="1" required></textarea>
-                        </div>
-                        <div class="col-12">
-                            <button type="button" class="btn btn-danger btn-sm remove-faq">Remove</button>
-                        </div>
-                    </div>
-                `;
+                    `;
                 container.appendChild(wrapper);
             }
 
@@ -311,31 +304,6 @@
             });
         });
 
-        // category dropdown and blog url dropdown for warrgyizmorsch
-        document.addEventListener("DOMContentLoaded", function () {
-                const siteSelect = document.getElementById("siteSelect");
-
-                const categoryRow = document.getElementById("categoryRow");
-                const categorySelect = document.getElementById("categorySelect");
-
-                const blogUrlRow = document.getElementById("blogUrlRow");
-                const blogUrlInput = document.getElementById("blogUrl");
-
-                function toggleWarrFields() {
-                    const isWarr = siteSelect.value === "warrgyizmorsch";
-
-                    // Category
-                    categoryRow.style.display = isWarr ? "flex" : "none";
-                    if (!isWarr) categorySelect.value = "";
-
-                    // ✅ Blog URL ALWAYS visible
-                    blogUrlRow.style.display = "flex";
-                }
-
-                if (siteSelect) {
-                    siteSelect.addEventListener("change", toggleWarrFields);
-                    toggleWarrFields();
-                }
-            });
+        // No site switcher here; blog module now only creates Warrgyizmorsch entries.
     </script>
 @endsection

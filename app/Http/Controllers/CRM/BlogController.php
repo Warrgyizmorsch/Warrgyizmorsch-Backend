@@ -15,7 +15,6 @@ class BlogController extends Controller
     {
         $title = $request->input('title');
         $type = $request->input('type');
-        $site = $request->input('site');
         $query = Blog::query();
 
         if ($title) {
@@ -30,12 +29,8 @@ class BlogController extends Controller
             $query->where('status', $request->status);
         }
 
-        if ($site === 'warrgyizmorsch') {
-            $query->where('site', 'warrgyizmorsch');
-        } else {
-            // DEFAULT → WTS only
-            $query->where('site', 'wts');
-        }
+        // Only show Warrgyizmorsch blog entries in the CRM module.
+        $query->where('site', 'warrgyizmorsch');
 
         $data['blog'] = $query
             ->orderBy('created_at', 'desc')
@@ -123,14 +118,14 @@ class BlogController extends Controller
             'blogContent' => 'required|string',
             'MetaTag' => 'required|string',
             'Metadescription' => 'required|string',
-            'site' => 'nullable|in:wts,warrgyizmorsch',
+            'site' => 'nullable|in:warrgyizmorsch',
             'photo' => 'nullable|mimes:jpeg,jpg,png,webp|max:5120',
             'blogUrl' => 'nullable|string|max:255|regex:/^[a-zA-Z0-9-]+$/',
             'author_image' => 'nullable|exists:author,id',
             'status' => 'nullable|in:draft,publish',
         ]);
 
-        $site = $request->input('site', 'wts');
+        $site = 'warrgyizmorsch';
 
         $allowedCategories = [
             "IT Services",
@@ -259,7 +254,7 @@ class BlogController extends Controller
             'blogContent' => 'required|string',
             'MetaTag' => 'required|string',
             'Metadescription' => 'required|string',
-            'site' => 'nullable|in:wts,warrgyizmorsch',
+            'site' => 'nullable|in:warrgyizmorsch',
             'photo' => 'nullable|mimes:jpeg,jpg,png,webp|max:5120',
             'category' => 'nullable|string',
             'blogUrl' => 'nullable|string|max:255|regex:/^[a-zA-Z0-9-]+$/',
@@ -268,7 +263,7 @@ class BlogController extends Controller
             'status' => 'nullable|in:draft,publish',
         ]);
 
-        $site = $request->input('site', $blog->site ?? 'wts');
+        $site = 'warrgyizmorsch';
 
         $allowedCategories = [
             "IT Services",

@@ -22,6 +22,6 @@ yarn-error.log
 /.vscode
 /.zed
 
-/public/assets/media/blogthumbnail/
-/public/assets/media/subjectthumbnail/
-/public/blogs/blog-content-images/
+# /public/assets/media/blogthumbnail/
+# /public/assets/media/subjectthumbnail/
+# /public/blogs/blog-content-images/
