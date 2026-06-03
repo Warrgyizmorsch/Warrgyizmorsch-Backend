@@ -237,6 +237,7 @@ class LeadController extends Controller
 
     public function store(Request $request)
     {
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email',
@@ -260,6 +261,14 @@ class LeadController extends Controller
             'what_course_are_you_planning_to_study' => 'nullable|string',
             'description' => 'nullable|string',
             'category_id' => 'nullable',
+
+            'employee_strength' => 'nullable|string',
+             'industry' => 'nullable|string',
+             'product' => 'nullable|string|max:100',
+             'services' => 'nullable|array',
+             'services.*' => 'nullable',
+             'pain_points' => 'nullable|string',
+             'cloned_contacts' => 'nullable|array',
         ]);
 
         // 🔍 Search existing user by mobile number
@@ -281,6 +290,8 @@ class LeadController extends Controller
 
         // Prepare lead data
         $leadData = $data;
+      $leadData['client_details'] = $request->cloned_contacts ?? [];
+        
         unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city']);
 
         $leadData['uid'] = $user->id;
@@ -378,6 +389,13 @@ class LeadController extends Controller
             'what_course_are_you_planning_to_study' => 'nullable|string',
             'description' => 'nullable|string',
             'category_id' => 'nullable',
+            'employee_strength' => 'nullable|string',
+            'industry' => 'nullable|string',
+            'product' => 'nullable|string|max:100',
+            'services' => 'nullable|array',
+            'services.*' => 'nullable',
+            'pain_points' => 'nullable|string',
+            'cloned_contacts' => 'nullable|array',
         ]);
 
         // ----------------------------
@@ -421,6 +439,7 @@ class LeadController extends Controller
         $oldData = $lead->getOriginal();
 
         $leadData = $data;
+        $leadData['client_details'] = $request->cloned_contacts ?? [];
         unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city']);
 
         $lead->update($leadData);

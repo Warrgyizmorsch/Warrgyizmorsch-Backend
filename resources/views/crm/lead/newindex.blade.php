@@ -2,7 +2,6 @@
 
 @section('content')
 
-    <link href="{{ asset('crm-assets/assets/vendors/css/quill.min.css') }}" rel="stylesheet">
     <style>
         /* Inactive (Normal) Tab ka Design */
         .lead-custom-tab {
@@ -43,6 +42,28 @@
                 width: 100%;
             }
         }
+        #pain_points_editor {
+            height: 220px !important;
+            background-color: #fff;
+            border: 1px solid #cbd5e1;
+            border-top: none;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        #pain_points_editor .ql-editor {
+            font-size: 13px;
+            color: #334155;
+        }
+        .ql-toolbar.ql-snow {
+            border: 1px solid #cbd5e1 !important;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            background-color: #f8fafc;
+        }
+        #inp_services + .select2-container .select2-selection--multiple {
+            max-height: 75px;
+            overflow-y: auto !important;
+        }
     </style>
     <style>
         .duplicate-info-wrapper {
@@ -68,6 +89,84 @@
         /* hover on full wrapper */
         .duplicate-info-wrapper:hover .duplicate-popup {
             display: block;
+        }
+
+        /* Additional Contacts Premium Styling */
+        .contact-card {
+            background: #fdfdfd;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+        .contact-card:hover {
+            border-color: #006FC9;
+            box-shadow: 0 4px 12px rgba(0, 111, 201, 0.08);
+            transform: translateY(-1px);
+        }
+        .contact-card .btn-remove-contact {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(220, 53, 69, 0.05);
+            color: #dc3545;
+            border: 1px solid rgba(220, 53, 69, 0.1);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            padding: 0;
+            z-index: 10;
+        }
+        .contact-card .btn-remove-contact:hover {
+            background: #dc3545;
+            color: #ffffff;
+            border-color: #dc3545;
+            box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);
+        }
+        .contact-card .form-control-sm {
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            padding: 0.35rem 0.5rem;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+        }
+        .contact-card .form-control-sm:focus {
+            border-color: #006FC9;
+            box-shadow: 0 0 0 3px rgba(0, 111, 201, 0.15);
+            background-color: #ffffff;
+        }
+        .contact-card .form-label-sm {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #64748b;
+            margin-bottom: 3px;
+        }
+        .btn-soft-primary {
+            background-color: rgba(0, 111, 201, 0.06);
+            color: #006FC9;
+            border: 1px solid rgba(0, 111, 201, 0.12);
+        }
+        .btn-soft-primary:hover {
+            background-color: #006FC9;
+            color: #ffffff;
+            border-color: #006FC9;
+        }
+        .bg-soft-primary {
+            background-color: rgba(0, 111, 201, 0.1) !important;
+            color: #006FC9 !important;
+        }
+        #btnAddContact:hover {
+            background-color: #00569d !important;
+            color: #ffffff !important;
         }
     </style>
     <div class="container-fluid">
@@ -411,16 +510,15 @@
                                             style="font-size: 13px;">
                                             {{ $engStatus }}
                                         </div>
-                                        @php $catModel = $lead->relationLoaded('category') ? $lead->getRelation('category') : null; @endphp
-                                        @if($catModel)
+                                        @if($lead->product)
                                             <span class="badge fw-semibold px-2 py-1 text-capitalize"
                                                 style="font-size: 13px; background-color: rgba(0, 111, 201, 0.1); color: #006FC9; border: 1px solid rgba(0, 111, 201, 0.2);">
-                                                {{ $catModel->category_name }}
+                                                {{ $lead->product }}
                                             </span>
                                         @else
                                             <span class="badge fw-semibold px-2 py-1 text-capitalize text-muted"
                                                 style="font-size: 13px; background-color: rgba(108, 117, 125, 0.08); color: #6c757d; border: 1px solid rgba(108, 117, 125, 0.15);">
-                                                No Category
+                                                No Product
                                             </span>
                                         @endif
                                     </div>
@@ -1144,11 +1242,23 @@
                                                     style="font-size: 11px; letter-spacing: 0.5px;">City</small>
                                                 <span class="fs-15 text-dark">{{ optional($lead->user)->city ?? 'N/A' }}</span>
                                             </div>
-                                            <div class="col-md-3 col-sm-6">
+                                            <!-- <div class="col-md-3 col-sm-6">
                                                 <small class="text-muted text-uppercase d-block mb-1"
                                                     style="font-size: 11px; letter-spacing: 0.5px;">Course</small>
                                                 <span
                                                     class="fs-15 text-dark">{{ $lead->what_course_are_you_planning_to_study ?? 'N/A' }}</span>
+                                            </div> -->
+                                             <div class="col-md-3 col-sm-6">
+                                                <small class="text-muted text-uppercase d-block mb-1"
+                                                    style="font-size: 11px; letter-spacing: 0.5px;">Employee Strength</small>
+                                                <span
+                                                    class="fs-15 text-dark">{{ $lead->employee_strength ?? 'N/A' }}</span>
+                                            </div>
+                                             <div class="col-md-3 col-sm-6">
+                                                <small class="text-muted text-uppercase d-block mb-1"
+                                                    style="font-size: 11px; letter-spacing: 0.5px;">Industry</small>
+                                                <span
+                                                    class="fs-15 text-dark">{{ $lead->industry ?? 'N/A' }}</span>
                                             </div>
                                             <div class="col-md-3 col-sm-6">
                                                 <small class="text-muted text-uppercase d-block mb-1"
@@ -1157,6 +1267,60 @@
                                                     class="fs-15 text-dark">{{ $lead->created_at ? $lead->created_at->format('M d, Y h:i A') : 'N/A' }}</span>
                                             </div>
 
+                                            @php
+                                                $clientDetails = [];
+                                                if (!empty($lead->client_details)) {
+                                                    if (is_array($lead->client_details)) {
+                                                        $clientDetails = $lead->client_details;
+                                                    } elseif (is_string($lead->client_details)) {
+                                                        $clientDetails = json_decode($lead->client_details, true) ?? [];
+                                                    }
+                                                }
+                                            @endphp
+
+                                            @if(!empty($clientDetails))
+                                                <div class="col-12 mt-4">
+                                                    <hr class="my-3">
+                                                    <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
+                                                        <i class="fa-solid fa-users"></i> Additional Contacts / Details
+                                                    </h6>
+                                                    <div class="row g-3">
+                                                        @foreach($clientDetails as $contact)
+                                                            @if(!empty($contact['name']) || !empty($contact['designation']) || !empty($contact['email']) || !empty($contact['phone']))
+                                                                <div class="col-xl-4 col-md-6 col-12">
+                                                                    <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px; margin-bottom: 0;">
+                                                                        <div class="card-body p-3">
+                                                                            <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
+                                                                                <div class="bg-soft-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                                                    <i class="fa-solid fa-user text-primary" style="font-size: 14px;"></i>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <h6 class="fw-bold text-dark mb-0 fs-14">{{ $contact['name'] ?? 'N/A' }}</h6>
+                                                                                    <small class="text-muted fs-11 text-uppercase">{{ $contact['designation'] ?? 'No Designation' }}</small>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            @if(!empty($contact['email']))
+                                                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                                                    <i class="fa-solid fa-envelope text-muted" style="font-size: 13px; width: 16px;"></i>
+                                                                                    <span class="fs-13 text-dark text-break">{{ $contact['email'] }}</span>
+                                                                                </div>
+                                                                            @endif
+
+                                                                            @if(!empty($contact['phone']))
+                                                                                <div class="d-flex align-items-center gap-2">
+                                                                                    <i class="fa-solid fa-phone text-muted" style="font-size: 13px; width: 16px;"></i>
+                                                                                    <span class="fs-13 text-dark">{{ $contact['phone'] }}</span>
+                                                                                </div>
+                                                                            @endif
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
                                         </div>
                                     </div>
 
@@ -1189,18 +1353,77 @@
                                             </div>
                                             <div class="col-md-3 col-sm-6">
                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Campaign Name</small>
-                                                <span class="fs-15 text-dark">{{ $lead->campaign_name ?? 'N/A' }}</span>
+                                                    style="font-size: 11px;">Product</small>
+                                                <span class="fs-15 text-dark">{{ $lead->product ?? 'N/A' }}</span>
                                             </div>
                                             <div class="col-md-3 col-sm-6">
                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Adset Name</small>
-                                                <span class="fs-15 text-dark">{{ $lead->adset_name ?? 'N/A' }}</span>
+                                                    style="font-size: 11px;">Service</small>
+                                                @php
+                                                    $selectedServiceIds = [];
+                                                    if (!empty($lead->services)) {
+                                                        if (is_array($lead->services)) {
+                                                            $selectedServiceIds = $lead->services;
+                                                        } elseif (is_string($lead->services)) {
+                                                            $decoded = json_decode($lead->services, true);
+                                                            $selectedServiceIds = is_array($decoded) ? $decoded : explode(',', $lead->services);
+                                                        }
+                                                    }
+                                                    $selectedServiceIds = array_map('trim', $selectedServiceIds);
+                                                    $selectedServiceNames = [];
+                                                    foreach ($selectedServiceIds as $id) {
+                                                        $cat = $categorys->firstWhere('id', $id);
+                                                        if ($cat) {
+                                                            $selectedServiceNames[] = $cat->category_name;
+                                                        } else {
+                                                            $selectedServiceNames[] = $id;
+                                                        }
+                                                    }
+                                                @endphp
+                                                @if(!empty($selectedServiceNames))
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        @foreach($selectedServiceNames as $name)
+                                                            <span class="badge bg-soft-primary text-primary px-2 py-1" style="font-size: 12px; border-radius: 4px;">{{ $name }}</span>
+                                                        @endforeach
+                                                    </div>
+                                                @else
+                                                    <span class="fs-15 text-dark">N/A</span>
+                                                @endif
                                             </div>
-                                            <div class="col-md-3 col-sm-6">
+                                            <div class="col-12">
                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Form Name</small>
-                                                <span class="fs-15 text-dark">{{ $lead->form_name ?? 'N/A' }}</span>
+                                                    style="font-size: 11px;">Pain Points & Current System</small>
+                                                @if(!empty($lead->pain_points))
+                                                    @php
+                                                        $plainText = strip_tags($lead->pain_points);
+                                                        $hasLongText = strlen($plainText) > 150;
+                                                    @endphp
+                                                    <div class="p-3 bg-light rounded text-dark fs-14" style="min-height: 50px;">
+                                                        @if($hasLongText)
+                                                            @php
+                                                                $truncatedText = mb_substr($plainText, 0, 150);
+                                                            @endphp
+                                                            <span id="pain-points-short-{{ $lead->id }}">
+                                                                {{ $truncatedText }}...
+                                                                <a href="javascript:void(0);" 
+                                                                   class="fw-semibold ms-1" 
+                                                                   style="color: #006FC9; text-decoration: none;"
+                                                                   onclick="toggleInlinePP({{ $lead->id }}, true)">Read More</a>
+                                                            </span>
+                                                            <span id="pain-points-full-{{ $lead->id }}" style="display: none;">
+                                                                {!! $lead->pain_points !!}
+                                                                <a href="javascript:void(0);" 
+                                                                   class="fw-semibold ms-1" 
+                                                                   style="color: #006FC9; text-decoration: none;"
+                                                                   onclick="toggleInlinePP({{ $lead->id }}, false)">Read Less</a>
+                                                            </span>
+                                                        @else
+                                                            {!! $lead->pain_points !!}
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <div class="p-3 bg-light rounded text-muted fs-14">N/A</div>
+                                                @endif
                                             </div>
                                         </div>
                                     </div>
@@ -1763,111 +1986,137 @@
                     @csrf
                     <input type="hidden" name="_method" id="formMethod" value="POST">
 
-                    <div class="modal-body p-4 bg-white">
-                        <h6 class="fw-bold mb-3 text-primary border-bottom pb-2">Student Details</h6>
-                        <div class="row g-3 mb-4">
-                            <div class="col-lg-3 col-md-6">
-                                <label class="form-label small text-muted">Mobile <span class="text-danger">*</span></label>
-                                <input type="tel" name="mobile" id="inp_mobile" class="form-control phone-input" required>
-                                <input type="hidden" name="country_code" id="inp_country_code" class="country-code-input">
-                            </div>
-                            <div class="col-lg-3 col-md-6">
-                                <label class="form-label small text-muted">Name <span class="text-danger">*</span></label>
-                                <input type="text" name="name" id="inp_name" class="form-control auto-name" required>
-                            </div>
-                            <div class="col-lg-3 col-md-6">
-                                <label class="form-label small text-muted">Email</label>
-                                <input type="email" name="email" id="inp_email" class="form-control auto-email">
-                            </div>
-                            <div class="col-lg-3 col-md-6">
-                                <label class="form-label small text-muted">City</label>
-                                <input type="text" name="city" id="inp_city" class="form-control auto-city">
-                            </div>
-                        </div>
+                    <div class="modal-body p-3 bg-white" style="max-height: 65vh; overflow-y: auto;">
+                        <!-- Upper Section: Side-by-Side Left and Right Columns -->
+                        <div class="row">
+                            <!-- Left Column: Client Details -->
+                            <div class="col-lg-6 border-end pe-3">
+                                <h6 class="fw-bold mb-2 text-primary border-bottom pb-1">Client Details</h6>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Client Name <span class="text-danger">*</span></label>
+                                        <input type="text" name="name" id="inp_name" class="form-control form-control-sm auto-name" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Mobile <span class="text-danger">*</span></label>
+                                        <input type="tel" name="mobile" id="inp_mobile" class="form-control form-control-sm phone-input" required>
+                                        <input type="hidden" name="country_code" id="inp_country_code" class="country-code-input">
+                                    </div>
+                                    
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Email</label>
+                                        <input type="email" name="email" id="inp_email" class="form-control form-control-sm auto-email">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">City</label>
+                                        <input type="text" name="city" id="inp_city" class="form-control form-control-sm auto-city">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Employee Strength</label>
+                                        <select name="employee_strength" id="inp_employee_strength" class="form-select form-select-sm">
+                                            <option value="">Select Strength</option>
+                                            <option value="1-10 employees">1-10 employees</option>
+                                            <option value="11-50 employees">11-50 employees</option>
+                                            <option value="51-200 employees">51-200 employees</option>
+                                            <option value="201-500 employees">201-500 employees</option>
+                                            <option value="500+ employees">500+ employees</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Industry</label>
+                                        <select name="industry" id="inp_industry" class="form-select form-select-sm">
+                                            <option value="">Select Industry</option>
+                                            <option value="IT & Technology">IT & Technology</option>
+                                            <option value="Healthcare">Healthcare</option>
+                                            <option value="Finance & Banking">Finance & Banking</option>
+                                            <option value="Education">Education</option>
+                                            <option value="Real Estate">Real Estate</option>
+                                            <option value="Retail & E-commerce">Retail & E-commerce</option>
+                                            <option value="Manufacturing">Manufacturing</option>
+                                            <option value="Professional Services">Professional Services</option>
+                                            <option value="Marketing & Advertising">Marketing & Advertising</option>
+                                            <option value="Logistics & Transportation">Logistics & Transportation</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
 
-                        <h6 class="fw-bold mb-3 text-primary border-bottom pb-2">Lead Details</h6>
-                        <div class="row g-3">
-                            <div class="col-lg-4 mb-4">
-                                <label class="form-label small text-muted">Lead Source</label>
-                                <select name="platform" id="inp_platform" class="form-select">
-                                    <option value="">Select Source</option>
-                                    @foreach($sources ?? [] as $source)
-                                        <option value="{{ $source }}">{{ $source }}</option>
-                                    @endforeach
-                                </select>
+                                <!-- Additional Contacts (Cloned) under Client Details -->
+                                <div class="mt-4 border-top pt-3">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">Additional Contacts</h6>
+                                            <span id="contactCountBadge" class="badge bg-soft-primary text-primary rounded-pill px-2 py-0.5" style="font-size: 0.75rem; line-height: 1;">0</span>
+                                        </div>
+                                        <button type="button" id="btnAddContact" class="btn btn-xs text-white d-flex align-items-center gap-1 fw-medium" style="background-color: #006FC9; font-size: 0.75rem; padding: 0.25rem 0.5rem; border: none; transition: background-color 0.2s ease;">
+                                            <i class="feather-plus"></i> Clone Contact
+                                        </button>
+                                    </div>
+                                    <div id="clonedContactsContainer" class="mt-2"></div>
+                                </div>
                             </div>
-                            {{-- <div class="col-lg-4 mb-4">
-                                <label class="form-label small text-muted">Campaign Name</label>
-                                <input type="text" name="campaign_name" id="inp_campaign" class="form-control">
+
+                            <!-- Right Column: Lead Details -->
+                            <div class="col-lg-6 ps-3">
+                                <h6 class="fw-bold mb-2 text-primary border-bottom pb-1">Lead Details</h6>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Lead Source</label>
+                                        <select name="platform" id="inp_platform" class="form-select form-select-sm">
+                                            <option value="">Select Source</option>
+                                            @foreach($sources ?? [] as $source)
+                                                <option value="{{ $source }}">{{ $source }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Lead Owner</label>
+                                        <select name="lead_owner" id="inp_owner" class="form-select form-select-sm">
+                                            <option value="">Select Owner</option>
+                                            @foreach($owners ?? [] as $owner)
+                                                <option value="{{ $owner->id }}">{{ $owner->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Budget</label>
+                                        <input type="text" name="budget" id="inp_budget" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Choose Product</label>
+                                        <select name="product" id="inp_product" class="form-select form-select-sm">
+                                            <option value="">Select Product</option>
+                                            <option value="SAAS">SAAS</option>
+                                            <option value="SAAP">SAAP</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                 <div class="row g-2 mb-2">
+                                <div class="col-md-12">
+                                        <label class="form-label-sm">Service</label>
+                                        <select name="services[]" id="inp_services" class="form-select" data-select2-selector="label" multiple>
+                                            @foreach($categorys as $category)
+                                                <option value="{{ $category->id }}">
+                                                    {{ $category->category_name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    </div>
+                               
+                                <div class="row g-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label-sm">Pain Points & Current System</label>
+                                        <div id="pain_points_editor" style="height: 150px;"></div>
+                                        <input type="hidden" name="pain_points" id="inp_pain_points">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-lg-4 mb-4">
-                                <label class="form-label small text-muted">Adset Name</label>
-                                <input type="text" name="adset_name" id="inp_adset" class="form-control">
-                            </div>
-                            <div class="col-lg-4 mb-4">
-                                <label class="form-label small text-muted">Ad Name</label>
-                                <input type="text" name="ad_name" id="inp_ad" class="form-control">
-                            </div>
-                            <div class="col-lg-4 mb-4">
-                                <label class="form-label small text-muted">Form Name</label>
-                                <input type="text" name="form_name" id="inp_form" class="form-control">
-                            </div> --}}
-                            <div class="col-lg-4 mb-4">
-                                <label class="form-label small text-muted">Lead Owner</label>
-                                <select name="lead_owner" id="inp_owner" class="form-select">
-                                    <option value="">Select Owner</option>
-                                    @foreach($owners ?? [] as $owner)
-                                        <option value="{{ $owner->id }}">{{ $owner->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-lg-3 mb-4">
-                                <label class="form-label small text-muted">Budget</label>
-                                <input type="text" name="budget" id="inp_budget" class="form-control">
-                            </div>
-                            <div class="col-lg-3 mb-4">
-                                <label class="form-label small text-muted">Applying Country</label>
-                                <select name="applying_country_for_a_visa" id="inp_country" class="form-select">
-                                    <option value="">Select Country</option>
-                                    <option value="UK">UK</option>
-                                    <option value="Canada">Canada</option>
-                                    <option value="Australia">Australia</option>
-                                    <option value="USA">USA</option>
-                                    <option value="Europe">Europe</option>
-                                </select>
-                            </div>
-                            <div class="col-lg-3 mb-4">
-                                <label class="form-label small text-muted">Planned Course</label>
-                                <input type="text" name="what_course_are_you_planning_to_study" id="inp_course"
-                                    class="form-control">
-                            </div>
-                            <div class="col-lg-3 mb-4">
-                                <label class="form-label small text-muted">Preferred Intake</label>
-                                <input type="text" name="whats_your_preferred_intake" id="inp_intake" class="form-control">
-                            </div>
-                            <div class="col-lg-3 mb-4">
-                                <label class="form-label small text-muted">Category</label>
-                                <select name="category_id" id="inp_category" class="form-select">
-                                    <option value="">Select Category</option>
-                                    @foreach($categorys as $category)
-                                        <option value="{{ $category->id }}">
-                                            {{ $category->category_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            {{-- <div class="col-lg-6 mb-4">
-                                <label class="form-label small text-muted">Academic Gap</label>
-                                <input type="text" name="any_academic_gap" id="inp_gap" class="form-control">
-                            </div>
-                            <div class="col-lg-6 mb-4">
-                                <label class="form-label small text-muted">Highest Completed</label>
-                                <input type="text" name="highest_completed" id="inp_highest" class="form-control">
-                            </div>
-                            <div class="col-12 mt-2">
-                                <label class="form-label small text-muted">Description</label>
-                                <textarea name="description" id="inp_desc" class="form-control" rows="3"></textarea>
-                            </div> --}}
                         </div>
                     </div>
 
@@ -2397,22 +2646,142 @@
             });
         </script>
         <script>
+            let contactIndex = 0;
+
+            function updateContactCount() {
+                const container = document.getElementById('clonedContactsContainer');
+                const badge = document.getElementById('contactCountBadge');
+                if (container && badge) {
+                    const count = container.querySelectorAll('.contact-card').length;
+                    badge.innerText = count;
+                }
+            }
+
+            function addContactRow(data = {}) {
+                const container = document.getElementById('clonedContactsContainer');
+                if (!container) return;
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'contact-card';
+                
+                wrapper.innerHTML = `
+                    <button type="button" class="btn-remove-contact" title="Remove Contact">
+                        <i class="feather-trash-2 fs-12"></i>
+                    </button>
+                    <div class="row g-2 pe-4">
+                        <div class="col-6">
+                            <label class="form-label-sm">Name</label>
+                            <input type="text" name="cloned_contacts[${contactIndex}][name]" class="form-control form-control-sm" placeholder="Contact Name" value="${data.name || ''}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-sm">Designation</label>
+                            <input type="text" name="cloned_contacts[${contactIndex}][designation]" class="form-control form-control-sm" placeholder="Designation" value="${data.designation || ''}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-sm">Email</label>
+                            <input type="email" name="cloned_contacts[${contactIndex}][email]" class="form-control form-control-sm" placeholder="Email" value="${data.email || ''}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-sm">Phone Number</label>
+                            <input type="tel" name="cloned_contacts[${contactIndex}][phone]" class="form-control form-control-sm cloned-phone-input" placeholder="Phone Number" value="${data.phone || ''}">
+                        </div>
+                    </div>
+                `;
+
+                // Add phone validation to the input
+                const phoneInput = wrapper.querySelector('.cloned-phone-input');
+                phoneInput.addEventListener('input', function() {
+                    this.value = this.value.replace(/[^0-9]/g, '');
+                });
+
+                // Add click handler to remove button
+                const removeBtn = wrapper.querySelector('.btn-remove-contact');
+                removeBtn.addEventListener('click', function() {
+                    wrapper.remove();
+                    updateContactCount();
+                });
+
+                container.appendChild(wrapper);
+                contactIndex++;
+                updateContactCount();
+
+                // Smooth scroll modal body to the bottom so the new card is visible
+                const modalBody = container.closest('.modal-body');
+                if (modalBody) {
+                    setTimeout(() => {
+                        modalBody.scrollTo({
+                            top: modalBody.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }, 50);
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                const btnAddContact = document.getElementById('btnAddContact');
+                if (btnAddContact) {
+                    btnAddContact.addEventListener('click', function() {
+                        addContactRow();
+                    });
+                }
+
+                // Initialize Quill Editor for Pain Points & Current System
+                if (document.getElementById('pain_points_editor')) {
+                    window.painPointsQuill = new Quill('#pain_points_editor', {
+                        theme: 'snow',
+                        placeholder: 'Enter Pain Points & Current System...'
+                    });
+                }
+
+                // Sync Quill editor with hidden input on form submit
+                const leadForm = document.getElementById('leadForm');
+                if (leadForm) {
+                    leadForm.addEventListener('submit', function(e) {
+                        if (window.painPointsQuill) {
+                            const html = window.painPointsQuill.root.innerHTML;
+                            if (html === '<p><br></p>' || html.trim() === '') {
+                                document.getElementById('inp_pain_points').value = '';
+                            } else {
+                                document.getElementById('inp_pain_points').value = html;
+                            }
+                        }
+                    });
+                }
+            });
+
             // Create Mode
             function openCreateModal() {
                 console.log('store method clicked');
 
-                // Form ko reset karein (taaki purana edit data hat jaye)
+                // Form ko reset karein
                 document.getElementById('leadForm').reset();
+                
+                // Clear cloned contacts
+                const container = document.getElementById('clonedContactsContainer');
+                if (container) container.innerHTML = '';
+                contactIndex = 0;
+                updateContactCount();
 
-                // Action aur Method theek karein
+                // Reset select2 services dropdown
+                let servicesSelect = document.getElementById('inp_services');
+                if (servicesSelect) {
+                    Array.from(servicesSelect.options).forEach(opt => opt.selected = false);
+                    $(servicesSelect).trigger('change');
+                }
+
+                // Clear Quill editor
+                if (window.painPointsQuill) {
+                    window.painPointsQuill.root.innerHTML = '';
+                }
+
+                // Action aur Method
                 document.getElementById('leadForm').action = "{{ route('lead.store') }}";
                 document.getElementById('formMethod').value = "POST";
 
-                // UI Text change karein
+                // UI Text
                 document.querySelector('#leadModalTitle span').innerText = "Create New Lead";
                 document.getElementById('btnSubmit').innerText = "Create Lead";
 
-                // Modal Open karein
                 var myModal = new bootstrap.Modal(document.getElementById('leadModal'));
                 myModal.show();
             }
@@ -2420,21 +2789,17 @@
             // Edit Mode
             function openEditModal(button) {
                 console.log('Edit method clicked');
-                console.log(document.getElementById('leadForm').action);
-                // Button se data extract karein
                 let lead = JSON.parse(button.getAttribute('data-lead') || '{}');
                 let user = JSON.parse(button.getAttribute('data-user') || '{}');
 
-                // Form ko update mode me laayein
-                let updateUrl = "{{ url('/lead/update') }}/" + lead.id; // Ya jo aapka update route format ho
+                let updateUrl = "{{ url('/lead/update') }}/" + lead.id;
                 document.getElementById('leadForm').action = updateUrl;
-                document.getElementById('formMethod').value = "PUT"; // Laravel spoofing
+                document.getElementById('formMethod').value = "PUT";
 
-                // UI Text change karein
                 document.querySelector('#leadModalTitle span').innerText = "Edit Lead: " + (user.name || 'Unknown');
                 document.getElementById('btnSubmit').innerText = "Update Lead";
 
-                // Form mein purana data bharein
+                // Form values
                 document.getElementById('inp_mobile').value = user.contact_no || '';
                 document.getElementById('inp_country_code').value = user.country_code || '';
                 document.getElementById('inp_name').value = user.name || '';
@@ -2442,28 +2807,73 @@
                 document.getElementById('inp_city').value = lead.city || user.city || '';
 
                 document.getElementById('inp_platform').value = lead.platform || '';
-                // document.getElementById('inp_campaign').value = lead.campaign_name || '';
-                // document.getElementById('inp_adset').value = lead.adset_name || '';
-                // document.getElementById('inp_ad').value = lead.ad_name || '';
-                // document.getElementById('inp_form').value = lead.form_name || '';
                 document.getElementById('inp_owner').value = lead.lead_owner || '';
-                document.getElementById('inp_category').value = lead.category_id || '';
                 document.getElementById('inp_budget').value = lead.budget || '';
-                document.getElementById('inp_country').value = lead.applying_country_for_a_visa || '';
-                document.getElementById('inp_course').value = lead.what_course_are_you_planning_to_study || '';
-                document.getElementById('inp_intake').value = lead.whats_your_preferred_intake || '';
-                // document.getElementById('inp_gap').value = lead.any_academic_gap || '';
-                // document.getElementById('inp_highest').value = lead.highest_completed || '';
-                // document.getElementById('inp_desc').value = lead.description || '';
 
-                // Modal Open karein
+                // Populate Employee Strength & Industry
+                document.getElementById('inp_employee_strength').value = lead.employee_strength || '';
+                document.getElementById('inp_industry').value = lead.industry || '';
+                
+                // Choose Product (maps to product or applying_country_for_a_visa if fallback needed)
+                document.getElementById('inp_product').value = lead.product || lead.applying_country_for_a_visa || '';
+                
+                // Pain Points (maps to pain_points or description if fallback needed) & Load into Quill
+                let painPointsVal = lead.pain_points || lead.description || '';
+                document.getElementById('inp_pain_points').value = painPointsVal;
+                if (window.painPointsQuill) {
+                    window.painPointsQuill.root.innerHTML = painPointsVal;
+                }
+
+                // Populate Services Multiselect
+                let servicesSelect = document.getElementById('inp_services');
+                if (servicesSelect) {
+                    Array.from(servicesSelect.options).forEach(opt => opt.selected = false);
+                    let selectedServices = [];
+                    if (lead.services) {
+                        try {
+                            selectedServices = typeof lead.services === 'string' ? JSON.parse(lead.services) : lead.services;
+                        } catch (e) {
+                            selectedServices = lead.services.split(',');
+                        }
+                    }
+                    if (Array.isArray(selectedServices)) {
+                        selectedServices.forEach(srv => {
+                            let opt = Array.from(servicesSelect.options).find(o => o.value === srv.trim());
+                            if (opt) opt.selected = true;
+                        });
+                    }
+                    $(servicesSelect).trigger('change');
+                }
+
+                // Populate Cloned Contacts
+                const container = document.getElementById('clonedContactsContainer');
+                if (container) container.innerHTML = '';
+                contactIndex = 0;
+                
+               let clonedContacts = [];
+
+             if (lead.client_details) {
+                 try {
+                     clonedContacts = typeof lead.client_details === 'string'
+                         ? JSON.parse(lead.client_details)
+                         : lead.client_details;
+                 } catch (e) {
+                     clonedContacts = [];
+                 }
+             }
+             if (Array.isArray(clonedContacts)) {
+                 clonedContacts.forEach(contact => {
+                     addContactRow(contact);
+                 });
+             }
+                updateContactCount();
+
                 var myModal = new bootstrap.Modal(document.getElementById('leadModal'));
                 myModal.show();
             }
 
             function openDoneModal(button) {
                 let leadId = button.getAttribute('data-id');
-
                 document.getElementById('done_lead_id').value = leadId;
                 var myModal = new bootstrap.Modal(document.getElementById('DoneModal'));
                 myModal.show();
@@ -2881,6 +3291,18 @@
                 document.getElementById('followupTypeForm').submit();
             }
         </script>
-
+        <script>
+            function toggleInlinePP(leadId, showFull) {
+                const shortSpan = document.getElementById('pain-points-short-' + leadId);
+                const fullSpan = document.getElementById('pain-points-full-' + leadId);
+                if (showFull) {
+                    shortSpan.style.display = 'none';
+                    fullSpan.style.display = 'inline';
+                } else {
+                    shortSpan.style.display = 'inline';
+                    fullSpan.style.display = 'none';
+                }
+            }
+        </script>
     @endpush
 @endsection

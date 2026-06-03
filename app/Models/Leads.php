@@ -33,6 +33,12 @@ class Leads extends Model
         'followup_type',
         'english_test_status',
         'category_id',
+        'product',
+        'services',
+        'pain_points',
+        'client_details',
+        'employee_strength',
+        'industry',
     ];
 
     public function user()
@@ -43,6 +49,8 @@ class Leads extends Model
     protected $casts = [
         'date' => 'date',
         'verified_lead' => 'boolean',
+        'services' => 'array',
+        'client_details' => 'array',
     ];
 
     public function bucket()

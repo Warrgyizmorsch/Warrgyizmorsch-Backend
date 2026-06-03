@@ -33,3 +33,13 @@ ALTER TABLE university_details ADD COLUMN ranking_info LONGTEXT NULL;
  <!-- Manish-13-5-26 -->
  ALTER TABLE `leads` ADD `category_id` INT NULL DEFAULT NULL AFTER `uid`;
 
+<!-- new -->
+ <!-- new Manish 2-5-26 -->
+ ALTER TABLE `leads` ADD `client_details` JSON NULL DEFAULT NULL AFTER `category`;
+
+ ALTER TABLE `leads` ADD `product` VARCHAR(55) NULL DEFAULT NULL AFTER `category`, ADD `services` JSON NULL DEFAULT NULL AFTER `product`, ADD `pain_points` TEXT NULL DEFAULT NULL AFTER `services`;
+ 
+ALTER TABLE `leads` ADD `employee_strength` VARCHAR(55) NULL DEFAULT NULL AFTER `client_details`, ADD `industry` VARCHAR(100) NULL DEFAULT NULL AFTER `employee_strength`;
+
+
+

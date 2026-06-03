@@ -25,6 +25,8 @@
   <link rel="stylesheet" href="{{ asset('crm-assets/assets/vendors/css/select2.min.css') }}">
   <link rel="stylesheet" href="{{ asset('crm-assets/assets/vendors/css/select2-theme.min.css') }}">
   <link rel="stylesheet" href="{{ asset('crm-assets/assets/vendors/css/jquery.time-to.min.css') }}">
+  <link href="{{ asset('crm-assets/assets/vendors/css/quill.min.css') }}" rel="stylesheet">
+
 
   {{-- Custom Theme CSS --}}
   <link rel="stylesheet" href="{{ asset('crm-assets/assets/css/theme.min.css') }}">
