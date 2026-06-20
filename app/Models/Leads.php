@@ -8,6 +8,7 @@ class Leads extends Model
 {
 
     protected $fillable = [
+        'lead_id',
         'lead_bucket_id',
         'lead_status',
         'lead_owner',
