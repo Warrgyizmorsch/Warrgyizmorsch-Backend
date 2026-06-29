@@ -40,6 +40,9 @@ class Leads extends Model
         'client_details',
         'employee_strength',
         'industry',
+        'website',
+        'business_name',
+        'gst_number',
     ];
 
     public function user()

@@ -2041,6 +2041,19 @@
                                             <option value="Other">Other</option>
                                         </select>
                                     </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Website</label>
+                                        <input type="text" name="website" id="inp_website"  class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Business Name</label>
+                                        <input type="text" name="business_name" id="inp_business" class="form-control form-control-sm ">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">GST NO.</label>
+                                        <input type="text" name="gst_number" id="inp_gst" class="form-control form-control-sm">
+                                    </div>
                                 </div>
 
                                 <!-- Additional Contacts (Cloned) under Client Details -->

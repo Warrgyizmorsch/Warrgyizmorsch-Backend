@@ -42,4 +42,5 @@ ALTER TABLE university_details ADD COLUMN ranking_info LONGTEXT NULL;
 ALTER TABLE `leads` ADD `employee_strength` VARCHAR(55) NULL DEFAULT NULL AFTER `client_details`, ADD `industry` VARCHAR(100) NULL DEFAULT NULL AFTER `employee_strength`;
 
 
-
+<!-- Manish- 29-6-26 -->
+ALTER TABLE `leads` ADD `website` VARCHAR(255) NOT NULL AFTER `industry`, ADD `business_name` VARCHAR(55) NOT NULL AFTER `website`, ADD `gst_number` VARCHAR(55) NOT NULL AFTER `business_name`;
