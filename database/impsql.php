@@ -44,3 +44,6 @@ ALTER TABLE `leads` ADD `employee_strength` VARCHAR(55) NULL DEFAULT NULL AFTER 
 
 <!-- Manish- 29-6-26 -->
 ALTER TABLE `leads` ADD `website` VARCHAR(255) NOT NULL AFTER `industry`, ADD `business_name` VARCHAR(55) NOT NULL AFTER `website`, ADD `gst_number` VARCHAR(55) NOT NULL AFTER `business_name`;
+ALTER TABLE `leads` ADD `documents` JSON NULL DEFAULT NULL AFTER `description`;
+ALTER TABLE `callback_messages` ADD `followup_documents` JSON NULL DEFAULT NULL AFTER `call_recording`;
+

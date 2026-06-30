@@ -43,6 +43,7 @@ class Leads extends Model
         'website',
         'business_name',
         'gst_number',
+        'documents',
     ];
 
     public function user()
@@ -55,6 +56,7 @@ class Leads extends Model
         'verified_lead' => 'boolean',
         'services' => 'array',
         'client_details' => 'array',
+        'documents' => 'array',
     ];
 
     public function bucket()

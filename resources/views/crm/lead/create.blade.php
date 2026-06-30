@@ -127,11 +127,11 @@
                                         <option value="">Select Lead Source</option>
 
                                         @php
-// Collect all options (sources + current lead platform if not already in sources)
-$allSources = $sources;
-if ($lead->platform && !in_array($lead->platform, $sources)) {
-    $allSources[] = $lead->platform;
-}
+                                            // Collect all options (sources + current lead platform if not already in sources)
+                                            $allSources = $sources;
+                                            if ($lead->platform && !in_array($lead->platform, $sources)) {
+                                                $allSources[] = $lead->platform;
+                                            }
                                         @endphp
 
                                         @foreach($allSources as $source)

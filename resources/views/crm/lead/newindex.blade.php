@@ -1062,6 +1062,37 @@
                                             class="form-control bg-light border-0 shadow-sm" accept="audio/*"
                                             style="font-size: 14px;">
                                     </div>
+                                    <div class="mb-4">
+                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">
+                                            Upload Documents
+                                        </label>
+                                        <input type="file" name="followup_documents[]"
+                                            class="form-control bg-light border-0 shadow-sm" multiple
+                                            style="font-size: 14px;">
+                                        <small class="text-muted d-block mt-1" style="font-size: 11px;">Select multiple files if needed (PDF, DOC, DOCX, JPG, PNG).</small>
+                                        @if(!empty($lead->latestMessage->followup_documents))
+                                            <div class="mt-2 d-flex flex-column gap-1">
+                                                @foreach($lead->latestMessage->followup_documents as $doc)
+                                                    @php
+                                                        $docPath = is_array($doc) ? ($doc['path'] ?? '') : $doc;
+                                                        $docName = is_array($doc) ? ($doc['name'] ?? basename($docPath)) : basename($docPath);
+                                                    @endphp
+                                                    <div class="p-1 px-2 border rounded bg-light d-flex align-items-center justify-content-between" style="font-size: 11px;">
+                                                        <span class="text-truncate me-2 fw-medium">{{ $docName }}</span>
+                                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                                            <a href="{{ route('document.view', ['path' => $docPath]) }}" target="_blank" class="text-info text-decoration-none fw-semibold">
+                                                                <i class="feather-eye"></i> View
+                                                            </a>
+                                                            <span class="text-muted">|</span>
+                                                            <a href="{{ route('document.download', ['path' => $docPath, 'name' => $docName]) }}" class="text-primary text-decoration-none fw-semibold">
+                                                                <i class="feather-download"></i> Download
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
 
                                     <div class="d-flex justify-content-end gap-3 pt-3 mt-4 border-top">
                                         <button type="button" class="btn btn-white text-secondary fw-bold border px-4"
@@ -1195,6 +1226,12 @@
                                         <button class="nav-link lead-custom-tab" id="followup-tab-{{ $lead->id }}"
                                             data-bs-toggle="tab" data-bs-target="#followup-{{ $lead->id }}" type="button"
                                             role="tab">Followup Details</button>
+                                    </li>
+
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link lead-custom-tab" id="documents-tab-{{ $lead->id }}"
+                                            data-bs-toggle="tab" data-bs-target="#documents-{{ $lead->id }}" type="button"
+                                            role="tab">Documents</button>
                                     </li>
                                 </ul>
 
@@ -1330,6 +1367,27 @@
                                                 <small class="text-muted text-uppercase d-block mb-1"
                                                     style="font-size: 11px;">Source</small>
                                                 <span class="fs-15 text-dark">{{ $lead->platform ?? 'N/A' }}</span>
+                                            </div>
+                                            <div class="col-md-3 col-sm-6">
+                                                <small class="text-muted text-uppercase d-block mb-1"
+                                                    style="font-size: 11px;">Website</small>
+                                                @if(!empty($lead->website))
+                                                    <a href="{{ str_starts_with($lead->website, 'http') ? $lead->website : 'https://' . $lead->website }}" target="_blank" class="fs-15 text-primary text-decoration-none text-truncate d-block">
+                                                        {{ $lead->website }}
+                                                    </a>
+                                                @else
+                                                    <span class="fs-15 text-dark">N/A</span>
+                                                @endif
+                                            </div>
+                                            <div class="col-md-3 col-sm-6">
+                                                <small class="text-muted text-uppercase d-block mb-1"
+                                                    style="font-size: 11px;">Business Name</small>
+                                                <span class="fs-15 text-dark">{{ $lead->business_name ?? 'N/A' }}</span>
+                                            </div>
+                                            <div class="col-md-3 col-sm-6">
+                                                <small class="text-muted text-uppercase d-block mb-1"
+                                                    style="font-size: 11px;">GST NO.</small>
+                                                <span class="fs-15 text-dark">{{ $lead->gst_number ?? 'N/A' }}</span>
                                             </div>
                                             <div class="col-md-3 col-sm-6">
                                                 <small class="text-muted text-uppercase d-block mb-1"
@@ -1894,16 +1952,112 @@
                                                     </div>
 
                                                 </div>
-                                            </div>
-                                        </div>
-                                        <hr>
+                                             </div>
+                                         </div>
+                                     </div>
 
-                                    </div>
+                                     <div class="tab-pane fade" id="documents-{{ $lead->id }}" role="tabpanel">
+                                         <div class="row g-4">
+                                             <!-- Lead Form Documents -->
+                                             <div class="col-md-6">
+                                                 <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px;">
+                                                     <div class="card-body p-3">
+                                                         <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
+                                                             <i class="feather feather-folder text-primary"></i> Lead Form Documents
+                                                         </h6>
+                                                         @if(!empty($lead->documents) && count($lead->documents) > 0)
+                                                             <div class="d-flex flex-column gap-2">
+                                                                 @foreach($lead->documents as $doc)
+                                                                     @php
+                                                                         $docPath = is_array($doc) ? ($doc['path'] ?? '') : $doc;
+                                                                         $docName = is_array($doc) ? ($doc['name'] ?? basename($docPath)) : basename($docPath);
+                                                                     @endphp
+                                                                     <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded">
+                                                                         <div class="d-flex align-items-center gap-2 text-truncate me-2">
+                                                                             <i class="feather feather-file-text text-primary fs-16"></i>
+                                                                             <span class="fs-13 text-dark text-truncate fw-medium">{{ $docName }}</span>
+                                                                         </div>
+                                                                         <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
+                                                                             <a href="{{ route('document.view', ['path' => $docPath]) }}" target="_blank" class="btn btn-xs btn-outline-info d-flex align-items-center gap-1 px-2 py-1" style="font-size: 11px;">
+                                                                                 <i class="feather feather-eye"></i> View
+                                                                             </a>
+                                                                             <a href="{{ route('document.download', ['path' => $docPath, 'name' => $docName]) }}" class="btn btn-xs btn-primary d-flex align-items-center gap-1 text-white px-2 py-1" style="font-size: 11px;">
+                                                                                 <i class="feather feather-download"></i> Download
+                                                                             </a>
+                                                                         </div>
+                                                                     </div>
+                                                                 @endforeach
+                                                             </div>
+                                                         @else
+                                                             <div class="text-muted fs-13 italic p-2 bg-white border rounded text-center">No lead form documents uploaded.</div>
+                                                         @endif
+                                                     </div>
+                                                 </div>
+                                             </div>
 
-                                </div>
-                            </div>
-                        </div>
+                                             <!-- Followup Documents -->
+                                             <div class="col-md-6">
+                                                 <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px;">
+                                                     <div class="card-body p-3">
+                                                         <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
+                                                             <i class="feather feather-paperclip text-primary"></i> Followup Documents
+                                                         </h6>
+                                                         @php
+                                                             $allFollowupDocs = [];
+                                                             if(isset($lead->messages)) {
+                                                                 foreach($lead->messages as $msg) {
+                                                                     if(!empty($msg->followup_documents) && is_array($msg->followup_documents)) {
+                                                                         foreach($msg->followup_documents as $fdoc) {
+                                                                             $allFollowupDocs[] = [
+                                                                                 'doc' => $fdoc,
+                                                                                 'date' => $msg->created_at,
+                                                                                 'user' => optional($msg->user)->name ?? 'User'
+                                                                             ];
+                                                                         }
+                                                                     }
+                                                                 }
+                                                             }
+                                                         @endphp
 
+                                                         @if(count($allFollowupDocs) > 0)
+                                                             <div class="d-flex flex-column gap-2">
+                                                                 @foreach($allFollowupDocs as $item)
+                                                                     @php
+                                                                         $fdoc = $item['doc'];
+                                                                         $docPath = is_array($fdoc) ? ($fdoc['path'] ?? '') : $fdoc;
+                                                                         $docName = is_array($fdoc) ? ($fdoc['name'] ?? basename($docPath)) : basename($docPath);
+                                                                     @endphp
+                                                                     <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded">
+                                                                         <div class="d-flex align-items-center gap-2 text-truncate me-2">
+                                                                             <i class="feather feather-file-text text-success fs-16"></i>
+                                                                             <div class="text-truncate">
+                                                                                 <span class="fs-13 text-dark d-block text-truncate fw-medium">{{ $docName }}</span>
+                                                                                 <small class="text-muted fs-11" style="font-size: 10px;">By {{ $item['user'] }} on {{ \Carbon\Carbon::parse($item['date'])->format('d M Y h:i A') }}</small>
+                                                                             </div>
+                                                                         </div>
+                                                                         <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
+                                                                             <a href="{{ route('document.view', ['path' => $docPath]) }}" target="_blank" class="btn btn-xs btn-outline-info d-flex align-items-center gap-1 px-2 py-1" style="font-size: 11px;">
+                                                                                 <i class="feather feather-eye"></i> View
+                                                                             </a>
+                                                                             <a href="{{ route('document.download', ['path' => $docPath, 'name' => $docName]) }}" class="btn btn-xs btn-primary d-flex align-items-center gap-1 text-white px-2 py-1" style="font-size: 11px;">
+                                                                                 <i class="feather feather-download"></i> Download
+                                                                             </a>
+                                                                         </div>
+                                                                     </div>
+                                                                 @endforeach
+                                                             </div>
+                                                         @else
+                                                             <div class="text-muted fs-13 italic p-2 bg-white border rounded text-center">No followup documents uploaded.</div>
+                                                         @endif
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     </div>
+
+                                 </div>
+                             </div>
+                         </div>
                         <div class="modal fade" id="DoneModal" tabindex="-1" aria-hidden="true">
                             <div class="modal-dialog modal-md modal-dialog-centered">
                                 <div class="modal-content border-0 shadow-lg">
@@ -1982,7 +2136,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form id="leadForm" method="POST" action="{{ route('lead.store') }}">
+                <form id="leadForm" method="POST" enctype="multipart/form-data" action="{{ route('lead.store') }}">
                     @csrf
                     <input type="hidden" name="_method" id="formMethod" value="POST">
 
@@ -2127,6 +2281,17 @@
                                         <label class="form-label-sm">Pain Points & Current System</label>
                                         <div id="pain_points_editor" style="height: 150px;"></div>
                                         <input type="hidden" name="pain_points" id="inp_pain_points">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mt-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label-sm fw-bold text-dark">Upload Documents</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light"><i class="feather-paperclip"></i></span>
+                                            <input type="file" name="documents[]" id="inp_documents" class="form-control form-control-sm" multiple>
+                                        </div>
+                                        <small class="text-muted d-block" style="font-size: 0.75rem;">Select multiple files if needed (PDF, DOC, DOCX, JPG, PNG).</small>
+                                        <div id="existing_documents_container" class="mt-2 d-flex flex-wrap gap-1"></div>
                                     </div>
                                 </div>
                             </div>
@@ -2787,6 +2952,12 @@
                     window.painPointsQuill.root.innerHTML = '';
                 }
 
+                // Reset documents
+                let docsInput = document.getElementById('inp_documents');
+                if (docsInput) docsInput.value = '';
+                let docsContainer = document.getElementById('existing_documents_container');
+                if (docsContainer) docsContainer.innerHTML = '';
+
                 // Action aur Method
                 document.getElementById('leadForm').action = "{{ route('lead.store') }}";
                 document.getElementById('formMethod').value = "POST";
@@ -2823,9 +2994,12 @@
                 document.getElementById('inp_owner').value = lead.lead_owner || '';
                 document.getElementById('inp_budget').value = lead.budget || '';
 
-                // Populate Employee Strength & Industry
+                // Populate Employee Strength & Industry, Website, Business Name, GST Number
                 document.getElementById('inp_employee_strength').value = lead.employee_strength || '';
                 document.getElementById('inp_industry').value = lead.industry || '';
+                document.getElementById('inp_website').value = lead.website || '';
+                document.getElementById('inp_business').value = lead.business_name || '';
+                document.getElementById('inp_gst').value = lead.gst_number || '';
                 
                 // Choose Product (maps to product or applying_country_for_a_visa if fallback needed)
                 document.getElementById('inp_product').value = lead.product || lead.applying_country_for_a_visa || '';
@@ -2835,6 +3009,36 @@
                 document.getElementById('inp_pain_points').value = painPointsVal;
                 if (window.painPointsQuill) {
                     window.painPointsQuill.root.innerHTML = painPointsVal;
+                }
+
+                // Populate Documents
+                let editDocsInput = document.getElementById('inp_documents');
+                if (editDocsInput) editDocsInput.value = '';
+                let editDocsContainer = document.getElementById('existing_documents_container');
+                if (editDocsContainer) {
+                    editDocsContainer.innerHTML = '';
+                    let docs = [];
+                    if (lead.documents) {
+                        try {
+                            docs = typeof lead.documents === 'string' ? JSON.parse(lead.documents) : lead.documents;
+                        } catch (e) {
+                            docs = [];
+                        }
+                    }
+                    if (Array.isArray(docs) && docs.length > 0) {
+                        let html = '';
+                        docs.forEach(doc => {
+                            let docPath = typeof doc === 'object' ? (doc.path || '') : doc;
+                            let docName = typeof doc === 'object' ? (doc.name || docPath.split('/').pop()) : docPath.split('/').pop();
+                            let assetUrl = "{{ asset('storage') }}/" + docPath;
+                            html += `<a href="${assetUrl}" target="_blank" class="badge bg-light text-dark p-1 border d-inline-flex align-items-center gap-1 text-decoration-none" style="font-size:0.75rem;">
+                                <i class="feather-file-text text-primary"></i>
+                                <span>${docName}</span>
+                                <i class="feather-download text-muted"></i>
+                            </a>`;
+                        });
+                        editDocsContainer.innerHTML = html;
+                    }
                 }
 
                 // Populate Services Multiselect

@@ -204,6 +204,8 @@ Route::get('/lead-import-status/{jobId}', [LeadController::class, 'getImportJobS
 Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
 Route::post('/modern-leads/quick-update/{lead}', [NewleadController::class, 'updateQuick'])->name('lead.updateQuick');
 Route::post('/modern-leads/todo/{lead}', [NewleadController::class, 'storeTodo'])->name('lead.storeTodo');
+Route::get('/document/view', [NewleadController::class, 'viewDocument'])->name('document.view');
+Route::get('/document/download', [NewleadController::class, 'downloadDocument'])->name('document.download');
 Route::get('/user/activity', [UserController::class, 'activity'])->name('user.activity');
 Route::post('/save-work-time', [UserController::class, 'saveWorkTime'])->name('save.work.time');
 Route::post('lead/bucket/get-sub-status', [LeadController::class, 'getSubStatus'])->name('lead.getSubStatus');

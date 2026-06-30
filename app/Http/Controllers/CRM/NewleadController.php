@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 
 
@@ -322,13 +323,26 @@ class NewleadController extends Controller
             'followup_type' => 'nullable|string',
             'next_followup_date' => 'nullable|date',
             'message' => 'nullable|string|max:1000',
-            'call_recording' => 'nullable|file|mimes:mp3,wav,m4a,ogg,aac,amr,3gp,mp4|max:51200 '
+            'call_recording' => 'nullable|file|mimes:mp3,wav,m4a,ogg,aac,amr,3gp,mp4|max:51200 ',
+            'followup_documents' => 'nullable|array',
+            'followup_documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
         ]);
+
+        $uploadedFollowupDocs = [];
+        if ($request->hasFile('followup_documents')) {
+            foreach ($request->file('followup_documents') as $file) {
+                $path = $file->store('leads/followup_documents', 'public');
+                $uploadedFollowupDocs[] = [
+                    'name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                ];
+            }
+        }
+
         $lead->update([
             'lead_engagement_status' => $request->lead_engagement_status,
             'lead_bucket_id' => $request->lead_bucket_id,
             'lead_status' => $request->lead_status,
-            'followup_type' => $request->followup_type,
         ]);
         $audioPath = null;
 
@@ -350,6 +364,7 @@ class NewleadController extends Controller
                 : null,
             'is_done' => 0,
             'call_recording' => $audioPath,
+            'followup_documents' => $uploadedFollowupDocs,
         ]);
 
         return redirect()->back()->with('success', 'Details updated successfully!');
@@ -406,5 +421,24 @@ class NewleadController extends Controller
             ->get();
 
         return view('crm.lead.campaign-details', compact('data'));
+    }
+
+    public function viewDocument(Request $request)
+    {
+        $path = $request->query('path');
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            abort(404, 'File not found');
+        }
+        return response()->file(storage_path('app/public/' . $path));
+    }
+
+    public function downloadDocument(Request $request)
+    {
+        $path = $request->query('path');
+        $name = $request->query('name');
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            abort(404, 'File not found');
+        }
+        return response()->download(storage_path('app/public/' . $path), $name);
     }
 }

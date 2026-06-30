@@ -34,6 +34,12 @@ class CallBack extends Model
         'lead_engagement_status',
         'followup_type',
         'followup_status',
+        'followup_documents',
+    ];
+
+    protected $casts = [
+        'followup_documents' => 'array',
+        'is_done' => 'boolean',
     ];
 
     /**

@@ -268,7 +268,12 @@ class LeadController extends Controller
              'services' => 'nullable|array',
              'services.*' => 'nullable',
              'pain_points' => 'nullable|string',
+             'website' => 'nullable|string|max:255',
+             'business_name' => 'nullable|string|max:255',
+             'gst_number' => 'nullable|string|max:255',
              'cloned_contacts' => 'nullable|array',
+             'documents' => 'nullable|array',
+             'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
         ]);
 
         // 🔍 Search existing user by mobile number
@@ -290,8 +295,23 @@ class LeadController extends Controller
 
         // Prepare lead data
         $leadData = $data;
-      $leadData['client_details'] = $request->cloned_contacts ?? [];
+        $leadData['client_details'] = $request->cloned_contacts ?? [];
+        $leadData['website'] = $data['website'] ?? null;
+        $leadData['business_name'] = $data['business_name'] ?? null;
+        $leadData['gst_number'] = $data['gst_number'] ?? null;
         
+        $uploadedDocs = [];
+        if ($request->hasFile('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $path = $file->store('leads/documents', 'public');
+                $uploadedDocs[] = [
+                    'name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                ];
+            }
+        }
+        $leadData['documents'] = $uploadedDocs;
+
         unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city']);
 
         $leadData['uid'] = $user->id;
@@ -395,7 +415,12 @@ class LeadController extends Controller
             'services' => 'nullable|array',
             'services.*' => 'nullable',
             'pain_points' => 'nullable|string',
+            'website' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'gst_number' => 'nullable|string|max:255',
             'cloned_contacts' => 'nullable|array',
+            'documents' => 'nullable|array',
+            'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
         ]);
 
         // ----------------------------
@@ -440,6 +465,19 @@ class LeadController extends Controller
 
         $leadData = $data;
         $leadData['client_details'] = $request->cloned_contacts ?? [];
+
+        $existingDocs = $lead->documents ?? [];
+        if ($request->hasFile('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $path = $file->store('leads/documents', 'public');
+                $existingDocs[] = [
+                    'name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                ];
+            }
+        }
+        $leadData['documents'] = $existingDocs;
+
         unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city']);
 
         $lead->update($leadData);
