@@ -245,23 +245,25 @@
                             @endphp
 
                             <div class="col-xxl-2 col-lg-3 col-md-6">
-                                <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all">
-                                    <div class="card-body text-center">
+                                <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'lead_status' => '']) }}" class="text-decoration-none">
+                                    <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all">
+                                        <div class="card-body text-center">
 
-                                        <div class="mb-2">
-                                            <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
+                                            <div class="mb-2">
+                                                <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
+                                            </div>
+
+                                            <div class="fs-3 fw-bold text-dark">
+                                                {{ $bucket->total_leads }}
+                                            </div>
+
+                                            <p class="fs-12 text-muted mb-0">
+                                                {{ $bucket->name }}
+                                            </p>
+
                                         </div>
-
-                                        <div class="fs-3 fw-bold text-dark">
-                                            {{ $bucket->total_leads }}
-                                        </div>
-
-                                        <p class="fs-12 text-muted mb-0">
-                                            {{ $bucket->name }}
-                                        </p>
-
                                     </div>
-                                </div>
+                                </a>
                             </div>
 
                             @endforeach
@@ -312,19 +314,21 @@
                             @endphp
 
                             <div class="col-xxl-2 col-lg-3 col-md-6">
-                                <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all">
-                                    <div class="card-body text-center">
-                                        <div class="mb-2">
-                                            <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
+                                <a href="{{ route('modern.leads.index', ['bucket_id' => $firstBucket->id, 'lead_status' => $child->name]) }}" class="text-decoration-none">
+                                    <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all">
+                                        <div class="card-body text-center">
+                                            <div class="mb-2">
+                                                <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
+                                            </div>
+                                            <div class="fs-3 fw-bold text-dark">
+                                                {{ $statusCounts[$child->id] ?? 0 }}
+                                            </div>
+                                            <p class="fs-12 text-muted mb-0">
+                                                {{ $child->name }}
+                                            </p>
                                         </div>
-                                        <div class="fs-3 fw-bold text-dark">
-                                            {{ $statusCounts[$child->id] ?? 0 }}
-                                        </div>
-                                        <p class="fs-12 text-muted mb-0">
-                                            {{ $child->name }}
-                                        </p>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                             @endforeach
 
@@ -411,6 +415,11 @@
                                 gap: 6px;
                                 border-bottom: 1.5px solid rgba(0,0,0,0.06);
                                 flex-shrink: 0;
+                                cursor: pointer;
+                                transition: opacity 0.15s;
+                            }
+                            .db-kanban-col-header:hover {
+                                opacity: 0.85;
                             }
                             .db-kanban-col-title {
                                 font-size: 12px;
@@ -573,10 +582,10 @@
                                          data-bucket-name="{{ $bucket->name }}">
 
                                         {{-- Header --}}
-                                        <div class="db-kanban-col-header">
+                                        <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'lead_status' => '']) }}" class="db-kanban-col-header text-decoration-none" title="Open {{ $bucket->name }} in Modern Leads">
                                             <span class="db-kanban-col-title" title="{{ $bucket->name }}">{{ $bucket->name }}</span>
                                             <span class="db-kanban-col-count" id="dbKColCount-{{ $bucket->id }}">{{ $bucket->total_leads }}</span>
-                                        </div>
+                                        </a>
 
                                         {{-- Body --}}
                                         <div class="db-kanban-col-body {{ $dbLeads->isEmpty() ? 'no-leads' : 'has-leads' }}" id="dbKanbanBody-{{ $bucket->id }}">
