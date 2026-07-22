@@ -375,24 +375,26 @@
                             .db-kanban-wrapper {
                                 overflow-x: auto;
                                 padding-bottom: 10px;
+                                width: 100%;
                             }
                             .db-kanban-board {
-                                display: flex;
+                                display: grid;
+                                grid-template-columns: repeat(6, minmax(200px, 1fr));
                                 gap: 12px;
-                                min-width: max-content;
-                                align-items: flex-start; /* columns height = content, not stretched */
+                                width: 100%;
+                                min-width: 1200px; /* Ensures minimum 200px per column before horizontal scroll */
+                                align-items: stretch; /* Columns match height evenly */
                             }
 
                             /* ---- Column ---- */
                             .db-kanban-col {
-                                width: 230px;
-                                min-width: 230px;
+                                width: 100%;
                                 border-radius: 12px;
                                 display: flex;
                                 flex-direction: column;
                                 border: 1.5px solid #e3e8f0;
                                 transition: border-color 0.2s, box-shadow 0.2s;
-                                /* NO max-height / overflow here — body handles it */
+                                background: #fff;
                             }
                             .db-kanban-col.drag-over {
                                 border-color: #006FC9 !important;
@@ -429,29 +431,33 @@
                             /* ---- Body ---- */
                             .db-kanban-col-body {
                                 padding: 8px;
+                                flex: 1;
+                                display: flex;
+                                flex-direction: column;
                                 overflow-y: auto;
-                                /* Max height only when has leads */
-                            }
-                            .db-kanban-col-body.has-leads {
-                                max-height: 480px;
+                                max-height: 500px;
                             }
                             .db-kanban-col-body.no-leads {
-                                /* Just enough for the drop zone label */
-                                padding: 10px 8px;
+                                min-height: 80px;
                             }
 
                             /* ---- Empty state — compact & dashed ---- */
                             .db-kanban-empty {
                                 border: 1.5px dashed rgba(0,0,0,0.12);
                                 border-radius: 8px;
-                                padding: 14px 10px;
+                                padding: 16px 10px;
                                 text-align: center;
                                 color: #b0bec5;
                                 font-size: 11px;
                                 letter-spacing: 0.02em;
+                                flex: 1;
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                justify-content: center;
                             }
                             .db-kanban-empty i {
-                                font-size: 16px;
+                                font-size: 18px;
                                 display: block;
                                 margin-bottom: 4px;
                                 opacity: 0.4;
@@ -487,7 +493,7 @@
                             }
 
                             /* Card text */
-                            .db-kc-name  { font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+                            .db-kc-name  { font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
                             .db-kc-id    { font-size: 10.5px; color: #8899aa; background: #f0f4f8; border-radius: 5px; padding: 1px 5px; font-weight: 600; white-space: nowrap; }
                             .db-kc-phone { font-size: 11px; color: #6c757d; margin-top: 3px; }
                             .db-kc-badges{ display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
@@ -536,6 +542,7 @@
                             .db-theme-default    .db-kanban-col-title  { color:#4a5568; }
                             .db-theme-default    .db-kanban-col-count  { background:#718096; color:#fff; }
                         </style>
+
 
 
                         @php
