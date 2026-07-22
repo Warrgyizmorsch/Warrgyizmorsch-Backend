@@ -202,6 +202,7 @@ Route::get('/lead-import-status/{jobId}', [LeadController::class, 'getImportJobS
 
 // new routes 
 Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
+Route::post('/modern-leads/drag-update/{lead}', [NewleadController::class, 'dragUpdate'])->name('lead.dragUpdate');
 Route::post('/modern-leads/quick-update/{lead}', [NewleadController::class, 'updateQuick'])->name('lead.updateQuick');
 Route::post('/modern-leads/todo/{lead}', [NewleadController::class, 'storeTodo'])->name('lead.storeTodo');
 Route::get('/document/view', [NewleadController::class, 'viewDocument'])->name('document.view');

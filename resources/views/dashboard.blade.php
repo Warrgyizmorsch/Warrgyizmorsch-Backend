@@ -353,7 +353,385 @@
             </div>
             @endif
 
+            {{-- ============================================================ --}}
+            {{-- KANBAN BOARD - Lead Status Columns with Drag & Drop          --}}
+            {{-- ============================================================ --}}
+            <div class="col-12 mt-2">
+                <div class="card stretch stretch-full shadow-sm">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <div>
+                            <h5 class="card-title mb-1">Lead </h5>
+                            <span class="fs-12 text-muted">Drag & drop leads to change their status</span>
+                        </div>
+                        <a href="{{ route('modern.leads.index') }}" class="btn btn-sm btn-light-brand">
+                            <i class="feather-external-link me-1"></i> Open Leads
+                        </a>
+                    </div>
+                    <div class="card-body pt-2">
+
+                        {{-- Kanban Styles --}}
+                        <style>
+                            /* ---- Wrapper ---- */
+                            .db-kanban-wrapper {
+                                overflow-x: auto;
+                                padding-bottom: 10px;
+                            }
+                            .db-kanban-board {
+                                display: flex;
+                                gap: 12px;
+                                min-width: max-content;
+                                align-items: flex-start; /* columns height = content, not stretched */
+                            }
+
+                            /* ---- Column ---- */
+                            .db-kanban-col {
+                                width: 230px;
+                                min-width: 230px;
+                                border-radius: 12px;
+                                display: flex;
+                                flex-direction: column;
+                                border: 1.5px solid #e3e8f0;
+                                transition: border-color 0.2s, box-shadow 0.2s;
+                                /* NO max-height / overflow here — body handles it */
+                            }
+                            .db-kanban-col.drag-over {
+                                border-color: #006FC9 !important;
+                                box-shadow: 0 0 0 3px rgba(0,111,201,0.15);
+                            }
+
+                            /* ---- Header ---- */
+                            .db-kanban-col-header {
+                                padding: 10px 13px 9px;
+                                border-radius: 10px 10px 0 0;
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                gap: 6px;
+                                border-bottom: 1.5px solid rgba(0,0,0,0.06);
+                                flex-shrink: 0;
+                            }
+                            .db-kanban-col-title {
+                                font-size: 12px;
+                                font-weight: 700;
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                            }
+                            .db-kanban-col-count {
+                                font-size: 11px;
+                                font-weight: 700;
+                                padding: 2px 8px;
+                                border-radius: 20px;
+                                white-space: nowrap;
+                                flex-shrink: 0;
+                            }
+
+                            /* ---- Body ---- */
+                            .db-kanban-col-body {
+                                padding: 8px;
+                                overflow-y: auto;
+                                /* Max height only when has leads */
+                            }
+                            .db-kanban-col-body.has-leads {
+                                max-height: 480px;
+                            }
+                            .db-kanban-col-body.no-leads {
+                                /* Just enough for the drop zone label */
+                                padding: 10px 8px;
+                            }
+
+                            /* ---- Empty state — compact & dashed ---- */
+                            .db-kanban-empty {
+                                border: 1.5px dashed rgba(0,0,0,0.12);
+                                border-radius: 8px;
+                                padding: 14px 10px;
+                                text-align: center;
+                                color: #b0bec5;
+                                font-size: 11px;
+                                letter-spacing: 0.02em;
+                            }
+                            .db-kanban-empty i {
+                                font-size: 16px;
+                                display: block;
+                                margin-bottom: 4px;
+                                opacity: 0.4;
+                            }
+                            /* Highlight empty drop zone on drag-over */
+                            .db-kanban-col.drag-over .db-kanban-empty {
+                                border-color: #006FC9;
+                                background: rgba(0,111,201,0.04);
+                                color: #006FC9;
+                            }
+
+                            /* ---- Cards ---- */
+                            .db-kcard {
+                                background: #fff;
+                                border-radius: 9px;
+                                padding: 9px 10px;
+                                margin-bottom: 7px;
+                                border: 1.5px solid #eaecf0;
+                                cursor: grab;
+                                user-select: none;
+                                transition: box-shadow 0.18s, border-color 0.18s, transform 0.13s;
+                            }
+                            .db-kcard:active   { cursor: grabbing; }
+                            .db-kcard:last-child { margin-bottom: 0; }
+                            .db-kcard.dragging {
+                                opacity: 0.45;
+                                transform: scale(1.04) rotate(1.5deg);
+                                box-shadow: 0 10px 28px rgba(0,0,0,0.15);
+                            }
+                            .db-kcard:hover {
+                                box-shadow: 0 3px 12px rgba(0,111,201,0.12);
+                                border-color: #b8d9f5;
+                            }
+
+                            /* Card text */
+                            .db-kc-name  { font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+                            .db-kc-id    { font-size: 10.5px; color: #8899aa; background: #f0f4f8; border-radius: 5px; padding: 1px 5px; font-weight: 600; white-space: nowrap; }
+                            .db-kc-phone { font-size: 11px; color: #6c757d; margin-top: 3px; }
+                            .db-kc-badges{ display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+                            .db-kc-badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px; text-transform: capitalize; }
+                            .db-kc-badge-cold { background:#e0f5ff; color:#0077aa; }
+                            .db-kc-badge-hot  { background:#ffe5e5; color:#cc2200; }
+                            .db-kc-badge-warm { background:#fff3e0; color:#b85c00; }
+                            .db-kc-badge-dead { background:#e9e9e9; color:#555; }
+                            .db-kc-badge-na   { background:#f0f4f8; color:#8899aa; }
+                            .db-kc-badge-prod { background:rgba(0,111,201,0.09); color:#006FC9; border:1px solid rgba(0,111,201,0.16); }
+                            .db-kc-date  { font-size: 9.5px; color: #a0aec0; margin-top: 4px; }
+
+                            /* ---- Column themes ---- */
+                            .db-theme-lead       { background:#f0f7ff; border-color:#bde0ff; }
+                            .db-theme-lead       .db-kanban-col-header { background:#e3f0ff; }
+                            .db-theme-lead       .db-kanban-col-title  { color:#006FC9; }
+                            .db-theme-lead       .db-kanban-col-count  { background:#006FC9; color:#fff; }
+
+                            .db-theme-active     { background:#f0fdf4; border-color:#bbf7d0; }
+                            .db-theme-active     .db-kanban-col-header { background:#dcfce7; }
+                            .db-theme-active     .db-kanban-col-title  { color:#15803d; }
+                            .db-theme-active     .db-kanban-col-count  { background:#16a34a; color:#fff; }
+
+                            .db-theme-completion { background:#fdf4ff; border-color:#e9d5ff; }
+                            .db-theme-completion .db-kanban-col-header { background:#f3e8ff; }
+                            .db-theme-completion .db-kanban-col-title  { color:#7e22ce; }
+                            .db-theme-completion .db-kanban-col-count  { background:#9333ea; color:#fff; }
+
+                            .db-theme-postlaunch { background:#fffbeb; border-color:#fde68a; }
+                            .db-theme-postlaunch .db-kanban-col-header { background:#fef3c7; }
+                            .db-theme-postlaunch .db-kanban-col-title  { color:#b45309; }
+                            .db-theme-postlaunch .db-kanban-col-count  { background:#d97706; color:#fff; }
+
+                            .db-theme-blocked    { background:#fff5f5; border-color:#fecaca; }
+                            .db-theme-blocked    .db-kanban-col-header { background:#fee2e2; }
+                            .db-theme-blocked    .db-kanban-col-title  { color:#b91c1c; }
+                            .db-theme-blocked    .db-kanban-col-count  { background:#dc2626; color:#fff; }
+
+                            .db-theme-closed     { background:#f8fafc; border-color:#cbd5e1; }
+                            .db-theme-closed     .db-kanban-col-header { background:#f1f5f9; }
+                            .db-theme-closed     .db-kanban-col-title  { color:#475569; }
+                            .db-theme-closed     .db-kanban-col-count  { background:#64748b; color:#fff; }
+
+                            .db-theme-default    { background:#f5f7fa; border-color:#e3e8f0; }
+                            .db-theme-default    .db-kanban-col-header { background:#eef1f6; }
+                            .db-theme-default    .db-kanban-col-title  { color:#4a5568; }
+                            .db-theme-default    .db-kanban-col-count  { background:#718096; color:#fff; }
+                        </style>
+
+
+                        @php
+                            function dbKanbanTheme($name) {
+                                $n = strtolower($name);
+                                if (str_contains($n,'lead'))        return 'lead';
+                                if (str_contains($n,'active'))      return 'active';
+                                if (str_contains($n,'completion') || str_contains($n,'launch')) return 'completion';
+                                if (str_contains($n,'post') || str_contains($n,'maintenance'))  return 'postlaunch';
+                                if (str_contains($n,'blocked') || str_contains($n,'cancelled')) return 'blocked';
+                                if (str_contains($n,'closed'))      return 'closed';
+                                return 'default';
+                            }
+                        @endphp
+
+                        <div class="db-kanban-wrapper">
+                            <div class="db-kanban-board" id="dbKanbanBoard">
+
+                                @foreach($buckets as $bucket)
+                                    @php
+                                        $dbTheme   = dbKanbanTheme($bucket->name);
+                                        $dbLeads   = $kanbanBucketLeads[$bucket->id] ?? collect();
+                                    @endphp
+
+                                    <div class="db-kanban-col db-theme-{{ $dbTheme }}"
+                                         id="dbKanbanCol-{{ $bucket->id }}"
+                                         data-bucket-id="{{ $bucket->id }}"
+                                         data-bucket-name="{{ $bucket->name }}">
+
+                                        {{-- Header --}}
+                                        <div class="db-kanban-col-header">
+                                            <span class="db-kanban-col-title" title="{{ $bucket->name }}">{{ $bucket->name }}</span>
+                                            <span class="db-kanban-col-count" id="dbKColCount-{{ $bucket->id }}">{{ $bucket->total_leads }}</span>
+                                        </div>
+
+                                        {{-- Body --}}
+                                        <div class="db-kanban-col-body {{ $dbLeads->isEmpty() ? 'no-leads' : 'has-leads' }}" id="dbKanbanBody-{{ $bucket->id }}">
+                                            @if($dbLeads->isEmpty())
+                                                <div class="db-kanban-empty">
+                                                    <i class="fas fa-layer-group"></i>
+                                                    Drop leads here
+                                                </div>
+                                            @else
+                                                @foreach($dbLeads as $kl)
+                                                    @php
+                                                        $kEng  = strtolower($kl->lead_engagement_status ?? 'n/a');
+                                                        $kBadge = match($kEng) {
+                                                            'hot'  => 'db-kc-badge-hot',
+                                                            'warm' => 'db-kc-badge-warm',
+                                                            'cold' => 'db-kc-badge-cold',
+                                                            'dead' => 'db-kc-badge-dead',
+                                                            default => 'db-kc-badge-na',
+                                                        };
+                                                    @endphp
+                                                    <div class="db-kcard"
+                                                         draggable="true"
+                                                         data-lead-id="{{ $kl->id }}"
+                                                         data-bucket-id="{{ $bucket->id }}"
+                                                         id="dbKCard-{{ $kl->id }}">
+
+                                                        {{-- Name + ID --}}
+                                                        <div class="d-flex align-items-center justify-content-between gap-1">
+                                                            <span class="db-kc-name">{{ optional($kl->user)->name ?? 'Unknown' }}</span>
+                                                            <span class="db-kc-id">#{{ $kl->id }}</span>
+                                                        </div>
+
+                                                        {{-- Phone --}}
+                                                        <div class="db-kc-phone">
+                                                            <i class="fas fa-phone-alt" style="font-size:9px;color:#90a4ae;margin-right:3px;"></i>
+                                                            {{ optional($kl->user)->contact_no ?? 'N/A' }}
+                                                        </div>
+
+                                                        {{-- Badges --}}
+                                                        <div class="db-kc-badges">
+                                                            <span class="db-kc-badge {{ $kBadge }}">{{ strtoupper($kEng) }}</span>
+                                                            @if($kl->product)
+                                                                <span class="db-kc-badge db-kc-badge-prod">{{ $kl->product }}</span>
+                                                            @endif
+                                                        </div>
+
+                                                        {{-- Created date --}}
+                                                        <div class="db-kc-date">
+                                                            <i class="fas fa-calendar-alt" style="font-size:9px;"></i>
+                                                            Create On {{ \Carbon\Carbon::parse($kl->created_at)->format('d M Y h:i A') }}
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+
+                            </div>
+                        </div>
+
+                        {{-- Drag & Drop JS --}}
+                        <script>
+                        (function () {
+                            const dragBase  = "{{ url('/modern-leads/drag-update') }}";
+                            const csrf      = "{{ csrf_token() }}";
+                            let dragged     = null;
+                            let srcBucket   = null;
+
+                            function attachCard(card) {
+                                card.addEventListener('dragstart', function(e) {
+                                    dragged   = this;
+                                    srcBucket = this.dataset.bucketId;
+                                    setTimeout(() => this.classList.add('dragging'), 0);
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    e.dataTransfer.setData('text/plain', this.dataset.leadId);
+                                });
+                                card.addEventListener('dragend', function() {
+                                    this.classList.remove('dragging');
+                                    document.querySelectorAll('.db-kanban-col').forEach(c => c.classList.remove('drag-over'));
+                                    dragged = null; srcBucket = null;
+                                });
+                            }
+
+                            function attachCol(col) {
+                                col.addEventListener('dragover', function(e) {
+                                    e.preventDefault(); this.classList.add('drag-over');
+                                });
+                                col.addEventListener('dragleave', function() {
+                                    this.classList.remove('drag-over');
+                                });
+                                col.addEventListener('drop', function(e) {
+                                    e.preventDefault();
+                                    this.classList.remove('drag-over');
+                                    const tBucketId   = this.dataset.bucketId;
+                                    const tBucketName = this.dataset.bucketName;
+                                    const leadId      = e.dataTransfer.getData('text/plain');
+                                    if (!dragged || tBucketId === srcBucket) return;
+
+                                    const body = this.querySelector('.db-kanban-col-body');
+                                    const emptyEl = body.querySelector('.db-kanban-empty');
+                                    if (emptyEl) emptyEl.remove();
+
+                                    // Switch body class
+                                    body.classList.remove('no-leads');
+                                    body.classList.add('has-leads');
+
+                                    body.appendChild(dragged);
+                                    dragged.dataset.bucketId = tBucketId;
+
+                                    // Src column empty?
+                                    const srcBody = document.querySelector(`#dbKanbanBody-${srcBucket}`);
+                                    if (srcBody && srcBody.querySelectorAll('.db-kcard').length === 0) {
+                                        srcBody.classList.remove('has-leads');
+                                        srcBody.classList.add('no-leads');
+                                        srcBody.innerHTML = `<div class="db-kanban-empty"><i class="fas fa-layer-group"></i>Drop leads here</div>`;
+                                    }
+
+                                    // Update counts
+                                    const srcCount = document.querySelector(`#dbKColCount-${srcBucket}`);
+                                    const tgtCount = document.querySelector(`#dbKColCount-${tBucketId}`);
+                                    if (srcCount) srcCount.textContent = Math.max(0, parseInt(srcCount.textContent) - 1);
+                                    if (tgtCount) tgtCount.textContent = parseInt(tgtCount.textContent) + 1;
+
+                                    // AJAX
+                                    fetch(`${dragBase}/${leadId}`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                                        body: JSON.stringify({ lead_bucket_id: parseInt(tBucketId), lead_status: tBucketName }),
+                                    })
+                                    .then(r => r.json())
+                                    .then(d => dbShowToast(d.success ? `✅ Moved to <strong>${tBucketName}</strong>` : '❌ Failed', d.success ? 'success' : 'danger'))
+                                    .catch(() => dbShowToast('❌ Network error.', 'danger'));
+                                });
+                            }
+
+                            document.querySelectorAll('.db-kcard').forEach(attachCard);
+                            document.querySelectorAll('.db-kanban-col').forEach(attachCol);
+
+                            function dbShowToast(msg, type='success') {
+                                let t = document.getElementById('dbKanbanToast');
+                                if (!t) {
+                                    t = document.createElement('div');
+                                    t.id = 'dbKanbanToast';
+                                    t.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;min-width:220px;max-width:340px;line-height:1.5;';
+                                    document.body.appendChild(t);
+                                }
+                                t.style.background = type==='success'?'#e8f5e9':'#ffebee';
+                                t.style.color      = type==='success'?'#2e7d32':'#c62828';
+                                t.style.opacity    = '1'; t.innerHTML = msg;
+                                clearTimeout(t._timer);
+                                t._timer = setTimeout(() => t.style.opacity = '0', 3000);
+                            }
+                        })();
+                        </script>
+
+                    </div>{{-- /card-body --}}
+                </div>
+            </div>
+
             <!-- [Goal Progress] start -->
+
 
             <div class="col-xxl-4">
                 <div class="card stretch stretch-full">

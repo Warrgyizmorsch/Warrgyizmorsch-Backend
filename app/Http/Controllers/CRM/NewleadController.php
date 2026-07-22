@@ -441,4 +441,19 @@ class NewleadController extends Controller
         }
         return response()->download(storage_path('app/public/' . $path), $name);
     }
+
+    public function dragUpdate(Request $request, Leads $lead)
+    {
+        $request->validate([
+            'lead_bucket_id' => 'required|integer|exists:buckets,id',
+            'lead_status'    => 'nullable|string|max:255',
+        ]);
+
+        $lead->lead_bucket_id = $request->lead_bucket_id;
+        $lead->lead_status    = $request->lead_status ?? $lead->lead_status;
+        $lead->save();
+
+        return response()->json(['success' => true, 'message' => 'Lead moved successfully.']);
+    }
 }
+

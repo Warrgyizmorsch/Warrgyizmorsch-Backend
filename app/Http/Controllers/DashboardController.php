@@ -63,6 +63,17 @@ class DashboardController extends Controller
                 ->count();
         }
 
+        // ── Kanban Board: load all leads per bucket ──
+        $kanbanBucketLeads = [];
+        foreach ($buckets as $bucket) {
+            $kanbanBucketLeads[$bucket->id] = Leads::with(['user'])
+                ->where('lead_bucket_id', $bucket->id)
+                ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
+                ->latest()
+                ->get();
+        }
+
+
         $firstBucket = Bucket::where('name', 'Application')
             ->whereNull('parent_id')
             ->where('is_deleted', 0)
@@ -535,6 +546,7 @@ class DashboardController extends Controller
 
         return view('dashboard', compact(
             'buckets',
+            'kanbanBucketLeads',
             'firstBucket',
             'statusCounts',
             'totalLeads',
@@ -548,5 +560,6 @@ class DashboardController extends Controller
             'chartCategories',
             'sourceChartData',
         ));
+
     }
 }
