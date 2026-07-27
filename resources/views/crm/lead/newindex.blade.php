@@ -744,12 +744,9 @@
                             </div>
                             <div>
                                 <div class="d-flex flex-wrap align-items-center ms-auto fs-5" style="color: #006FC9;">
-                                    <a href="javascript:void(0);" class="open-whatsapp me-2" style="color: #006FC9;"
-                                        data-bs-toggle="offcanvas" data-bs-target="#whatsappSent{{ $lead->id }}"><i
-                                            class="fab fa-whatsapp fs-5"></i></a>
-                                    <a href="javascript:void(0);" class="open-SMS me-2" style="color: #006FC9;"
-                                        data-bs-toggle="offcanvas" data-bs-target="#SMSSent{{ $lead->id }}"><i
-                                            class="fa-solid fa-message"></i></a>
+                                    <a class="text-muted open-callback" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}">
+                                        <i class="fas fa-comment-dots me-2" style="color: #006FC9;"></i>
+                                    </a>
 
                                     <a href="javascript:void(0);" class="me-2 view-lead-details-btn" style="color: #006FC9;" title="View Details"
                                         data-lead="{{ json_encode($lead ?? []) }}"
@@ -789,15 +786,23 @@
                                                     <i class="fas fa-phone-alt me-2" style="color: #006FC9; width: 20px;"></i> Phone
                                                 </a>
                                             </li>
-                                            <li>
-                                                <a class="dropdown-item d-flex align-items-center text-muted open-callback" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}">
-                                                    <i class="fas fa-comment-dots me-2" style="color: #006FC9; width: 20px;"></i> Comments
-                                                </a>
-                                            </li>
+                                            
                                             <li>
                                                 <a class="dropdown-item d-flex align-items-center text-muted" href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#composeMail" onclick="openSingleEmail('{{ optional($lead->user)->email }}')">
                                                     <i class="fas fa-envelope me-2" style="color: #006FC9; width: 20px;"></i> Email
                                                 </a>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);" class="dropdown-item d-flex align-items-center text-muted" style="color: #006FC9;"
+                                                    data-bs-toggle="offcanvas" data-bs-target="#whatsappSent{{ $lead->id }}">
+                                                    <i class="fab fa-whatsapp fs-5" style="color: #006FC9; width: 20px;"></i>Whatsaap</a>
+                                                
+                                            </li>
+                                            
+                                            <li>
+                                                <a href="javascript:void(0);" class="dropdown-item d-flex align-items-center text-muted" style="color: #006FC9;"
+                                                    data-bs-toggle="offcanvas" data-bs-target="#SMSSent{{ $lead->id }}"><i
+                                                    class="fa-solid fa-message" style="color: #006FC9; width: 20px;"></i>SMS</a>
                                             </li>
                                         </ul>
                                     </div>
