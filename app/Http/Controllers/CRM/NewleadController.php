@@ -22,6 +22,10 @@ class NewleadController extends Controller
 {
     public function index(Request $request)
     {
+        if (!auth()->check()) {
+            return redirect()->route('login');
+        }
+
         // 1. Eager Load Relations (Same as your old code)
         $query = Leads::with([
             'user',
@@ -112,12 +116,36 @@ class NewleadController extends Controller
             $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
         if ($request->filled('course'))
             $query->where('what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
-        if ($request->filled('bucket_id'))
-            $query->where('lead_bucket_id', $request->bucket_id);
-        if ($request->filled('bucket_id') && $request->filled('lead_status')) {
+        $orderBucketIds = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where('name', 'NOT LIKE', '%lead%')
+            ->pluck('id')
+            ->toArray();
 
-            $query->where('lead_bucket_id', $request->bucket_id)
-                ->where('lead_status', $request->lead_status);
+        if (($request->filled('converted') && $request->converted == 1) || ($request->filled('is_converted') && $request->is_converted == 1)) {
+            $query->where('is_converted', 1);
+        } elseif ($request->filled('bucket_id')) {
+            if ($request->bucket_id === 'all_orders') {
+                $query->where(function($q) use ($orderBucketIds) {
+                    $q->where('is_converted', 1)
+                      ->orWhereIn('lead_bucket_id', $orderBucketIds);
+                });
+            } else {
+                $query->where('lead_bucket_id', $request->bucket_id);
+            }
+        } else {
+            // Default Modern Leads view: Exclude converted orders and order buckets
+            $query->where(function ($q) {
+                $q->whereNull('is_converted')
+                  ->orWhere('is_converted', 0);
+            })->where(function ($q) use ($orderBucketIds) {
+                $q->whereNull('lead_bucket_id')
+                  ->orWhereNotIn('lead_bucket_id', $orderBucketIds);
+            });
+        }
+
+        if ($request->filled('lead_status') && $request->bucket_id !== 'all_orders') {
+            $query->where('lead_status', $request->lead_status);
         }
 
         if ($request->filled('category_id')) {
@@ -154,10 +182,12 @@ class NewleadController extends Controller
         // 4. Counts
         $user = auth()->user();
         $filteredLeadCount = $query->count();
-        if ($user->role_id == 1 || $user->role_id == 2) {
+        if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
             $totalLeadsCount = Leads::count();
-        } else {
+        } elseif ($user) {
             $totalLeadsCount = Leads::where('lead_owner', $user->id)->count();
+        } else {
+            $totalLeadsCount = 0;
         }
         // 5. Pagination (Appends query preserves filters on next pages)
         $perPage = request('per_page', 20);
@@ -206,56 +236,65 @@ class NewleadController extends Controller
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
             ->get();
 
+        $targetBucketId = $request->bucket_id;
+        if (!$targetBucketId) {
+            $parentLeadBucket = Bucket::whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->where(function($q) {
+                    $q->where('name', 'LIKE', '%lead%')
+                      ->orWhere('id', 1);
+                })
+                ->first();
+
+            if ($parentLeadBucket) {
+                $targetBucketId = $parentLeadBucket->id;
+            }
+        }
+
         $childBuckets = collect();
         $childtotalLeadsCount = 0;
-        if ($request->filled('bucket_id')) {
 
-            // current bucket ke children lao
-            $childBuckets = Bucket::where('parent_id', $request->bucket_id)
+        if ($targetBucketId) {
+            $childBuckets = Bucket::where('parent_id', $targetBucketId)
                 ->where('is_deleted', 0)
                 ->select('buckets.*')
-                ->selectSub(function ($q) use ($request) {
-
+                ->selectSub(function ($q) use ($targetBucketId) {
                     $q->from('leads')
                         ->selectRaw('COUNT(*)')
-                        ->where('leads.lead_bucket_id', $request->bucket_id)
+                        ->where('leads.lead_bucket_id', $targetBucketId)
                         ->whereColumn('leads.lead_status', 'buckets.name')
+                        ->where(function($lq) {
+                            $lq->whereNull('leads.is_converted')
+                               ->orWhere('leads.is_converted', 0);
+                        })
                         ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
                             $qq->where('leads.lead_owner', auth()->id());
                         });
                 }, 'leads_count')
                 ->get();
 
-            $childtotalLeadsCount = Leads::where('lead_bucket_id', $request->bucket_id)->count();
-
-            $filterBucket = Bucket::where('id', $request->bucket_id)
-                ->whereNull('parent_id')
-                ->where('is_deleted', 0)
-                ->withCount([
-                    'leads' => function ($q) {
-                        if (auth()->check() && auth()->user()->role_id == 3) {
-                            $q->where('lead_owner', auth()->id());
-                        }
-                    }
-                ])
-                ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
-                ->get();
-        } else {
-
-            // ✅ default parent buckets
-
-            $filterBucket = Bucket::whereNull('parent_id')
-                ->where('is_deleted', 0)
-                ->withCount([
-                    'leads' => function ($q) {
-                        if (auth()->check() && auth()->user()->role_id == 3) {
-                            $q->where('lead_owner', auth()->id());
-                        }
-                    }
-                ])
-                ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
-                ->get();
+            $childtotalLeadsCount = Leads::where('lead_bucket_id', $targetBucketId)
+                ->where(function($lq) {
+                    $lq->whereNull('is_converted')
+                       ->orWhere('is_converted', 0);
+                })
+                ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
+                    $qq->where('lead_owner', auth()->id());
+                })
+                ->count();
         }
+
+        $filterBucket = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->withCount([
+                'leads' => function ($q) {
+                    if (auth()->check() && auth()->user()->role_id == 3) {
+                        $q->where('lead_owner', auth()->id());
+                    }
+                }
+            ])
+            ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
+            ->get();
 
         $mainbuckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
@@ -339,11 +378,38 @@ class NewleadController extends Controller
             }
         }
 
+        $bucketObj = Bucket::find($request->lead_bucket_id);
+        $isLeadBucket = false;
+        if ($bucketObj) {
+            $isLeadBucket = str_contains(strtolower($bucketObj->name), 'lead') || $bucketObj->id == 1;
+        }
+
         $lead->update([
             'lead_engagement_status' => $request->lead_engagement_status,
-            'lead_bucket_id' => $request->lead_bucket_id,
-            'lead_status' => $request->lead_status,
+            'lead_bucket_id'         => $request->lead_bucket_id,
+            'lead_status'            => $request->lead_status,
+            'is_converted'           => $isLeadBucket ? 0 : 1,
         ]);
+
+        if (!$isLeadBucket) {
+            \App\Models\Order::updateOrCreate(
+                ['lead_id' => $lead->id],
+                [
+                    'order_number'            => 'ORD-' . (10000 + $lead->id),
+                    'uid'                     => $lead->uid,
+                    'order_bucket_id'         => $request->lead_bucket_id,
+                    'order_status'            => $request->lead_status,
+                    'order_engagement_status' => $request->lead_engagement_status,
+                    'order_owner'             => $lead->lead_owner,
+                    'converted_by'            => auth()->id(),
+                    'category_id'             => $lead->category_id,
+                    'product'                 => $lead->product,
+                    'converted_at'            => now(),
+                ]
+            );
+        } else {
+            \App\Models\Order::where('lead_id', $lead->id)->delete();
+        }
         $audioPath = null;
 
         if ($request->hasFile('call_recording')) {
@@ -445,15 +511,112 @@ class NewleadController extends Controller
     public function dragUpdate(Request $request, Leads $lead)
     {
         $request->validate([
-            'lead_bucket_id' => 'required|integer|exists:buckets,id',
-            'lead_status'    => 'nullable|string|max:255',
+            'lead_bucket_id'         => 'nullable|integer|exists:buckets,id',
+            'lead_status'            => 'nullable|string|max:255',
+            'lead_engagement_status' => 'nullable|string|max:255',
         ]);
 
-        $lead->lead_bucket_id = $request->lead_bucket_id;
-        $lead->lead_status    = $request->lead_status ?? $lead->lead_status;
+        if ($request->has('lead_bucket_id') && !empty($request->lead_bucket_id)) {
+            $lead->lead_bucket_id = $request->lead_bucket_id;
+            $tBucket = Bucket::find($request->lead_bucket_id);
+            if ($tBucket) {
+                $isLeadB = str_contains(strtolower($tBucket->name), 'lead') || $tBucket->id == 1;
+                $lead->is_converted = $isLeadB ? 0 : 1;
+            }
+        }
+
+        if ($request->has('lead_status') && !is_null($request->lead_status)) {
+            $lead->lead_status = $request->lead_status;
+        }
+
+        if ($request->has('lead_engagement_status')) {
+            $lead->lead_engagement_status = strtolower(trim($request->lead_engagement_status));
+        }
+
         $lead->save();
 
-        return response()->json(['success' => true, 'message' => 'Lead moved successfully.']);
+        if (isset($tBucket) && !$isLeadB) {
+            \App\Models\Order::updateOrCreate(
+                ['lead_id' => $lead->id],
+                [
+                    'order_number'            => 'ORD-' . (10000 + $lead->id),
+                    'uid'                     => $lead->uid,
+                    'order_bucket_id'         => $lead->lead_bucket_id,
+                    'order_status'            => $lead->lead_status,
+                    'order_engagement_status' => $lead->lead_engagement_status,
+                    'order_owner'             => $lead->lead_owner,
+                    'converted_by'            => auth()->id(),
+                    'category_id'             => $lead->category_id,
+                    'product'                 => $lead->product,
+                    'converted_at'            => now(),
+                ]
+            );
+        } elseif (isset($tBucket) && $isLeadB) {
+            \App\Models\Order::where('lead_id', $lead->id)->delete();
+        }
+
+        return response()->json(['success' => true, 'message' => 'Lead updated successfully.']);
+    }
+
+    public function bulkConvert(Request $request)
+    {
+        try {
+            $request->validate([
+                'lead_ids' => 'required|array',
+            ]);
+
+            $activeProductionBucket = Bucket::where('name', 'LIKE', '%Active production%')->first();
+            if (!$activeProductionBucket) {
+                $activeProductionBucket = Bucket::whereNull('parent_id')
+                    ->where('is_deleted', 0)
+                    ->where('name', 'NOT LIKE', '%lead%')
+                    ->first();
+            }
+
+            $activeBucketId = $activeProductionBucket ? $activeProductionBucket->id : null;
+            $activeStatusName = $activeProductionBucket ? $activeProductionBucket->name : 'Active production';
+
+            $leads = Leads::whereIn('id', $request->lead_ids)->get();
+
+            foreach ($leads as $lead) {
+                $lead->is_converted = 1;
+                $lead->lead_status = $activeStatusName;
+                if ($activeBucketId) {
+                    $lead->lead_bucket_id = $activeBucketId;
+                }
+                $lead->save();
+
+                \App\Models\Order::updateOrCreate(
+                    ['lead_id' => $lead->id],
+                    [
+                        'order_number'            => 'ORD-' . (10000 + $lead->id),
+                        'uid'                     => $lead->uid,
+                        'order_bucket_id'         => $activeBucketId ?? $lead->lead_bucket_id,
+                        'order_status'            => $activeStatusName,
+                        'order_engagement_status' => $lead->lead_engagement_status ?? 'hot',
+                        'order_owner'             => $lead->lead_owner,
+                        'converted_by'            => auth()->id(),
+                        'category_id'             => $lead->category_id,
+                        'product'                 => $lead->product,
+                        'services'                => is_array($lead->services) ? $lead->services : (json_decode($lead->services, true) ?? null),
+                        'pain_points'             => $lead->pain_points,
+                        'client_details'          => is_array($lead->client_details) ? $lead->client_details : (json_decode($lead->client_details, true) ?? null),
+                        'documents'               => is_array($lead->documents) ? $lead->documents : (json_decode($lead->documents, true) ?? null),
+                        'converted_at'            => now(),
+                    ]
+                );
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => count($leads) . ' lead(s) successfully converted to Order (' . $activeStatusName . ')!'
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }
 

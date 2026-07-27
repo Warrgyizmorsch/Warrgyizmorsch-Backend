@@ -18,6 +18,10 @@ class DashboardController extends Controller
         $monthlyChartData = [];
         $user = Auth::user();
 
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
         if ($user->role_id == 2) {
             return view('crm.users.dashboard'); // basic welcome page
         }
@@ -55,6 +59,11 @@ class DashboardController extends Controller
 
         $buckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
+            ->with([
+                'children' => function ($q) {
+                    $q->where('is_deleted', 0);
+                }
+            ])
             ->get();
 
         foreach ($buckets as $bucket) {
@@ -63,14 +72,28 @@ class DashboardController extends Controller
                 ->count();
         }
 
-        // ── Kanban Board: load all leads per bucket ──
+        // ── Kanban Board: load all leads per bucket & sub-status ──
         $kanbanBucketLeads = [];
+        $kanbanSubStatusLeads = [];
+
         foreach ($buckets as $bucket) {
-            $kanbanBucketLeads[$bucket->id] = Leads::with(['user'])
+            $leads = Leads::with(['user'])
                 ->where('lead_bucket_id', $bucket->id)
                 ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
                 ->latest()
                 ->get();
+
+            $kanbanBucketLeads[$bucket->id] = $leads;
+
+            $kanbanSubStatusLeads[$bucket->id] = [];
+
+            foreach ($bucket->children as $child) {
+                $childLeads = $leads->filter(function ($l) use ($child) {
+                    return strcasecmp(trim($l->lead_status ?? ''), trim($child->name)) === 0;
+                });
+                $child->total_leads = $childLeads->count();
+                $kanbanSubStatusLeads[$bucket->id][$child->id] = $childLeads;
+            }
         }
 
 
@@ -547,6 +570,7 @@ class DashboardController extends Controller
         return view('dashboard', compact(
             'buckets',
             'kanbanBucketLeads',
+            'kanbanSubStatusLeads',
             'firstBucket',
             'statusCounts',
             'totalLeads',

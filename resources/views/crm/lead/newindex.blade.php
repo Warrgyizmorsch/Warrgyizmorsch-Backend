@@ -66,6 +66,82 @@
         }
     </style>
     <style>
+        /* View Details Modal Premium Styles */
+        #viewLeadDetailsModal .modal-content {
+            animation: viewDetailSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes viewDetailSlideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        #viewLeadDetailsModal .card {
+            transition: all 0.2s ease;
+        }
+        #viewLeadDetailsModal .card:hover {
+            box-shadow: 0 4px 16px rgba(0,111,201,0.08) !important;
+        }
+        .vd-field-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .vd-field-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #8392ab;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .vd-field-label i {
+            font-size: 12px;
+            color: #a0aec0;
+            width: 14px;
+            text-align: center;
+        }
+        .vd-field-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1e293b;
+            word-break: break-word;
+        }
+        .vd-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        .vd-badge-bucket { background: #e3f2fd; color: #0d47a1; }
+        .vd-badge-status { background: #f3e5f5; color: #7b1fa2; }
+        .vd-badge-hot { background: #ffebee; color: #c62828; }
+        .vd-badge-warm { background: #fff3e0; color: #e65100; }
+        .vd-badge-cold { background: #e0f7fa; color: #00838f; }
+        .vd-badge-dead { background: #eceff1; color: #37474f; }
+        .vd-badge-default { background: #f5f5f5; color: #616161; }
+        .vd-badge-product { background: rgba(0,111,201,0.1); color: #006FC9; }
+        .view-lead-details-btn {
+            transition: all 0.2s ease;
+        }
+        .view-lead-details-btn:hover {
+            transform: scale(1.15);
+            color: #0056a3 !important;
+        }
+        @media (max-width: 576px) {
+            #viewLeadDetailsModal .modal-dialog {
+                margin: 0.5rem;
+            }
+            #viewLeadDetailsModal .modal-body {
+                padding: 12px !important;
+            }
+        }
+    </style>
+    <style>
         .duplicate-info-wrapper {
             position: relative;
             display: inline-flex;
@@ -169,10 +245,10 @@
             color: #ffffff !important;
         }
     </style>
-    <div class="container-fluid">
+    <div class="container-fluid px-0">
 
-        <x-lead.tools :buckets="$mainbuckets" :filterBucket="$filterBucket" :totalLeadsCount="$totalLeadsCount"
-            :filteredLeadCount="$filteredLeadCount" :owners="$owners" :sources="$sources" :categories="$categorys" />
+        <x-lead.tools :title="'Modern Leads'" :buckets="$mainbuckets" :filterBucket="$filterBucket" :totalLeadsCount="$totalLeadsCount"
+            :filteredLeadCount="$filteredOrdersCount ?? $filteredLeadCount" :owners="$owners" :sources="$sources" :categories="$categorys" />
 
         @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show mt-2" role="alert">
@@ -191,9 +267,9 @@
             </div>
         @endif
 
-        <div class="d-flex overflow-auto border-bottom mb-2 mt-3 pb-2 gap-3 align-items-center">
+        <!-- <div class="d-flex overflow-auto border-bottom mb-2 mt-3 pb-2 gap-3 align-items-center"> -->
 
-            @php
+            <!-- @php
                 // All tab tabhi active hoga jab URL me koi bucket_id ya has_followups na ho
                 $isAllActive = !request()->has('bucket_id') && !request()->has('has_followups');
             @endphp
@@ -224,7 +300,7 @@
                     </a>
 
                 @endforeach
-            @endif
+            @endif -->
 
             <!-- @if($childBuckets->count())
                                         @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
@@ -242,7 +318,7 @@
 
                                         @endforeach
                                         @endif -->
-            @php
+            <!-- @php
                 $isDeletedActive = request('deleted_leads') == 1;
             @endphp
 
@@ -252,37 +328,28 @@
                 Old Leads ({{ $deletedLeadsCount }})
             </a>
 
-        </div>
+        </div> -->
 
         <div class="d-flex overflow-auto border-bottom mb-2 mt-3 pb-2 gap-3 align-items-center">
-
-
             @if($childBuckets->count())
                 @php
                     $isAllActived = empty(request('lead_status'));
                 @endphp
-                <a href="?bucket_id={{ request('bucket_id') }}&lead_status="
+                <a href="{{ request()->fullUrlWithQuery(['lead_status' => '']) }}"
                     class="{{ $isAllActived ? 'btn btn-brand text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap">
-                    All ({{ $childtotalLeadsCount}})
+                    All ({{ $childtotalLeadsCount }})
                 </a>
 
-                @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
-
+                @foreach($childBuckets as $bucket)
                     @php
                         $isActive = request('lead_status') == $bucket->name;
                     @endphp
-
-                    <a href="?bucket_id={{ request('bucket_id') }}&lead_status={{ urlencode($bucket->name) }}"
+                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => $bucket->name]) }}"
                         class="{{ $isActive ? 'btn btn-brand text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap">
-
                         {{ $bucket->name }} ({{ $bucket->leads_count }})
-
                     </a>
-
                 @endforeach
             @endif
-
-
         </div>
 
 
@@ -480,9 +547,10 @@
                                                 style="--hover-color: #006FC9;">
                                                 {{ optional($lead->user)->name ?? 'Unknown User' }}
                                             </a>
-
                                         </p>
-                                        <span class="badge bg-light text-secondary rounded-pill border">#{{ $lead->id }}</span>
+                                        <a href="javascript:void(0);" class="badge bg-light text-primary rounded-pill border text-decoration-none" style="cursor: pointer; font-size: 11px;" title="Edit Lead Form" data-lead="{{ json_encode($lead ?? []) }}" data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)">
+                                            <i class="fas fa-edit me-1"></i>Edit
+                                        </a>
                                         @if($lead->duplicate_count > 0)
                                             <span class="duplicate-info-wrapper">
 
@@ -538,34 +606,63 @@
                                     <span class="fs-12 text-truncate">{{ $lead->bucket->name ?? 'No Bucket' }}</span>
                                     <i class="fa-solid fa-pen-to-square text-secondary ms-2"></i>
                                 </div>
-                                <small class="text-muted d-block mt-1 text-truncate" style="max-width: 190px;">
-                                    {{ $lead->lead_status ?? 'No Status' }}
-                                </small>
+                                <div class="d-flex align-items-center justify-content-between mt-1" style="max-width: 190px;">
+                                    <small class="text-muted text-truncate" style="max-width: 150px;">
+                                        {{ $lead->lead_status ?? 'No Status' }}
+                                    </small>
+                                    <a href="javascript:void(0);" class="text-success text-decoration-none p-1" onclick="convertLeads([{{ $lead->id }}]); return false;" title="Convert to Order (Active production)">
+                                        <i class="fas fa-exchange-alt fs-14"></i>
+                                    </a>
+                                </div>
                             </div>
                             @php
-                                $message = $lead->latestMessage->message ?? '';
-                                $created_at = $lead->latestMessage->created_at ?? null;
+                                // Get the latest message with an actual non-empty comment
+                                $lastCommentMsg = $lead->messages
+                                    ->filter(function($m) { return !empty(trim($m->message ?? '')); })
+                                    ->sortByDesc('created_at')
+                                    ->first();
+
+                                $message = $lastCommentMsg->message ?? ($lead->latestMessage->message ?? '');
+                                $created_at = $lastCommentMsg->created_at ?? ($lead->latestMessage->created_at ?? null);
+                                $commentUser = $lastCommentMsg->user->name ?? ($lead->lastMessage->user->name ?? ($lead->latestMessage->user->name ?? 'Unknown'));
                                 $followup = $lead->latestMessage->next_followup_date ?? null;
+
+                                // Count followups/updates created AFTER the last actual comment
+                                $updatesAfterCount = 0;
+                                if ($lastCommentMsg) {
+                                    $updatesAfterCount = $lead->messages
+                                        ->filter(function($m) use ($lastCommentMsg) {
+                                            return $m->created_at > $lastCommentMsg->created_at;
+                                        })->count();
+                                }
 
                                 $isLong = strlen($message) > 80;
                             @endphp
 
                             <div class="p-2 rounded-3 d-flex flex-column justify-content-between card-width"
-                                style="{{$message ? 'background:#f3f4f6;' : ''}} ">
+                                style="{{ ($message || $followup) ? 'background:#f3f4f6;' : '' }}">
 
                                 @if($message || $followup)
                                     <div class="d-flex justify-content-between align-items-center">
                                         <strong class="fs-13">
-                                            {{ $lead->lastMessage->user->name ?? 'Unknown' }}
+                                            {{ $commentUser }}
                                         </strong>
 
-                                        @if($created_at)
-                                            <span class="fs-10 text-muted">
-                                                <span
-                                                    class="fs-10 text-dark">{{ ($created_at) ? $created_at->diffForHumans() : 'N/A' }}</span>
-                                                <!-- {{ \Carbon\Carbon::parse($created_at)->format('d M, h:i A') }} -->
-                                            </span>
-                                        @endif
+                                        <div class="d-flex align-items-center gap-1">
+                                            @if($created_at)
+                                                <span class="fs-10 text-muted">
+                                                    <span class="fs-10 text-dark">{{ $created_at->diffForHumans() }}</span>
+                                                </span>
+                                            @endif
+
+                                            @if($updatesAfterCount > 0)
+                                                <span class="badge rounded-pill bg-primary text-white ms-1"
+                                                    style="font-size: 10px; font-weight: 700; padding: 2px 6px;"
+                                                    title="{{ $updatesAfterCount }} follow-up status update(s) since this comment">
+                                                    +{{ $updatesAfterCount }}
+                                                </span>
+                                            @endif
+                                        </div>
                                     </div>
 
 
@@ -653,6 +750,17 @@
                                     <a href="javascript:void(0);" class="open-SMS me-2" style="color: #006FC9;"
                                         data-bs-toggle="offcanvas" data-bs-target="#SMSSent{{ $lead->id }}"><i
                                             class="fa-solid fa-message"></i></a>
+
+                                    <a href="javascript:void(0);" class="me-2 view-lead-details-btn" style="color: #006FC9;" title="View Details"
+                                        data-lead="{{ json_encode($lead ?? []) }}"
+                                        data-user="{{ json_encode($lead->user ?? []) }}"
+                                        data-owner="{{ json_encode($lead->owner ?? []) }}"
+                                        data-bucket="{{ $lead->bucket->name ?? 'N/A' }}"
+                                        data-status="{{ $lead->lead_status ?? 'N/A' }}"
+                                        data-engagement="{{ $lead->lead_engagement_status ?? 'N/A' }}"
+                                        onclick="openViewDetailsModal(this)">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
 
                                     <a href="javascript:void(0);" class="text-secondary me-2" data-lead="{{ json_encode($lead ?? []) }}"
                                         data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)">
@@ -1020,7 +1128,7 @@
                                         <label class="form-label text-muted small mb-1" style="font-size: 12px;">Follow Up
                                             Type</label>
                                         <select class="form-select bg-light border-0 shadow-sm" name="followup_type"
-                                            style="font-size: 14px;">
+                                            style="font-size: 14px;" onchange="checkFollowupCommentToggle(this)">
                                             <option value="">--pls select Follow Up type --</option>
                                             <option value="WhatsApp Call">WhatsApp Call</option>
                                             <option value="Call">Call</option>
@@ -1032,7 +1140,7 @@
                                         <label class="form-label text-muted small mb-1" style="font-size: 12px;">Follow Up
                                             Status</label>
                                         <select class="form-select bg-light border-0 shadow-sm" name="followup_status"
-                                            style="font-size: 14px;">
+                                            style="font-size: 14px;" onchange="checkFollowupCommentToggle(this)">
                                             <option value="">--select Follow Up status --</option>
                                             <option value="Connected">Connected</option>
                                             <option value="Not Connected">Not Connected</option>
@@ -1048,7 +1156,7 @@
                                             name="next_followup_date" value="" style="font-size: 14px;">
                                     </div>
 
-                                    <div class="mb-4">
+                                    <div class="mb-4 comment-message-box">
                                         <label class="form-label text-muted small mb-1" style="font-size: 12px;">Add Comment /
                                             Message</label>
                                         <textarea class="form-control bg-light border-0 shadow-sm" name="message" rows="3"
@@ -1274,11 +1382,26 @@
                                                 <span
                                                     class="fs-15 text-dark">{{ $lead->applying_country_for_a_visa ?? 'N/A' }}</span>
                                             </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">City</small>
-                                                <span class="fs-15 text-dark">{{ optional($lead->user)->city ?? 'N/A' }}</span>
-                                            </div>
+                                             <div class="col-md-3 col-sm-6">
+                                                 <small class="text-muted text-uppercase d-block mb-1"
+                                                     style="font-size: 11px; letter-spacing: 0.5px;">City</small>
+                                                 <span class="fs-15 text-dark">{{ $lead->city ?? optional($lead->user)->city ?? 'N/A' }}</span>
+                                             </div>
+                                             <div class="col-md-3 col-sm-6">
+                                                 <small class="text-muted text-uppercase d-block mb-1"
+                                                     style="font-size: 11px; letter-spacing: 0.5px;">State</small>
+                                                 <span class="fs-15 text-dark">{{ $lead->state ?? 'N/A' }}</span>
+                                             </div>
+                                             <div class="col-md-3 col-sm-6">
+                                                 <small class="text-muted text-uppercase d-block mb-1"
+                                                     style="font-size: 11px; letter-spacing: 0.5px;">Pincode</small>
+                                                 <span class="fs-15 text-dark">{{ $lead->pincode ?? 'N/A' }}</span>
+                                             </div>
+                                             <div class="col-md-3 col-sm-6">
+                                                 <small class="text-muted text-uppercase d-block mb-1"
+                                                     style="font-size: 11px; letter-spacing: 0.5px;">Address</small>
+                                                 <span class="fs-15 text-dark">{{ $lead->address ?? 'N/A' }}</span>
+                                             </div>
                                             <!-- <div class="col-md-3 col-sm-6">
                                                 <small class="text-muted text-uppercase d-block mb-1"
                                                     style="font-size: 11px; letter-spacing: 0.5px;">Course</small>
@@ -1381,7 +1504,7 @@
                                             </div>
                                             <div class="col-md-3 col-sm-6">
                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Business Name</small>
+                                                    style="font-size: 11px;">Company Name</small>
                                                 <span class="fs-15 text-dark">{{ $lead->business_name ?? 'N/A' }}</span>
                                             </div>
                                             <div class="col-md-3 col-sm-6">
@@ -2124,6 +2247,95 @@
 
     </div>
 
+    {{-- VIEW DETAILS MODAL --}}
+    <div class="modal fade" id="viewLeadDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+
+                <!-- Sticky Header -->
+                <div class="modal-header border-0 px-4 py-3" style="background: linear-gradient(135deg, #006FC9, #0056a3); position: sticky; top: 0; z-index: 10;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25" style="width: 42px; height: 42px;">
+                            <i class="fas fa-user text-white" style="font-size: 18px;"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-white mb-0" id="viewLeadName">Lead Details</h5>
+                            <small class="text-white opacity-75" id="viewLeadSubtitle">Complete Information</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- Body -->
+                <div class="modal-body p-4" style="background: #f4f6f9; max-height: 72vh; overflow-y: auto;">
+
+                    <!-- Status Badges Row -->
+                    <div class="d-flex flex-wrap gap-2 mb-4" id="viewLeadBadges"></div>
+
+                    <!-- Section: Personal Information -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3 d-flex align-items-center gap-2" style="color: #006FC9; font-size: 14px;">
+                                <i class="fas fa-id-card"></i> Personal Information
+                            </h6>
+                            <div class="row g-3" id="viewPersonalInfo"></div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Contact Information -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3 d-flex align-items-center gap-2" style="color: #006FC9; font-size: 14px;">
+                                <i class="fas fa-address-book"></i> Contact Information
+                            </h6>
+                            <div class="row g-3" id="viewContactInfo"></div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Lead Information -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3 d-flex align-items-center gap-2" style="color: #006FC9; font-size: 14px;">
+                                <i class="fas fa-bullseye"></i> Lead Information
+                            </h6>
+                            <div class="row g-3" id="viewLeadInfo"></div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Address Details -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3 d-flex align-items-center gap-2" style="color: #006FC9; font-size: 14px;">
+                                <i class="fas fa-map-marker-alt"></i> Address Details
+                            </h6>
+                            <div class="row g-3" id="viewAddressInfo"></div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Additional Information -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3 d-flex align-items-center gap-2" style="color: #006FC9; font-size: 14px;">
+                                <i class="fas fa-info-circle"></i> Additional Information
+                            </h6>
+                            <div class="row g-3" id="viewAdditionalInfo"></div>
+                            <div class="mt-3" id="viewPainPointsSection" style="display: none;">
+                                <label class="fw-semibold text-muted mb-1" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Pain Points & Current System</label>
+                                <div id="viewPainPoints" class="p-3 bg-light rounded border" style="font-size: 13px; line-height: 1.6; min-height: 50px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer border-0 bg-white px-4 py-3">
+                    <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- ADD/EDIT LEAD FORM --}}
     <div class="modal fade" id="leadModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -2164,8 +2376,24 @@
                                         <input type="email" name="email" id="inp_email" class="form-control form-control-sm auto-email">
                                     </div>
                                     <div class="col-md-6">
+                                        <label class="form-label-sm">Company Name</label>
+                                        <input type="text" name="business_name" id="inp_business" class="form-control form-control-sm" placeholder="Company Name">
+                                    </div>
+                                    <div class="col-md-4">
                                         <label class="form-label-sm">City</label>
-                                        <input type="text" name="city" id="inp_city" class="form-control form-control-sm auto-city">
+                                        <input type="text" name="city" id="inp_city" class="form-control form-control-sm auto-city" placeholder="City">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-sm">State</label>
+                                        <input type="text" name="state" id="inp_state" class="form-control form-control-sm" placeholder="State">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-sm">Pincode</label>
+                                        <input type="text" name="pincode" id="inp_pincode" class="form-control form-control-sm" placeholder="Pincode / Zip">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label-sm">Address</label>
+                                        <textarea name="address" id="inp_address" class="form-control form-control-sm" rows="2" placeholder="Full Street Address..."></textarea>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label-sm">Employee Strength</label>
@@ -2199,10 +2427,6 @@
                                     <div class="col-md-6">
                                         <label class="form-label-sm">Website</label>
                                         <input type="text" name="website" id="inp_website"  class="form-control form-control-sm">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label-sm">Business Name</label>
-                                        <input type="text" name="business_name" id="inp_business" class="form-control form-control-sm ">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label-sm">GST NO.</label>
@@ -2757,6 +2981,28 @@
 
                     });
 
+                    // Real-time Comment Box toggle
+                    const commentBox = form.querySelector('.comment-message-box') || form.querySelector('textarea[name="message"]')?.closest('.mb-4');
+
+                    function toggleCommentField() {
+                        if (!followupType || !followupStatus || !commentBox) return;
+                        const typeVal = (followupType.value || '').trim().toLowerCase();
+                        const statusVal = (followupStatus.value || '').trim().toLowerCase();
+
+                        const isCallType = typeVal.includes('call');
+                        const isHideStatus = (statusVal === 'not connected' || statusVal === 'no response');
+
+                        if (isCallType && isHideStatus) {
+                            commentBox.style.setProperty('display', 'none', 'important');
+                        } else {
+                            commentBox.style.setProperty('display', 'block', 'important');
+                        }
+                    }
+
+                    if (followupType) followupType.addEventListener('change', toggleCommentField);
+                    if (followupStatus) followupStatus.addEventListener('change', toggleCommentField);
+                    toggleCommentField();
+
                 });
 
             });
@@ -2778,6 +3024,26 @@
             $(document).ready(function () {
                 $("#ccbccToggleModal").click(function () {
                     $("#ccbccToggleModalFileds").slideToggle(200);
+                });
+
+                $(document).on('shown.bs.offcanvas show.bs.offcanvas', '.offcanvas', function () {
+                    const followupType = this.querySelector('select[name="followup_type"]');
+                    const followupStatus = this.querySelector('select[name="followup_status"]');
+                    const commentBox = this.querySelector('.comment-message-box') || this.querySelector('textarea[name="message"]')?.closest('.mb-4');
+
+                    if (followupType && followupStatus && commentBox) {
+                        const typeVal = (followupType.value || '').trim().toLowerCase();
+                        const statusVal = (followupStatus.value || '').trim().toLowerCase();
+
+                        const isCallType = typeVal.includes('call');
+                        const isHideStatus = (statusVal === 'not connected' || statusVal === 'no response');
+
+                        if (isCallType && isHideStatus) {
+                            commentBox.style.setProperty('display', 'none', 'important');
+                        } else {
+                            commentBox.style.setProperty('display', 'block', 'important');
+                        }
+                    }
                 });
             });
         </script>
@@ -2989,12 +3255,15 @@
                 document.getElementById('inp_name').value = user.name || '';
                 document.getElementById('inp_email').value = user.email || '';
                 document.getElementById('inp_city').value = lead.city || user.city || '';
+                document.getElementById('inp_state').value = lead.state || '';
+                document.getElementById('inp_pincode').value = lead.pincode || '';
+                document.getElementById('inp_address').value = lead.address || '';
 
                 document.getElementById('inp_platform').value = lead.platform || '';
                 document.getElementById('inp_owner').value = lead.lead_owner || '';
                 document.getElementById('inp_budget').value = lead.budget || '';
 
-                // Populate Employee Strength & Industry, Website, Business Name, GST Number
+                // Populate Employee Strength & Industry, Website, Business Name (Company Name), GST Number
                 document.getElementById('inp_employee_strength').value = lead.employee_strength || '';
                 document.getElementById('inp_industry').value = lead.industry || '';
                 document.getElementById('inp_website').value = lead.website || '';
@@ -3519,6 +3788,219 @@
                     shortSpan.style.display = 'inline';
                     fullSpan.style.display = 'none';
                 }
+            }
+        </script>
+        <script>
+            window.convertLeads = function(ids) {
+                if (!ids || ids.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Selection Required',
+                        text: 'Please select at least one lead to convert.'
+                    });
+                    return;
+                }
+                Swal.fire({
+                    title: 'Convert Lead to Order?',
+                    text: 'Are you sure you want to convert this lead to Order? Status will be updated to "Active production" and moved to My Orders.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-exchange-alt me-1"></i> Yes, Convert!'
+                }).then(function(result) {
+                    if (result && (result.isConfirmed || result.value)) {
+                        Swal.fire({
+                            title: 'Converting...',
+                            text: 'Please wait while we convert the lead.',
+                            allowOutsideClick: false,
+                            didOpen: function() {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+
+                        $.ajax({
+                            url: "{{ route('modern.leads.convert') }}",
+                            type: "POST",
+                            data: JSON.stringify({ lead_ids: ids }),
+                            contentType: "application/json",
+                            headers: {
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            success: function(response) {
+                                if (response && response.status === 'success') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Converted!',
+                                        text: response.message || 'Lead converted successfully!',
+                                        timer: 1500,
+                                        showConfirmButton: false
+                                    }).then(function() {
+                                        window.location.href = "{{ route('orders.index') }}";
+                                    });
+                                } else {
+                                    Swal.fire('Error', (response && response.message) ? response.message : 'Conversion failed', 'error');
+                                }
+                            },
+                            error: function(xhr) {
+                                var errMsg = 'Conversion failed';
+                                if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                                    errMsg = xhr.responseJSON.message;
+                                }
+                                Swal.fire('Error', errMsg, 'error');
+                            }
+                        });
+                    }
+                });
+            };
+
+            // ========== VIEW LEAD DETAILS MODAL ==========
+            function openViewDetailsModal(el) {
+                var lead = JSON.parse(el.getAttribute('data-lead') || '{}');
+                var user = JSON.parse(el.getAttribute('data-user') || '{}');
+                var owner = JSON.parse(el.getAttribute('data-owner') || '{}');
+                var bucket = el.getAttribute('data-bucket') || 'N/A';
+                var status = el.getAttribute('data-status') || 'N/A';
+                var engagement = el.getAttribute('data-engagement') || 'N/A';
+
+                // Helper: create a field item HTML
+                function fieldHtml(icon, label, value) {
+                    var v = (value && value !== 'null' && value !== 'undefined') ? value : 'N/A';
+                    return '<div class="col-md-4 col-sm-6 col-12">' +
+                        '<div class="vd-field-item">' +
+                        '<span class="vd-field-label"><i class="fas ' + icon + '"></i> ' + label + '</span>' +
+                        '<span class="vd-field-value">' + v + '</span>' +
+                        '</div></div>';
+                }
+
+                // Header
+                document.getElementById('viewLeadName').textContent = user.name || 'Unknown User';
+                document.getElementById('viewLeadSubtitle').textContent = (lead.product || 'No Product') + ' • ID: #' + (lead.id || '-');
+
+                // Badges
+                var badgesHtml = '';
+                // Bucket
+                badgesHtml += '<span class="vd-badge vd-badge-bucket"><i class="fas fa-layer-group"></i> ' + bucket + '</span>';
+                // Status
+                if (status && status !== 'N/A') {
+                    badgesHtml += '<span class="vd-badge vd-badge-status"><i class="fas fa-flag"></i> ' + status + '</span>';
+                }
+                // Sub Status
+                if (lead.lead_sub_status) {
+                    badgesHtml += '<span class="vd-badge vd-badge-default"><i class="fas fa-code-branch"></i> ' + lead.lead_sub_status + '</span>';
+                }
+                // Engagement
+                var engLower = (engagement || '').toLowerCase();
+                var engClass = 'vd-badge-default';
+                if (engLower === 'hot') engClass = 'vd-badge-hot';
+                else if (engLower === 'warm') engClass = 'vd-badge-warm';
+                else if (engLower === 'cold') engClass = 'vd-badge-cold';
+                else if (engLower === 'dead') engClass = 'vd-badge-dead';
+                badgesHtml += '<span class="vd-badge ' + engClass + '"><i class="fas fa-fire"></i> ' + (engagement || 'N/A') + '</span>';
+                // Product
+                if (lead.product) {
+                    badgesHtml += '<span class="vd-badge vd-badge-product"><i class="fas fa-box"></i> ' + lead.product + '</span>';
+                }
+                // Priority
+                if (lead.lead_priority) {
+                    var prioClass = 'vd-badge-default';
+                    if (lead.lead_priority.toLowerCase() === 'high') prioClass = 'vd-badge-hot';
+                    else if (lead.lead_priority.toLowerCase() === 'medium') prioClass = 'vd-badge-warm';
+                    else if (lead.lead_priority.toLowerCase() === 'low') prioClass = 'vd-badge-cold';
+                    badgesHtml += '<span class="vd-badge ' + prioClass + '"><i class="fas fa-exclamation-triangle"></i> ' + lead.lead_priority + ' Priority</span>';
+                }
+                // Verified
+                if (lead.verified_lead) {
+                    badgesHtml += '<span class="vd-badge" style="background: #e8f5e9; color: #2e7d32;"><i class="fas fa-check-circle"></i> Verified</span>';
+                }
+                document.getElementById('viewLeadBadges').innerHTML = badgesHtml;
+
+                // Personal Information
+                var personalHtml = '';
+                personalHtml += fieldHtml('fa-user', 'Full Name', user.name);
+                personalHtml += fieldHtml('fa-building', 'Company Name', lead.business_name);
+                personalHtml += fieldHtml('fa-id-badge', 'GST Number', lead.gst_number);
+                personalHtml += fieldHtml('fa-tags', 'Category', lead.category ? (lead.category.category_name || '') : '');
+                personalHtml += fieldHtml('fa-users', 'Employee Strength', lead.employee_strength);
+                personalHtml += fieldHtml('fa-industry', 'Industry', lead.industry);
+                document.getElementById('viewPersonalInfo').innerHTML = personalHtml;
+
+                // Contact Information
+                var contactHtml = '';
+                contactHtml += fieldHtml('fa-envelope', 'Email', user.email);
+                contactHtml += fieldHtml('fa-phone', 'Mobile No.', user.contact_no);
+                contactHtml += fieldHtml('fa-globe', 'Website', lead.website);
+                document.getElementById('viewContactInfo').innerHTML = contactHtml;
+
+                // Lead Information
+                var leadInfoHtml = '';
+                leadInfoHtml += fieldHtml('fa-layer-group', 'Bucket', bucket);
+                leadInfoHtml += fieldHtml('fa-flag', 'Status', status);
+                leadInfoHtml += fieldHtml('fa-code-branch', 'Sub-Status', lead.lead_sub_status);
+                leadInfoHtml += fieldHtml('fa-fire', 'Engagement', engagement);
+                leadInfoHtml += fieldHtml('fa-box', 'Product', lead.product);
+                leadInfoHtml += fieldHtml('fa-dollar-sign', 'Deal Value', lead.deal_value ? ('₹' + lead.deal_value) : '');
+                leadInfoHtml += fieldHtml('fa-bullhorn', 'Source', lead.lead_source);
+                leadInfoHtml += fieldHtml('fa-link', 'Sub Source', lead.lead_sub_source);
+                leadInfoHtml += fieldHtml('fa-exclamation-triangle', 'Priority', lead.lead_priority);
+                // Lead Owner
+                var ownerName = (owner && owner.name) ? owner.name : 'Not Assigned';
+                leadInfoHtml += fieldHtml('fa-user-tie', 'Lead Owner', ownerName);
+                // Services
+                if (lead.services) {
+                    var servArr = lead.services;
+                    if (typeof servArr === 'string') {
+                        try { servArr = JSON.parse(servArr); } catch(e) { servArr = [servArr]; }
+                    }
+                    if (Array.isArray(servArr) && servArr.length > 0) {
+                        var servBadgesHtml = servArr.map(function(s) {
+                            return '<span class="badge bg-light text-dark border me-1 mb-1" style="font-size:12px;">' + s + '</span>';
+                        }).join('');
+                        leadInfoHtml += '<div class="col-12"><div class="vd-field-item"><span class="vd-field-label"><i class="fas fa-concierge-bell"></i> Services</span><div class="d-flex flex-wrap mt-1">' + servBadgesHtml + '</div></div></div>';
+                    }
+                }
+                // Created & Updated
+                if (lead.created_at) {
+                    var createdDate = new Date(lead.created_at);
+                    leadInfoHtml += fieldHtml('fa-calendar-plus', 'Created On', createdDate.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + ' ' + createdDate.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:true}));
+                }
+                if (lead.updated_at) {
+                    var updatedDate = new Date(lead.updated_at);
+                    leadInfoHtml += fieldHtml('fa-calendar-check', 'Last Modified', updatedDate.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + ' ' + updatedDate.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:true}));
+                }
+                document.getElementById('viewLeadInfo').innerHTML = leadInfoHtml;
+
+                // Address Details
+                var addressHtml = '';
+                addressHtml += fieldHtml('fa-map-pin', 'City', lead.city || (user.city || ''));
+                addressHtml += fieldHtml('fa-map', 'State', lead.state);
+                addressHtml += fieldHtml('fa-hashtag', 'Pincode', lead.pincode);
+                addressHtml += fieldHtml('fa-globe-americas', 'Country', lead.applying_country_for_a_visa);
+                addressHtml += fieldHtml('fa-map-marker-alt', 'Address', lead.address);
+                document.getElementById('viewAddressInfo').innerHTML = addressHtml;
+
+                // Additional Information
+                var additionalHtml = '';
+                additionalHtml += fieldHtml('fa-money-bill-wave', 'Revenue', lead.revenue);
+                additionalHtml += fieldHtml('fa-calendar', 'Followup Date', lead.followup_date ? new Date(lead.followup_date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : '');
+                additionalHtml += fieldHtml('fa-sticky-note', 'Remark', lead.remark);
+                document.getElementById('viewAdditionalInfo').innerHTML = additionalHtml;
+
+                // Pain Points
+                var painSection = document.getElementById('viewPainPointsSection');
+                var painDiv = document.getElementById('viewPainPoints');
+                if (lead.pain_points && lead.pain_points.trim()) {
+                    painDiv.innerHTML = lead.pain_points;
+                    painSection.style.display = 'block';
+                } else {
+                    painSection.style.display = 'none';
+                }
+
+                // Show modal
+                var modal = new bootstrap.Modal(document.getElementById('viewLeadDetailsModal'));
+                modal.show();
             }
         </script>
     @endpush

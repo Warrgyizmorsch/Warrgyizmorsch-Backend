@@ -9,6 +9,7 @@ class Leads extends Model
 
     protected $fillable = [
         'lead_id',
+        'is_converted',
         'lead_bucket_id',
         'lead_status',
         'lead_owner',
@@ -43,6 +44,9 @@ class Leads extends Model
         'website',
         'business_name',
         'gst_number',
+        'state',
+        'pincode',
+        'address',
         'documents',
     ];
 

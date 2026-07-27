@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CRM\NewleadController;
+use App\Http\Controllers\CRM\OrderController;
 use App\Http\Controllers\CRM\UniversityDetailController;
 use App\Http\Controllers\WhatsAppController;
 
@@ -201,7 +202,9 @@ Route::get('/lead-import-status/{jobId}', [LeadController::class, 'getImportJobS
 
 
 // new routes 
+Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
 Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
+Route::post('/modern-leads/convert', [NewleadController::class, 'bulkConvert'])->name('modern.leads.convert');
 Route::post('/modern-leads/drag-update/{lead}', [NewleadController::class, 'dragUpdate'])->name('lead.dragUpdate');
 Route::post('/modern-leads/quick-update/{lead}', [NewleadController::class, 'updateQuick'])->name('lead.updateQuick');
 Route::post('/modern-leads/todo/{lead}', [NewleadController::class, 'storeTodo'])->name('lead.storeTodo');

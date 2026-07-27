@@ -1,17 +1,17 @@
-@props(['buckets','filterBucket', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners','categories'])
+@props(['buckets','filterBucket', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners','categories', 'title'])
 
 <div class="page-header">
     <div class="page-header-left d-flex align-items-center">
 
         <div class="page-header-title">
-            <h5 class="m-b-10">Leads</h5>
+            <h5 class="m-b-10">{{ $title ?? 'Leads' }}</h5>
         </div>
 
         <ul class="breadcrumb">
             <li class="breadcrumb-item">
                 <a href="{{ route('dashboard') }}">Home</a>
             </li>
-            <li class="breadcrumb-item">Leads</li>
+            <li class="breadcrumb-item">{{ $title ?? 'Leads' }}</li>
         </ul>
 
         <div class="d-flex align-items-center ms-3 gap-2">
@@ -45,13 +45,18 @@
 
                 <div class="dropdown-menu dropdown-menu-end">
 
-                    <a href="{{ route('modern.leads.index', request()->except('bucket_id')) }}"
-                        class="dropdown-item {{ request('bucket_id') ? '' : 'active' }}">
+                    <a href="{{ route('modern.leads.index', request()->except('bucket_id', 'converted')) }}"
+                        class="dropdown-item {{ !request('bucket_id') && !request('converted') ? 'active' : '' }}">
                         All Buckets
                     </a>
 
+                    <a href="{{ route('modern.leads.index', array_merge(request()->query(), ['converted' => 1, 'bucket_id' => ''])) }}"
+                        class="dropdown-item {{ request('converted') == 1 ? 'active' : '' }}">
+                        Converted
+                    </a>
+
                     @foreach($buckets as $bucket)
-                    <a href="{{ route('modern.leads.index', array_merge(request()->query(), ['bucket_id' => $bucket->id, 'lead_status' => ''])) }}"
+                    <a href="{{ route('modern.leads.index', array_merge(request()->query(), ['bucket_id' => $bucket->id, 'converted' => '', 'lead_status' => ''])) }}"
                         class="dropdown-item {{ request('bucket_id') == $bucket->id ? 'active' : '' }}">
                         {{ $bucket->name }}
                     </a>
@@ -96,7 +101,11 @@
 </div>
 
 {{-- ✅ COLLAPSE --}}
-<div id="collapseOne" class="collapse mt-3 {{ request()->query() ? 'show' : '' }}">
+@php
+    $actualFilterQueryParams = request()->except('bucket_id', 'lead_status', 'per_page', 'page');
+    $hasActualFilters = !empty($actualFilterQueryParams);
+@endphp
+<div id="collapseOne" class="collapse mt-3 {{ $hasActualFilters ? 'show' : '' }}">
     <div class="card card-body shadow-sm">
 
         <form method="GET" action="{{ route('modern.leads.index') }}">

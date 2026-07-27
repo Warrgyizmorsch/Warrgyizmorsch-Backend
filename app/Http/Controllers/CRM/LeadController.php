@@ -271,6 +271,10 @@ class LeadController extends Controller
              'website' => 'nullable|string|max:255',
              'business_name' => 'nullable|string|max:255',
              'gst_number' => 'nullable|string|max:255',
+             'city' => 'nullable|string|max:255',
+             'state' => 'nullable|string|max:255',
+             'pincode' => 'nullable|string|max:50',
+             'address' => 'nullable|string',
              'cloned_contacts' => 'nullable|array',
              'documents' => 'nullable|array',
              'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
@@ -299,6 +303,10 @@ class LeadController extends Controller
         $leadData['website'] = $data['website'] ?? null;
         $leadData['business_name'] = $data['business_name'] ?? null;
         $leadData['gst_number'] = $data['gst_number'] ?? null;
+        $leadData['city'] = $data['city'] ?? null;
+        $leadData['state'] = $data['state'] ?? null;
+        $leadData['pincode'] = $data['pincode'] ?? null;
+        $leadData['address'] = $data['address'] ?? null;
         
         $uploadedDocs = [];
         if ($request->hasFile('documents')) {
@@ -312,7 +320,7 @@ class LeadController extends Controller
         }
         $leadData['documents'] = $uploadedDocs;
 
-        unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city']);
+        unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code']);
 
         $leadData['uid'] = $user->id;
         $leadData['date'] = $data['date'] ?? now();
@@ -418,6 +426,10 @@ class LeadController extends Controller
             'website' => 'nullable|string|max:255',
             'business_name' => 'nullable|string|max:255',
             'gst_number' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'pincode' => 'nullable|string|max:50',
+            'address' => 'nullable|string',
             'cloned_contacts' => 'nullable|array',
             'documents' => 'nullable|array',
             'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
@@ -465,6 +477,10 @@ class LeadController extends Controller
 
         $leadData = $data;
         $leadData['client_details'] = $request->cloned_contacts ?? [];
+        $leadData['city'] = $data['city'] ?? null;
+        $leadData['state'] = $data['state'] ?? null;
+        $leadData['pincode'] = $data['pincode'] ?? null;
+        $leadData['address'] = $data['address'] ?? null;
 
         $existingDocs = $lead->documents ?? [];
         if ($request->hasFile('documents')) {
@@ -591,13 +607,11 @@ class LeadController extends Controller
 
     public function getSubStatus(Request $request)
     {
-        $bucket = Bucket::with('children')->find($request->lead_bucket_id);
+        $bucketId = $request->lead_bucket_id ?? $request->bucket_id;
+        $bucket = Bucket::with('children')->find($bucketId);
 
         if (!$bucket) {
-            return response()->json([
-                'message' => 'Bucket not found',
-                'children' => []
-            ]);
+            return response()->json([]);
         }
 
         $children = $bucket->children->map(function ($child) {
@@ -608,10 +622,7 @@ class LeadController extends Controller
             ];
         });
 
-        return response()->json([
-            'message' => 'response fetched successfully',
-            'children' => $children
-        ]);
+        return response()->json($children);
     }
 
 
