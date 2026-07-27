@@ -75,9 +75,10 @@ class DashboardController extends Controller
         // ── Kanban Board: load all leads per bucket & sub-status ──
         $kanbanBucketLeads = [];
         $kanbanSubStatusLeads = [];
+        $kanbanConvertedLeads = [];
 
         foreach ($buckets as $bucket) {
-            $leads = Leads::with(['user'])
+            $leads = Leads::with(['user', 'owner', 'bucket', 'category'])
                 ->where('lead_bucket_id', $bucket->id)
                 ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
                 ->latest()
@@ -94,6 +95,20 @@ class DashboardController extends Controller
                 $child->total_leads = $childLeads->count();
                 $kanbanSubStatusLeads[$bucket->id][$child->id] = $childLeads;
             }
+
+            // Converted Leads for this bucket
+            $kanbanConvertedLeads[$bucket->id] = Leads::with(['user', 'owner', 'bucket', 'category'])
+                ->where(function ($q) use ($bucket) {
+                    $q->where('lead_bucket_id', $bucket->id)
+                      ->orWhere('category_id', $bucket->id);
+                })
+                ->where(function ($q) {
+                    $q->where('is_converted', 1)
+                      ->orWhere('lead_status', 'Converted');
+                })
+                ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
+                ->latest()
+                ->get();
         }
 
 
@@ -567,10 +582,15 @@ class DashboardController extends Controller
             $sourceChartData
         );
 
+        $categorys = \App\Models\Category::where('is_active', 1)->get();
+        $owners = \App\Models\User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
+        $sources = \App\Models\LeadSource::pluck('source_name')->toArray();
+
         return view('dashboard', compact(
             'buckets',
             'kanbanBucketLeads',
             'kanbanSubStatusLeads',
+            'kanbanConvertedLeads',
             'firstBucket',
             'statusCounts',
             'totalLeads',
@@ -583,6 +603,9 @@ class DashboardController extends Controller
             'monthlyChartData',
             'chartCategories',
             'sourceChartData',
+            'categorys',
+            'owners',
+            'sources'
         ));
 
     }

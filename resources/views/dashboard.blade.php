@@ -614,7 +614,7 @@
                                                         {{-- Name + Edit Button --}}
                                                         <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
                                                             <span class="db-kc-name fw-bold text-dark" style="font-size: 13px;">{{ optional($kl->user)->name ?? 'Unknown' }}</span>
-                                                            <a href="{{ route('lead.edit', $kl->id) }}" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" onclick="event.stopPropagation();">
+                                                            <a href="javascript:void(0);" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}" onclick="event.stopPropagation(); openEditModal(this);">
                                                                 <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i>
                                                             </a>
                                                         </div>
@@ -664,7 +664,7 @@
                 <div class="card stretch stretch-full shadow-sm">
                     <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                         <div>
-                            <h5 class="card-title mb-1">Lead Sub-Status</h5>
+                            <h5 class="card-title mb-1">Pipeline Lead</h5>
                             <span class="fs-12 text-muted">Drag & drop leads to change their sub-status</span>
                         </div>
                         <div class="d-flex align-items-center gap-2">
@@ -751,7 +751,7 @@
                                                                 {{-- Name + Edit Button --}}
                                                                 <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
                                                                     <span class="db-kc-name fw-bold text-dark" style="font-size: 13px;">{{ optional($kl->user)->name ?? 'Unknown' }}</span>
-                                                                    <a href="{{ route('lead.edit', $kl->id) }}" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" onclick="event.stopPropagation();">
+                                                                    <a href="javascript:void(0);" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}" onclick="event.stopPropagation(); openEditModal(this);">
                                                                         <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i>
                                                                     </a>
                                                                 </div>
@@ -802,6 +802,94 @@
                                             </div>
                                         @endforeach
                                     @endif
+
+                                    {{-- Converted Lead Column (Read Only) --}}
+                                    @php
+                                        $cConvLeads = $kanbanConvertedLeads[$bucket->id] ?? collect();
+                                    @endphp
+                                    <div class="db-kanban-col db-subkanban-col db-converted-col"
+                                         id="dbSubKCol-{{ $bucket->id }}-converted"
+                                         data-bucket-id="{{ $bucket->id }}"
+                                         data-bucket-name="{{ $bucket->name }}"
+                                         data-sub-status="Converted Lead"
+                                         data-child-id="converted"
+                                         style="border: 1.5px solid #86efac; background: #f0fdf4;">
+
+                                        {{-- Header --}}
+                                        <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'converted' => 1]) }}" class="db-kanban-col-header text-decoration-none" style="background: #dcfce7;" title="Converted Leads ({{ $bucket->name }})">
+                                            <div class="d-flex flex-column overflow-hidden">
+                                                <span class="db-kanban-col-title text-success" title="Converted Lead">
+                                                    <i class="fas fa-check-circle me-1"></i> Converted Lead
+                                                </span>
+                                                <span style="font-size:9.5px;opacity:0.75;font-weight:600;" class="text-truncate text-success">{{ $bucket->name }} (Read Only)</span>
+                                            </div>
+                                            <span class="db-kanban-col-count bg-success text-white" id="dbKSubColCount-{{ $bucket->id }}-converted">{{ $cConvLeads->count() }}</span>
+                                        </a>
+
+                                        {{-- Body (Read-Only: No db-sub-dropzone class) --}}
+                                        <div class="db-kanban-col-body {{ $cConvLeads->isEmpty() ? 'no-leads' : 'has-leads' }}"
+                                             id="dbSubKanbanBody-{{ $bucket->id }}-converted"
+                                             data-bucket-id="{{ $bucket->id }}"
+                                             data-bucket-name="{{ $bucket->name }}"
+                                             data-sub-status="Converted Lead"
+                                             data-child-id="converted">
+                                            @if($cConvLeads->isEmpty())
+                                                <div class="db-kanban-empty text-success opacity-75">
+                                                    <i class="fas fa-check-double mb-1 d-block"></i>
+                                                    No converted leads
+                                                </div>
+                                            @else
+                                                @foreach($cConvLeads as $kl)
+                                                    @php
+                                                        $kEng = strtolower(trim($kl->lead_engagement_status ?? 'n/a'));
+                                                    @endphp
+                                                    <div class="db-kcard border-success-subtle bg-white"
+                                                         draggable="false"
+                                                         data-lead-id="{{ $kl->id }}"
+                                                         data-bucket-id="{{ $bucket->id }}"
+                                                         data-sub-status="Converted Lead"
+                                                         id="dbSubKCard-{{ $kl->id }}">
+
+                                                        {{-- Name + Edit Button --}}
+                                                        <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
+                                                            <span class="db-kc-name fw-bold text-dark" style="font-size: 13px;">{{ optional($kl->user)->name ?? 'Unknown' }}</span>
+                                                            <a href="javascript:void(0);" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}" onclick="event.stopPropagation(); openEditModal(this);">
+                                                                <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i>
+                                                            </a>
+                                                        </div>
+
+                                                        {{-- Phone --}}
+                                                        <div class="db-kc-phone mb-1">
+                                                            <i class="fas fa-phone-alt" style="font-size:9px;color:#90a4ae;margin-right:3px;"></i>
+                                                            {{ optional($kl->user)->contact_no ?? 'N/A' }}
+                                                        </div>
+
+                                                        {{-- Badges --}}
+                                                        <div class="db-kc-badges position-relative mb-1 d-flex align-items-center gap-1 flex-wrap">
+                                                            <span class="badge bg-success text-white" style="font-size:10px;">
+                                                                <i class="fas fa-check-circle me-1"></i>Converted
+                                                            </span>
+                                                            @if($kl->product)
+                                                                <span class="db-kc-badge db-kc-badge-prod">{{ $kl->product }}</span>
+                                                            @endif
+                                                        </div>
+
+                                                        {{-- Owner --}}
+                                                        <div class="db-kc-owner text-muted mb-1" style="font-size:10.5px;">
+                                                            <i class="fas fa-user-tie text-secondary me-1" style="font-size:9.5px;"></i>
+                                                            Owner: <span class="fw-semibold text-dark">{{ optional($kl->owner)->name ?? 'Unassigned' }}</span>
+                                                        </div>
+
+                                                        {{-- Created date --}}
+                                                        <div class="db-kc-date" style="font-size: 10px;">
+                                                            <i class="fas fa-calendar-alt" style="font-size:9px;"></i>
+                                                            Create On {{ \Carbon\Carbon::parse($kl->created_at)->format('d M Y h:i A') }}
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            @endif
+                                        </div>
+                                    </div>
                                 @endforeach
                             </div>
                         </div>
@@ -2056,5 +2144,459 @@
                 t._timer = setTimeout(() => t.style.opacity = '0', 3000);
             }
         })();
+    </script>
+
+    {{-- ADD/EDIT LEAD FORM MODAL --}}
+    <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.6/quill.snow.css">
+    <style>
+        #pain_points_editor {
+            height: 220px !important;
+            background-color: #fff;
+            border: 1px solid #cbd5e1;
+            border-top: none;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        #pain_points_editor .ql-editor {
+            font-size: 13px;
+            color: #334155;
+        }
+        .ql-toolbar.ql-snow {
+            border: 1px solid #cbd5e1 !important;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            background-color: #f8fafc;
+        }
+        #inp_services + .select2-container .select2-selection--multiple {
+            max-height: 75px;
+            overflow-y: auto !important;
+        }
+        .contact-card {
+            background: #fdfdfd;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+        .contact-card:hover {
+            border-color: #006FC9;
+            box-shadow: 0 4px 12px rgba(0, 111, 201, 0.08);
+            transform: translateY(-1px);
+        }
+        .contact-card .btn-remove-contact {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(220, 53, 69, 0.05);
+            color: #dc3545;
+            border: 1px solid rgba(220, 53, 69, 0.1);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+    </style>
+
+    <div class="modal fade" id="leadModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+
+                <div class="modal-header bg-light border-bottom">
+                    <h5 class="modal-title fw-bold text-dark" id="leadModalTitle">
+                        <i class="feather-user text-primary me-2"></i> <span>Edit Lead</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="leadForm" method="POST" enctype="multipart/form-data" action="{{ route('lead.store') }}">
+                    @csrf
+                    <input type="hidden" name="_method" id="formMethod" value="POST">
+
+                    <div class="modal-body p-3 bg-white" style="max-height: 65vh; overflow-y: auto;">
+                        <!-- Upper Section: Side-by-Side Left and Right Columns -->
+                        <div class="row">
+                            <!-- Left Column: Client Details -->
+                            <div class="col-lg-6 border-end pe-3">
+                                <h6 class="fw-bold mb-2 text-primary border-bottom pb-1">Client Details</h6>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Client Name <span class="text-danger">*</span></label>
+                                        <input type="text" name="name" id="inp_name" class="form-control form-control-sm auto-name" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Mobile <span class="text-danger">*</span></label>
+                                        <input type="tel" name="mobile" id="inp_mobile" class="form-control form-control-sm phone-input" required>
+                                        <input type="hidden" name="country_code" id="inp_country_code" class="country-code-input">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Email</label>
+                                        <input type="email" name="email" id="inp_email" class="form-control form-control-sm auto-email">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Company Name</label>
+                                        <input type="text" name="business_name" id="inp_business" class="form-control form-control-sm" placeholder="Company Name">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-sm">City</label>
+                                        <input type="text" name="city" id="inp_city" class="form-control form-control-sm auto-city" placeholder="City">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-sm">State</label>
+                                        <input type="text" name="state" id="inp_state" class="form-control form-control-sm" placeholder="State">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-sm">Pincode</label>
+                                        <input type="text" name="pincode" id="inp_pincode" class="form-control form-control-sm" placeholder="Pincode / Zip">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label-sm">Address</label>
+                                        <textarea name="address" id="inp_address" class="form-control form-control-sm" rows="2" placeholder="Full Street Address..."></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Employee Strength</label>
+                                        <select name="employee_strength" id="inp_employee_strength" class="form-select form-select-sm">
+                                            <option value="">Select Strength</option>
+                                            <option value="1-10 employees">1-10 employees</option>
+                                            <option value="11-50 employees">11-50 employees</option>
+                                            <option value="51-200 employees">51-200 employees</option>
+                                            <option value="201-500 employees">201-500 employees</option>
+                                            <option value="500+ employees">500+ employees</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Industry</label>
+                                        <select name="industry" id="inp_industry" class="form-select form-select-sm">
+                                            <option value="">Select Industry</option>
+                                            <option value="IT & Technology">IT & Technology</option>
+                                            <option value="Healthcare">Healthcare</option>
+                                            <option value="Finance & Banking">Finance & Banking</option>
+                                            <option value="Education">Education</option>
+                                            <option value="Real Estate">Real Estate</option>
+                                            <option value="Retail & E-commerce">Retail & E-commerce</option>
+                                            <option value="Manufacturing">Manufacturing</option>
+                                            <option value="Professional Services">Professional Services</option>
+                                            <option value="Marketing & Advertising">Marketing & Advertising</option>
+                                            <option value="Logistics & Transportation">Logistics & Transportation</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Website</label>
+                                        <input type="text" name="website" id="inp_website" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">GST NO.</label>
+                                        <input type="text" name="gst_number" id="inp_gst" class="form-control form-control-sm">
+                                    </div>
+                                </div>
+
+                                <!-- Additional Contacts (Cloned) under Client Details -->
+                                <div class="mt-4 border-top pt-3">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">Additional Contacts</h6>
+                                            <span id="contactCountBadge" class="badge bg-soft-primary text-primary rounded-pill px-2 py-0.5" style="font-size: 0.75rem; line-height: 1;">0</span>
+                                        </div>
+                                        <button type="button" id="btnAddContact" class="btn btn-xs text-white d-flex align-items-center gap-1 fw-medium" style="background-color: #006FC9; font-size: 0.75rem; padding: 0.25rem 0.5rem; border: none; transition: background-color 0.2s ease;">
+                                            <i class="feather-plus"></i> Clone Contact
+                                        </button>
+                                    </div>
+                                    <div id="clonedContactsContainer" class="mt-2"></div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Lead Details -->
+                            <div class="col-lg-6 ps-3">
+                                <h6 class="fw-bold mb-2 text-primary border-bottom pb-1">Lead Details</h6>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Lead Source</label>
+                                        <select name="platform" id="inp_platform" class="form-select form-select-sm">
+                                            <option value="">Select Source</option>
+                                            @foreach($sources ?? [] as $source)
+                                                <option value="{{ $source }}">{{ $source }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Lead Owner</label>
+                                        <select name="lead_owner" id="inp_owner" class="form-select form-select-sm">
+                                            <option value="">Select Owner</option>
+                                            @foreach($owners ?? [] as $owner)
+                                                <option value="{{ $owner->id }}">{{ $owner->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Budget</label>
+                                        <input type="text" name="budget" id="inp_budget" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label-sm">Choose Product</label>
+                                        <select name="product" id="inp_product" class="form-select form-select-sm">
+                                            <option value="">Select Product</option>
+                                            <option value="SAAS">SAAS</option>
+                                            <option value="SAAP">SAAP</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label-sm">Service</label>
+                                        <select name="services[]" id="inp_services" class="form-select" data-select2-selector="label" multiple>
+                                            @foreach($categorys ?? [] as $category)
+                                                <option value="{{ $category->id }}">
+                                                    {{ $category->category_name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label-sm">Pain Points & Current System</label>
+                                        <div id="pain_points_editor" style="height: 150px;"></div>
+                                        <input type="hidden" name="pain_points" id="inp_pain_points">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mt-2">
+                                    <div class="col-md-12">
+                                        <label class="form-label-sm fw-bold text-dark">Upload Documents</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light"><i class="feather-paperclip"></i></span>
+                                            <input type="file" name="documents[]" id="inp_documents" class="form-control form-control-sm" multiple>
+                                        </div>
+                                        <small class="text-muted d-block" style="font-size: 0.75rem;">Select multiple files if needed (PDF, DOC, DOCX, JPG, PNG).</small>
+                                        <div id="existing_documents_container" class="mt-2 d-flex flex-wrap gap-1"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer bg-light mx-n4 mb-n4 px-4 py-3 mt-4 border-top">
+                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="btnSubmit" class="btn text-white px-4 fw-medium"
+                            style="background-color: #006FC9;">Update Lead</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <script>
+        let contactIndex = 0;
+
+        function updateContactCount() {
+            const container = document.getElementById('clonedContactsContainer');
+            const badge = document.getElementById('contactCountBadge');
+            if (container && badge) {
+                const count = container.querySelectorAll('.contact-card').length;
+                badge.innerText = count;
+            }
+        }
+
+        function addContactRow(data = {}) {
+            const container = document.getElementById('clonedContactsContainer');
+            if (!container) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'contact-card';
+            
+            wrapper.innerHTML = `
+                <button type="button" class="btn-remove-contact" title="Remove Contact">
+                    <i class="feather-trash-2 fs-12"></i>
+                </button>
+                <div class="row g-2 pe-4">
+                    <div class="col-6">
+                        <label class="form-label-sm">Name</label>
+                        <input type="text" name="cloned_contacts[${contactIndex}][name]" class="form-control form-control-sm" placeholder="Contact Name" value="${data.name || ''}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label-sm">Designation</label>
+                        <input type="text" name="cloned_contacts[${contactIndex}][designation]" class="form-control form-control-sm" placeholder="Designation" value="${data.designation || ''}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label-sm">Email</label>
+                        <input type="email" name="cloned_contacts[${contactIndex}][email]" class="form-control form-control-sm" placeholder="Email" value="${data.email || ''}">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label-sm">Phone Number</label>
+                        <input type="tel" name="cloned_contacts[${contactIndex}][phone]" class="form-control form-control-sm cloned-phone-input" placeholder="Phone Number" value="${data.phone || ''}">
+                    </div>
+                </div>
+            `;
+
+            const phoneInput = wrapper.querySelector('.cloned-phone-input');
+            phoneInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+
+            const removeBtn = wrapper.querySelector('.btn-remove-contact');
+            removeBtn.addEventListener('click', function() {
+                wrapper.remove();
+                updateContactCount();
+            });
+
+            container.appendChild(wrapper);
+            contactIndex++;
+            updateContactCount();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const btnAddContact = document.getElementById('btnAddContact');
+            if (btnAddContact) {
+                btnAddContact.addEventListener('click', function() {
+                    addContactRow();
+                });
+            }
+
+            if (document.getElementById('pain_points_editor')) {
+                window.painPointsQuill = new Quill('#pain_points_editor', {
+                    theme: 'snow',
+                    placeholder: 'Enter Pain Points & Current System...'
+                });
+            }
+
+            const leadForm = document.getElementById('leadForm');
+            if (leadForm) {
+                leadForm.addEventListener('submit', function(e) {
+                    if (window.painPointsQuill) {
+                        const html = window.painPointsQuill.root.innerHTML;
+                        if (html === '<p><br></p>' || html.trim() === '') {
+                            document.getElementById('inp_pain_points').value = '';
+                        } else {
+                            document.getElementById('inp_pain_points').value = html;
+                        }
+                    }
+                });
+            }
+        });
+
+        function openEditModal(button) {
+            let lead = JSON.parse(button.getAttribute('data-lead') || '{}');
+            let user = JSON.parse(button.getAttribute('data-user') || '{}');
+
+            let updateUrl = "{{ url('/lead/update') }}/" + lead.id;
+            document.getElementById('leadForm').action = updateUrl;
+            document.getElementById('formMethod').value = "PUT";
+
+            document.querySelector('#leadModalTitle span').innerText = "Edit Lead: " + (user.name || 'Unknown');
+            document.getElementById('btnSubmit').innerText = "Update Lead";
+
+            document.getElementById('inp_mobile').value = user.contact_no || '';
+            document.getElementById('inp_country_code').value = user.country_code || '';
+            document.getElementById('inp_name').value = user.name || '';
+            document.getElementById('inp_email').value = user.email || '';
+            document.getElementById('inp_city').value = lead.city || user.city || '';
+            document.getElementById('inp_state').value = lead.state || '';
+            document.getElementById('inp_pincode').value = lead.pincode || '';
+            document.getElementById('inp_address').value = lead.address || '';
+
+            document.getElementById('inp_platform').value = lead.platform || '';
+            document.getElementById('inp_owner').value = lead.lead_owner || '';
+            document.getElementById('inp_budget').value = lead.budget || '';
+
+            document.getElementById('inp_employee_strength').value = lead.employee_strength || '';
+            document.getElementById('inp_industry').value = lead.industry || '';
+            document.getElementById('inp_website').value = lead.website || '';
+            document.getElementById('inp_business').value = lead.business_name || '';
+            document.getElementById('inp_gst').value = lead.gst_number || '';
+            
+            document.getElementById('inp_product').value = lead.product || lead.applying_country_for_a_visa || '';
+            
+            let painPointsVal = lead.pain_points || lead.description || '';
+            document.getElementById('inp_pain_points').value = painPointsVal;
+            if (window.painPointsQuill) {
+                window.painPointsQuill.root.innerHTML = painPointsVal;
+            }
+
+            let editDocsInput = document.getElementById('inp_documents');
+            if (editDocsInput) editDocsInput.value = '';
+            let editDocsContainer = document.getElementById('existing_documents_container');
+            if (editDocsContainer) {
+                editDocsContainer.innerHTML = '';
+                let docs = [];
+                if (lead.documents) {
+                    try {
+                        docs = typeof lead.documents === 'string' ? JSON.parse(lead.documents) : lead.documents;
+                    } catch (e) {
+                        docs = [];
+                    }
+                }
+                if (Array.isArray(docs) && docs.length > 0) {
+                    let html = '';
+                    docs.forEach(doc => {
+                        let docPath = typeof doc === 'object' ? (doc.path || '') : doc;
+                        let docName = typeof doc === 'object' ? (doc.name || docPath.split('/').pop()) : docPath.split('/').pop();
+                        let assetUrl = "{{ asset('storage') }}/" + docPath;
+                        html += `<a href="${assetUrl}" target="_blank" class="badge bg-light text-dark p-1 border d-inline-flex align-items-center gap-1 text-decoration-none" style="font-size:0.75rem;">
+                            <i class="feather-file-text text-primary"></i>
+                            <span>${docName}</span>
+                            <i class="feather-download text-muted"></i>
+                        </a>`;
+                    });
+                    editDocsContainer.innerHTML = html;
+                }
+            }
+
+            let servicesSelect = document.getElementById('inp_services');
+            if (servicesSelect) {
+                Array.from(servicesSelect.options).forEach(opt => opt.selected = false);
+                let selectedServices = [];
+                if (lead.services) {
+                    try {
+                        selectedServices = typeof lead.services === 'string' ? JSON.parse(lead.services) : lead.services;
+                    } catch (e) {
+                        selectedServices = lead.services.split(',');
+                    }
+                }
+                if (Array.isArray(selectedServices)) {
+                    selectedServices.forEach(srv => {
+                        let opt = Array.from(servicesSelect.options).find(o => o.value === srv.trim());
+                        if (opt) opt.selected = true;
+                    });
+                }
+                if (typeof $ !== 'undefined' && $.fn.select2) {
+                    $(servicesSelect).trigger('change');
+                }
+            }
+
+            const container = document.getElementById('clonedContactsContainer');
+            if (container) container.innerHTML = '';
+            contactIndex = 0;
+            
+            let clonedContacts = [];
+            if (lead.client_details) {
+                try {
+                    clonedContacts = typeof lead.client_details === 'string'
+                        ? JSON.parse(lead.client_details)
+                        : lead.client_details;
+                } catch (e) {
+                    clonedContacts = [];
+                }
+            }
+            if (Array.isArray(clonedContacts)) {
+                clonedContacts.forEach(contact => {
+                    addContactRow(contact);
+                });
+            }
+            updateContactCount();
+
+            var myModal = new bootstrap.Modal(document.getElementById('leadModal'));
+            myModal.show();
+        }
     </script>
 @endsection
