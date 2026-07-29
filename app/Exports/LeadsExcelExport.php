@@ -19,7 +19,7 @@ class LeadsExcelExport implements FromCollection, WithHeadings
 
     public function collection()
     {
-        $query = Leads::with(['user', 'owner']);
+        $query = Leads::with(['user', 'owner', 'bucket']);
 
         // SEARCH
         if (!empty($this->filters['search'])) {
@@ -84,10 +84,10 @@ class LeadsExcelExport implements FromCollection, WithHeadings
                 'User Email'  => $lead->user->email ?? 'N/A',
                 'Contact no'  => $lead->user->contact_no ?? 'N/A',
                 'Lead Owner'  => $lead->owner->name ?? 'N/A',
-                'Lead Status' => $lead->lead_status,
-                'Lead Bucket' => $lead->bucket->name,
-                'Platform'    => $lead->platform,
-                'Created Date' => $lead->created_at?->format('d-m-Y'),
+                'Lead Status' => $lead->lead_status ?? 'N/A',
+                'Lead Bucket' => $lead->bucket->name ?? 'N/A',
+                'Platform'    => $lead->platform ?? 'N/A',
+                'Created Date' => $lead->created_at?->format('d-m-Y') ?? 'N/A',
             ];
         });
     }
