@@ -236,19 +236,36 @@ class NewleadController extends Controller
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
             ->get();
 
-        $targetBucketId = $request->bucket_id;
-        if (!$targetBucketId) {
-            $parentLeadBucket = Bucket::whereNull('parent_id')
-                ->where('is_deleted', 0)
-                ->where(function($q) {
-                    $q->where('name', 'LIKE', '%lead%')
-                      ->orWhere('id', 1);
-                })
-                ->first();
+        $parentLeadBucket = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where(function($q) {
+                $q->where('name', 'LIKE', '%lead%')
+                  ->orWhere('id', 1);
+            })
+            ->first();
 
-            if ($parentLeadBucket) {
-                $targetBucketId = $parentLeadBucket->id;
-            }
+        $defaultLeadBucketId = $parentLeadBucket ? $parentLeadBucket->id : 1;
+        $targetBucketId = $request->bucket_id ?? $defaultLeadBucketId;
+        $isLeadBucket = ($targetBucketId == $defaultLeadBucketId);
+
+        // Calculate Total Leads Count for the active target bucket
+        if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
+            $totalLeadsCount = Leads::where(function($q) use ($targetBucketId, $isLeadBucket) {
+                $q->where('lead_bucket_id', $targetBucketId);
+                if ($isLeadBucket) {
+                    $q->orWhereNull('lead_bucket_id');
+                }
+            })->count();
+        } elseif ($user) {
+            $totalLeadsCount = Leads::where('lead_owner', $user->id)
+                ->where(function($q) use ($targetBucketId, $isLeadBucket) {
+                    $q->where('lead_bucket_id', $targetBucketId);
+                    if ($isLeadBucket) {
+                        $q->orWhereNull('lead_bucket_id');
+                    }
+                })->count();
+        } else {
+            $totalLeadsCount = 0;
         }
 
         $childBuckets = collect();
@@ -258,11 +275,25 @@ class NewleadController extends Controller
             $childBuckets = Bucket::where('parent_id', $targetBucketId)
                 ->where('is_deleted', 0)
                 ->select('buckets.*')
-                ->selectSub(function ($q) use ($targetBucketId) {
+                ->selectSub(function ($q) use ($targetBucketId, $isLeadBucket) {
                     $q->from('leads')
                         ->selectRaw('COUNT(*)')
-                        ->where('leads.lead_bucket_id', $targetBucketId)
-                        ->whereColumn('leads.lead_status', 'buckets.name')
+                        ->where(function($bQ) use ($targetBucketId, $isLeadBucket) {
+                            $bQ->where('leads.lead_bucket_id', $targetBucketId);
+                            if ($isLeadBucket) {
+                                $bQ->orWhereNull('leads.lead_bucket_id');
+                            }
+                        })
+                        ->where(function($sQ) {
+                            $sQ->whereColumn('leads.lead_status', 'buckets.name')
+                               ->orWhere(function($emptyQ) {
+                                   $emptyQ->where('buckets.name', 'Yet to Call')
+                                          ->where(function($nullQ) {
+                                              $nullQ->whereNull('leads.lead_status')
+                                                    ->orWhere('leads.lead_status', '');
+                                          });
+                               });
+                        })
                         ->where(function($lq) {
                             $lq->whereNull('leads.is_converted')
                                ->orWhere('leads.is_converted', 0);
@@ -273,7 +304,12 @@ class NewleadController extends Controller
                 }, 'leads_count')
                 ->get();
 
-            $childtotalLeadsCount = Leads::where('lead_bucket_id', $targetBucketId)
+            $childtotalLeadsCount = Leads::where(function($q) use ($targetBucketId, $isLeadBucket) {
+                    $q->where('lead_bucket_id', $targetBucketId);
+                    if ($isLeadBucket) {
+                        $q->orWhereNull('lead_bucket_id');
+                    }
+                })
                 ->where(function($lq) {
                     $lq->whereNull('is_converted')
                        ->orWhere('is_converted', 0);

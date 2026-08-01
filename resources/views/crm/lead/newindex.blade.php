@@ -603,7 +603,7 @@
                                 <div class="d-inline-flex align-items-center justify-content-between bg-dark text-white rounded px-2 py-2 w-100"
                                     style="max-width: 190px; cursor:pointer;" data-bs-toggle="offcanvas"
                                     data-bs-target="#editStatusOffcanvas-{{ $lead->id }}">
-                                    <span class="fs-12 text-truncate">{{ $lead->bucket->name ?? 'No Bucket' }}</span>
+                                    <span class="fs-12 text-truncate">{{ $lead->bucket->name ?? ($lead->lead_status ? 'Lead' : 'No Bucket') }}</span>
                                     <i class="fa-solid fa-pen-to-square text-secondary ms-2"></i>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between mt-1" style="max-width: 190px;">
@@ -3060,34 +3060,46 @@
 
                     let bucketId = $(this).val();
                     let form = $(this).closest("form"); // current form
-                    let statusSelect = form.find(".status-select"); //  same form ka dropdown
+                    let statusSelect = form.find(".status-select"); // same form ka dropdown
+                    let pendingSubStatus = statusSelect.attr('data-pending-value') || statusSelect.data('pending-value') || '';
+
+                    if (!bucketId) return;
 
                     $.ajax({
                         url: "{{ route('lead.getSubStatus') }}",
                         type: "POST",
                         data: {
                             _token: "{{ csrf_token() }}",
-                            lead_bucket_id: bucketId
+                            lead_bucket_id: bucketId,
+                            bucket_id: bucketId
                         },
                         success: function (res) {
 
                             statusSelect.empty();
                             statusSelect.append('<option value="">Select Status</option>');
 
-                            res.children.forEach(function (child) {
+                            let children = Array.isArray(res) ? res : (res.children || res.data || []);
+                            children.forEach(function (child) {
+                                let isSelected = (pendingSubStatus && (child.name === pendingSubStatus || child.id == pendingSubStatus)) ? 'selected' : '';
                                 statusSelect.append(
-                                    `<option value="${child.name}" data-bg="${child.color}">
-                                                                                        ${child.name}
-                                                                                    </option>`
+                                    `<option value="${child.name}" data-bg="${child.color || ''}" ${isSelected}>
+                                        ${child.name}
+                                    </option>`
                                 );
                             });
+
+                            if (pendingSubStatus) {
+                                statusSelect.val(pendingSubStatus);
+                                statusSelect.removeAttr('data-pending-value');
+                                statusSelect.removeData('pending-value');
+                            }
 
                             // ✅ If using select2
                             statusSelect.trigger('change');
 
                         },
                         error: function (xhr) {
-                            toastr.error("Sub-status load failed!");
+                            console.error("Sub-status load failed!", xhr);
                         }
                     });
 
@@ -3237,6 +3249,20 @@
                 document.querySelector('#leadModalTitle span').innerText = "Create New Lead";
                 document.getElementById('btnSubmit').innerText = "Create Lead";
 
+                // Set default Bucket (Lead) & Sub-Status (Yet to Call)
+                let bucketSelect = document.querySelector('#leadModal .bucket-select');
+                let statusSelect = document.querySelector('#leadModal .status-select');
+                if (bucketSelect) {
+                    let defaultOption = Array.from(bucketSelect.options).find(opt => opt.text.trim().toLowerCase().includes('lead')) || bucketSelect.options[1] || bucketSelect.options[0];
+                    if (defaultOption) {
+                        bucketSelect.value = defaultOption.value;
+                        if (statusSelect) {
+                            $(statusSelect).attr('data-pending-value', 'Yet to Call');
+                        }
+                        $(bucketSelect).trigger('change');
+                    }
+                }
+
                 var myModal = new bootstrap.Modal(document.getElementById('leadModal'));
                 myModal.show();
             }
@@ -3253,6 +3279,18 @@
 
                 document.querySelector('#leadModalTitle span').innerText = "Edit Lead: " + (user.name || 'Unknown');
                 document.getElementById('btnSubmit').innerText = "Update Lead";
+
+                // Set saved Bucket & Sub-Status
+                let bucketSelect = document.querySelector('#leadModal .bucket-select');
+                let statusSelect = document.querySelector('#leadModal .status-select');
+                if (bucketSelect) {
+                    let targetBucket = lead.lead_bucket_id || (bucketSelect.options[1] ? bucketSelect.options[1].value : '');
+                    bucketSelect.value = targetBucket;
+                    if (statusSelect && lead.lead_status) {
+                        $(statusSelect).attr('data-pending-value', lead.lead_status);
+                    }
+                    $(bucketSelect).trigger('change');
+                }
 
                 // Form values
                 document.getElementById('inp_mobile').value = user.contact_no || '';

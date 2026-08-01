@@ -195,6 +195,7 @@ Route::middleware(['auth', 'verified', 'check.permission'])->group(function () {
 });
 
 Route::post('/crm/leads/import', [LeadController::class, 'import'])->name('lead.import');
+Route::post('/crm/leads/import-comments', [LeadController::class, 'importComments'])->name('lead.importComments');
 Route::get('/crm/leads/sample', [LeadController::class, 'downloadSample'])->name('lead.sample');
 
 

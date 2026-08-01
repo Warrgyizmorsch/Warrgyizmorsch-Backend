@@ -26,7 +26,10 @@ class User extends Authenticatable
         'contact_no',
         'image',
         'is_deleted',
-        'city'
+        'city',
+        'state',
+        'pincode',
+        'address'
     ];
 
     /**

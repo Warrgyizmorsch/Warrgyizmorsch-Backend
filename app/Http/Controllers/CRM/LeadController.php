@@ -283,19 +283,28 @@ class LeadController extends Controller
         // 🔍 Search existing user by mobile number
         $user = User::where('contact_no', $data['mobile'])->first();
 
-        if (!$user) {
-            // ✅ Create new user if not found
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'] ?? 'user' . $data['mobile'] . '@gmail.com',
-                'contact_no' => $data['mobile'],
-                'country_code' => $data['country_code'] ?? null,
-                'role_id' => 2,
-                'password' => bcrypt('user@123'),
-                'city' => $data['city'] ?? null,
-            ]);
+        $userData = [
+            'name' => $data['name'],
+            'email' => $data['email'] ?? 'user' . $data['mobile'] . '@gmail.com',
+            'contact_no' => $data['mobile'],
+            'country_code' => $data['country_code'] ?? null,
+            'role_id' => 2,
+            'password' => bcrypt('user@123'),
+            'city' => $data['city'] ?? null,
+            'state' => $data['state'] ?? null,
+            'pincode' => $data['pincode'] ?? null,
+            'address' => $data['address'] ?? null,
+        ];
+        $userColumns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
+        if (!empty($userColumns)) {
+            $userData = array_intersect_key($userData, array_flip($userColumns));
         }
 
+        if (!$user) {
+            $user = User::create($userData);
+        } else {
+            $user->update(array_filter($userData, fn($v) => !is_null($v)));
+        }
 
         // Prepare lead data
         $leadData = $data;
@@ -303,10 +312,6 @@ class LeadController extends Controller
         $leadData['website'] = $data['website'] ?? null;
         $leadData['business_name'] = $data['business_name'] ?? null;
         $leadData['gst_number'] = $data['gst_number'] ?? null;
-        $leadData['city'] = $data['city'] ?? null;
-        $leadData['state'] = $data['state'] ?? null;
-        $leadData['pincode'] = $data['pincode'] ?? null;
-        $leadData['address'] = $data['address'] ?? null;
         
         $uploadedDocs = [];
         if ($request->hasFile('documents')) {
@@ -320,14 +325,30 @@ class LeadController extends Controller
         }
         $leadData['documents'] = $uploadedDocs;
 
-        unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code']);
+        unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city'], $leadData['state'], $leadData['pincode'], $leadData['address']);
 
         $leadData['uid'] = $user->id;
         $leadData['date'] = $data['date'] ?? now();
 
-        $leadData['lead_bucket_id'] = 1;
+        $defaultBucketId = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where(function($q) {
+                $q->where('name', 'LIKE', '%lead%')
+                  ->orWhere('id', 1);
+            })
+            ->value('id') ?? 1;
 
-        $leadData['lead_status'] = \DB::table('buckets')->where('id', 2)->value('name');
+        $defaultSubStatus = Bucket::where('parent_id', $defaultBucketId)
+            ->where('is_deleted', 0)
+            ->value('name') ?? 'Yet to Call';
+
+        $leadData['lead_bucket_id'] = !empty($leadData['lead_bucket_id']) ? $leadData['lead_bucket_id'] : $defaultBucketId;
+        $leadData['lead_status'] = !empty($leadData['lead_status']) ? $leadData['lead_status'] : $defaultSubStatus;
+
+        $tableColumns = \Illuminate\Support\Facades\Schema::getColumnListing('leads');
+        if (!empty($tableColumns)) {
+            $leadData = array_intersect_key($leadData, array_flip($tableColumns));
+        }
 
         $lead = Leads::create($leadData);
 
@@ -440,20 +461,28 @@ class LeadController extends Controller
         // ----------------------------
         if ($lead->user) {
             $userOld = $lead->user->getOriginal();
-            $lead->user->update([
+            $userData = [
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'contact_no' => $data['mobile'],
                 'country_code' => $data['country_code'] ?? null,
                 'city' => $data['city'] ?? null,
-            ]);
+                'state' => $data['state'] ?? null,
+                'pincode' => $data['pincode'] ?? null,
+                'address' => $data['address'] ?? null,
+            ];
+            $userColumns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
+            if (!empty($userColumns)) {
+                $userData = array_intersect_key($userData, array_flip($userColumns));
+            }
+            $lead->user->update($userData);
 
             $userChanges = [];
-            foreach (['name', 'email', 'contact_no', 'country_code', 'city'] as $field) {
-                if (($userOld[$field] ?? null) != $lead->user->$field) {
+            foreach (['name', 'email', 'contact_no', 'country_code', 'city', 'state', 'pincode', 'address'] as $field) {
+                if (($userOld[$field] ?? null) != ($lead->user->$field ?? null)) {
                     $userChanges[$field] = [
                         'old' => $userOld[$field] ?? null,
-                        'new' => $lead->user->$field,
+                        'new' => $lead->user->$field ?? null,
                     ];
                 }
             }
@@ -477,10 +506,6 @@ class LeadController extends Controller
 
         $leadData = $data;
         $leadData['client_details'] = $request->cloned_contacts ?? [];
-        $leadData['city'] = $data['city'] ?? null;
-        $leadData['state'] = $data['state'] ?? null;
-        $leadData['pincode'] = $data['pincode'] ?? null;
-        $leadData['address'] = $data['address'] ?? null;
 
         $existingDocs = $lead->documents ?? [];
         if ($request->hasFile('documents')) {
@@ -494,7 +519,12 @@ class LeadController extends Controller
         }
         $leadData['documents'] = $existingDocs;
 
-        unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city']);
+        unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city'], $leadData['state'], $leadData['pincode'], $leadData['address']);
+
+        $tableColumns = \Illuminate\Support\Facades\Schema::getColumnListing('leads');
+        if (!empty($tableColumns)) {
+            $leadData = array_intersect_key($leadData, array_flip($tableColumns));
+        }
 
         $lead->update($leadData);
 
@@ -611,7 +641,7 @@ class LeadController extends Controller
         $bucket = Bucket::with('children')->find($bucketId);
 
         if (!$bucket) {
-            return response()->json([]);
+            return response()->json(['children' => []]);
         }
 
         $children = $bucket->children->map(function ($child) {
@@ -620,9 +650,12 @@ class LeadController extends Controller
                 'name' => $child->name,
                 'color' => $child->bucket_color
             ];
-        });
+        })->values();
 
-        return response()->json($children);
+        return response()->json([
+            'children' => $children,
+            'data' => $children
+        ]);
     }
 
 
@@ -756,24 +789,100 @@ class LeadController extends Controller
 
         try {
             $storedPath = $file->store('imports');
-            // LeadsImportJob::dispatch($storedPath, auth()->id());
-            $importJob = \App\Models\LeadImportJob::create([
-                'file_path' => $storedPath,
-                'status' => 'pending',
-                'total_rows' => $preflight['total_rows'] ?? 0,
-                'processed_rows' => 0,
-            ]);
+            $nextJobId = (\App\Models\LeadImportJob::max('id') ?? 0) + 1;
+            $importJob = new \App\Models\LeadImportJob();
+            $importJob->id = $nextJobId;
+            $importJob->file_path = $storedPath;
+            $importJob->status = 'pending';
+            $importJob->total_rows = $preflight['total_rows'] ?? 0;
+            $importJob->processed_rows = 0;
+            $importJob->save();
 
-            LeadsImportJob::dispatch($importJob->id, auth()->id());
+            $jobId = $importJob->id ?: $nextJobId;
 
+            try {
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE `jobs` MODIFY `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT;");
+            } catch (\Throwable $e) {}
 
-            return response()->json(['status' => 'success', 'message' => 'File uploaded successfully. Import has been queued and will be processed in the background.', 'job_id' => $importJob->id]);
+            try {
+                LeadsImportJob::dispatch($jobId, auth()->id());
+            } catch (\Throwable $t) {
+                LeadsImportJob::dispatchSync($jobId, auth()->id());
+            }
+
+            return response()->json(['status' => 'success', 'message' => 'File uploaded successfully. Import has been queued and will be processed in the background.', 'job_id' => $jobId]);
         } catch (\Exception $e) {
             \Log::error("Import dispatch failed: " . $e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to start import. Please try again later.'
+                'message' => 'Failed to start import: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function importComments(Request $request)
+    {
+        try {
+            $request->validate([
+                'file' => [
+                    'required',
+                    'file',
+                    'max:20480',
+                    function ($attribute, $value, $fail) {
+                        $allowed = ['xls', 'xlsx', 'csv', 'txt'];
+                        if (!in_array(strtolower($value->getClientOriginalExtension()), $allowed)) {
+                            $fail('Please upload a valid Excel/CSV file (.xls, .xlsx, .csv, .txt).');
+                        }
+                    }
+                ]
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['status' => 'error', 'message' => implode(' ', \Illuminate\Support\Arr::flatten($e->errors()))], 422);
+        }
+
+        $file = $request->file('file');
+        $rowLimit = 5000;
+        $preflight = $this->preflightValidateExcel($file, $rowLimit);
+
+        if ($preflight['status'] === 'error') {
+            return response()->json(['status' => 'error', 'message' => $preflight['message']], 422);
+        }
+
+        try {
+            $storedPath = $file->store('imports');
+            $nextJobId = (\App\Models\LeadImportJob::max('id') ?? 0) + 1;
+            $importJob = new \App\Models\LeadImportJob();
+            $importJob->id = $nextJobId;
+            $importJob->file_path = $storedPath;
+            $importJob->status = 'pending';
+            $importJob->total_rows = $preflight['total_rows'] ?? 0;
+            $importJob->processed_rows = 0;
+            $importJob->save();
+
+            $jobId = $importJob->id ?: $nextJobId;
+
+            try {
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE `jobs` MODIFY `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT;");
+            } catch (\Throwable $e) {}
+
+            try {
+                \App\Jobs\LeadsCommentsImportJob::dispatch($jobId, auth()->id());
+            } catch (\Throwable $t) {
+                \App\Jobs\LeadsCommentsImportJob::dispatchSync($jobId, auth()->id());
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Comments file uploaded successfully. Processing comments import for existing leads...',
+                'job_id' => $jobId
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("Comments import dispatch failed: " . $e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to start comments import: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -1078,6 +1187,7 @@ class LeadController extends Controller
                 'job_status' => $importJob->status,
                 'total_rows' => $importJob->total_rows,
                 'processed_rows' => $importJob->processed_rows,
+                'job_message' => $importJob->message ?? $importJob->error_message ?? null,
             ]
         ]);
     }

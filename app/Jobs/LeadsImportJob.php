@@ -203,6 +203,18 @@ class LeadsImportJob implements ShouldQueue
 
         Log::info('Detected import field mapping', $detectedFields);
 
+        $defaultBucketId = \App\Models\Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where(function($q) {
+                $q->where('name', 'LIKE', '%lead%')
+                  ->orWhere('id', 1);
+            })
+            ->value('id') ?? 1;
+
+        $defaultSubStatus = \App\Models\Bucket::where('parent_id', $defaultBucketId)
+            ->where('is_deleted', 0)
+            ->value('name') ?? 'Yet to Call';
+
         DB::beginTransaction();
         try {
             $processed = [];
@@ -327,8 +339,8 @@ class LeadsImportJob implements ShouldQueue
                     'what_course_are_you_planning_to_study' => $getAuto($r, 'program'),
                     'highest_completed' => $getAuto($r, 'education_level'),
                     'english_test_status' => $getAuto($r, 'english_test'),
-                    'lead_status' => 'Yet to Call',
-                    'lead_bucket_id' => 1,
+                    'lead_status' => $defaultSubStatus,
+                    'lead_bucket_id' => $defaultBucketId,
                     'lead_owner' => $this->uploadedBy,
                     'imported_by' => $this->uploadedBy,
                 ]);

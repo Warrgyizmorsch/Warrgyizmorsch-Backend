@@ -91,8 +91,15 @@
                     <a href="{{ route('lead.sample') }}" class="dropdown-item">Download Sample</a>
                     <div class="dropdown-divider"></div>
 
-                    <label for="importFile" class="dropdown-item">Import</label>
+                    <label for="importFile" class="dropdown-item cursor-pointer">
+                        <i class="feather-upload me-2"></i> Import Leads
+                    </label>
                     <input type="file" id="importFile" class="d-none" accept=".csv,.xlsx,.xls">
+
+                    <label for="importCommentsFile" class="dropdown-item cursor-pointer">
+                        <i class="feather-message-square me-2"></i> Import Comments Only
+                    </label>
+                    <input type="file" id="importCommentsFile" class="d-none" accept=".csv,.xlsx,.xls">
                 </div>
             </div>
 
@@ -295,65 +302,143 @@
     document.addEventListener('DOMContentLoaded', function() {
 
         const fileInput = document.getElementById('importFile');
+        const commentsFileInput = document.getElementById('importCommentsFile');
         const spinner = document.getElementById('import-spinner');
 
-        fileInput.addEventListener('change', function() {
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
 
-            if (!this.files.length) return;
+                if (!this.files.length) return;
 
-            const formData = new FormData();
-            formData.append('file', this.files[0]);
+                const formData = new FormData();
+                formData.append('file', this.files[0]);
 
-            spinner.classList.remove('d-none');
+                spinner.classList.remove('d-none');
 
-            fetch("{{ route('lead.import') }}", {
-                    method: "POST",
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: formData
-                })
-                .then(res => res.json())
-                .then(data => {
+                fetch("{{ route('lead.import') }}", {
+                        method: "POST",
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
 
-                    if (data.status === "success") {
+                        if (data.status === "success") {
 
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success',
-                            text: data.message,
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success',
+                                text: data.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
 
-                        const jobId = data.job_id;
+                            const jobId = data.job_id;
 
-                        const interval = setInterval(() => {
-                            fetch(`/lead-import-status/${jobId}`)
-                                .then(res => res.json())
-                                .then(resp => {
-                                    if (resp.status === 'success') {
-                                        const job = resp.data;
+                            const interval = setInterval(() => {
+                                fetch(`/lead-import-status/${jobId}`)
+                                    .then(res => res.json())
+                                    .then(resp => {
+                                        if (resp.status === 'success') {
+                                            const job = resp.data;
 
-                                        if (job.job_status === 'completed' || job.job_status === 'failed') {
-                                            clearInterval(interval);
-                                            spinner.classList.add('d-none');
+                                            if (job.job_status === 'completed' || job.job_status === 'failed') {
+                                                clearInterval(interval);
+                                                spinner.classList.add('d-none');
+                                            }
                                         }
-                                    }
-                                });
-                        }, 2000);
+                                    });
+                            }, 2000);
 
-                    } else {
+                        } else {
+                            spinner.classList.add('d-none');
+                            Swal.fire('Error', data.message, 'error');
+                        }
+                    })
+                    .catch(() => {
                         spinner.classList.add('d-none');
-                        Swal.fire('Error', data.message, 'error');
-                    }
-                })
-                .catch(() => {
-                    spinner.classList.add('d-none');
-                    Swal.fire('Error', 'Something went wrong', 'error');
-                });
+                        Swal.fire('Error', 'Something went wrong', 'error');
+                    });
 
-        });
+            });
+        }
+
+        if (commentsFileInput) {
+            commentsFileInput.addEventListener('change', function() {
+
+                if (!this.files.length) return;
+
+                const formData = new FormData();
+                formData.append('file', this.files[0]);
+
+                spinner.classList.remove('d-none');
+
+                fetch("{{ route('lead.importComments') }}", {
+                        method: "POST",
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+
+                        if (data.status === "success") {
+
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Comments Import Started',
+                                text: data.message,
+                                timer: 3000,
+                                showConfirmButton: false
+                            });
+
+                            const jobId = data.job_id;
+
+                            const interval = setInterval(() => {
+                                fetch(`/lead-import-status/${jobId}`)
+                                    .then(res => res.json())
+                                    .then(resp => {
+                                        if (resp.status === 'success') {
+                                            const job = resp.data;
+
+                                            if (job.job_status === 'completed' || job.job_status === 'failed') {
+                                                clearInterval(interval);
+                                                spinner.classList.add('d-none');
+
+                                                if (job.job_status === 'completed') {
+                                                    const formattedMsg = (job.job_message || 'Comments imported successfully!').replace(/\n/g, '<br>');
+                                                    Swal.fire({
+                                                        icon: 'success',
+                                                        title: 'Comments Import Finished',
+                                                        html: '<div style="max-height: 350px; overflow-y: auto; text-align: left; font-size: 13px; padding: 5px;">' + formattedMsg + '</div>',
+                                                        confirmButtonText: 'OK',
+                                                        width: 600
+                                                    }).then(() => {
+                                                        window.location.reload();
+                                                    });
+                                                } else {
+                                                    Swal.fire('Import Failed', job.job_message || 'Import job failed.', 'error');
+                                                }
+                                            }
+                                        }
+                                    });
+                            }, 2000);
+
+                        } else {
+                            spinner.classList.add('d-none');
+                            Swal.fire('Error', data.message, 'error');
+                        }
+                    })
+                    .catch(() => {
+                        spinner.classList.add('d-none');
+                        Swal.fire('Error', 'Something went wrong while importing comments file.', 'error');
+                    });
+
+            });
+        }
 
     });
 </script>
