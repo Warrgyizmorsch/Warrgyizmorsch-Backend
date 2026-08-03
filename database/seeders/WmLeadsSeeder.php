@@ -89,8 +89,8 @@ class WmLeadsSeeder extends Seeder
                     'lead_bucket_id' => $bucket?->id,
                     'lead_status' => $bucket?->name,
                     'is_converted' => false,
-                    'created_at' => $createdAt,
-                    'updated_at' => $createdAt,
+                    'created_at' => $createdAt->toDateString(),
+                    'updated_at' => $createdAt->toDateString(),
                 ]);
 
                 $imported++;
