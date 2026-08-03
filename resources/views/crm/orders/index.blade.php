@@ -34,9 +34,9 @@
                 width: 100%;
             }
         }
-        .order-status-strip { position: relative; background: #fff; border-bottom: 1px solid #e9ecef; padding: 10px 16px; }
+        .order-status-strip { position: relative; max-width: 100%; overflow: hidden; background: #fff; border-bottom: 1px solid #e9ecef; padding: 10px 16px; }
         .order-status-strip.has-overflow { padding-left: 44px; padding-right: 44px; }
-        .order-status-scroll { display: flex; width: 100%; min-width: 0; align-items: center; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; }
+        .order-status-scroll { display: flex; box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; align-items: center; gap: 8px; overflow-x: scroll; overscroll-behavior-x: contain; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; }
         .order-status-scroll::-webkit-scrollbar { display: none; }
         .order-status-tab { flex: 0 0 auto; scroll-snap-align: start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cfe4f8; border-radius: 999px; padding: 6px 12px; background: #f2f8ff; color: #006FC9; font-size: 12px; font-weight: 700; line-height: 1; text-decoration: none; }
         .order-status-tab:hover { color: #006FC9; background: #e5f2ff; }
@@ -67,7 +67,7 @@
 
         {{-- Order Master Status Navigation Bar --}}
         <div class="order-status-strip has-overflow mt-3">
-            <button type="button" class="order-status-arrow prev" data-order-status-scroll="prev" aria-label="Previous order statuses"><i class="feather-chevron-left"></i></button>
+            <button type="button" class="order-status-arrow prev" data-order-status-scroll="prev" aria-label="Previous order statuses" onclick="var tabs = document.getElementById('order-status-scroll'); tabs.scrollLeft -= Math.max(tabs.clientWidth * .75, 180);"><i class="feather-chevron-left"></i></button>
             <div class="order-status-scroll" id="order-status-scroll">
             @php
                 $isAllActive = !request()->has('bucket_id') || request('bucket_id') === 'all' || request('bucket_id') === 'all_orders';
@@ -91,7 +91,7 @@
                 @endforeach
             @endif
             </div>
-            <button type="button" class="order-status-arrow next" data-order-status-scroll="next" aria-label="Next order statuses"><i class="feather-chevron-right"></i></button>
+            <button type="button" class="order-status-arrow next" data-order-status-scroll="next" aria-label="Next order statuses" onclick="var tabs = document.getElementById('order-status-scroll'); tabs.scrollLeft += Math.max(tabs.clientWidth * .75, 180);"><i class="feather-chevron-right"></i></button>
         </div>
 
         <div class="order-list-toolbar d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-3">
@@ -629,20 +629,18 @@
             const updateArrowState = () => {
                 const hasOverflow = statusScroll.scrollWidth > statusScroll.clientWidth + 1 || window.innerWidth < 768;
                 statusStrip.classList.toggle('has-overflow', hasOverflow);
-                const maxScrollLeft = statusScroll.scrollWidth - statusScroll.clientWidth;
-                previousButton.disabled = !hasOverflow || statusScroll.scrollLeft <= 1;
-                nextButton.disabled = !hasOverflow || statusScroll.scrollLeft >= maxScrollLeft - 1;
+                previousButton.disabled = false;
+                nextButton.disabled = false;
             };
 
             const scrollStatuses = (direction) => {
                 const step = Math.max(statusScroll.clientWidth * .75, 180);
                 const maxScrollLeft = statusScroll.scrollWidth - statusScroll.clientWidth;
                 const targetLeft = Math.max(0, Math.min(maxScrollLeft, statusScroll.scrollLeft + (direction * step)));
-                statusScroll.scrollTo({ left: targetLeft, behavior: 'smooth' });
+                statusScroll.scrollLeft = targetLeft;
+                updateArrowState();
             };
 
-            previousButton.addEventListener('click', () => scrollStatuses(-1));
-            nextButton.addEventListener('click', () => scrollStatuses(1));
             statusScroll.addEventListener('scroll', updateArrowState, { passive: true });
             window.addEventListener('resize', updateArrowState);
             updateArrowState();
