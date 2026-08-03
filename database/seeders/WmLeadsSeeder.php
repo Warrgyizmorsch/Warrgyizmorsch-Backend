@@ -35,20 +35,22 @@ class WmLeadsSeeder extends Seeder
         $headers = array_map([$this, 'normalizeHeader'], array_shift($rows) ?? []);
         $bucket = DB::table('buckets')->where('name', 'Lead')->first();
         $imported = 0;
+        $existing = 0;
         $skipped = [];
 
-        DB::transaction(function () use ($rows, $headers, $bucket, &$imported, &$skipped): void {
+        DB::transaction(function () use ($rows, $headers, $bucket, &$imported, &$existing, &$skipped): void {
             foreach ($rows as $index => $row) {
                 $lead = array_combine($headers, array_pad($row, count($headers), null));
-                $metaLeadId = $this->metaLeadId($lead['id'] ?? null);
 
-                if (! $metaLeadId) {
-                    $skipped[] = $this->skippedRow($index, $lead, 'Missing or invalid Meta lead ID.');
+                if ($this->isBlankRow($lead)) {
+                    $skipped[] = $this->skippedRow($index, $lead, 'Blank spreadsheet row.');
                     continue;
                 }
 
+                $metaLeadId = $this->metaLeadId($lead['id'] ?? null) ?? $this->fallbackLeadId($index);
+
                 if (Leads::where('lead_id', $metaLeadId)->exists()) {
-                    $skipped[] = $this->skippedRow($index, $lead, 'Lead ID already exists.');
+                    $existing++;
                     continue;
                 }
 
@@ -103,7 +105,8 @@ class WmLeadsSeeder extends Seeder
         );
 
         $this->command?->info(
-            'WM leads import complete: ' . $imported . ' imported, ' . count($skipped) . ' skipped.'
+            'WM leads import complete: ' . $imported . ' imported, '
+            . $existing . ' already existed, ' . count($skipped) . ' skipped.'
         );
         $this->command?->info('Skipped rows: storage/app/imports/wm-leads-skipped.json');
     }
@@ -147,6 +150,10 @@ class WmLeadsSeeder extends Seeder
             return ['+91', substr($digits, 2)];
         }
 
+        if (strlen($digits) === 12 && str_starts_with($digits, '971')) {
+            return ['+971', substr($digits, 3)];
+        }
+
         if (strlen($digits) === 10) {
             return ['+91', $digits];
         }
@@ -161,6 +168,16 @@ class WmLeadsSeeder extends Seeder
         } catch (\Throwable) {
             return now();
         }
+    }
+
+    private function fallbackLeadId(int $index): int
+    {
+        return 9000000000000000 + $index + 2;
+    }
+
+    private function isBlankRow(array $lead): bool
+    {
+        return ! array_filter($lead, static fn ($value) => trim((string) $value) !== '');
     }
 
     private function platform(mixed $value): ?string
