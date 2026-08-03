@@ -33,12 +33,13 @@ class WmLeadsSeeder extends Seeder
             ->toArray(null, true, true, false);
 
         $headers = array_map([$this, 'normalizeHeader'], array_shift($rows) ?? []);
-        $bucket = DB::table('buckets')->where('name', 'Lead')->first();
+        $bucket = DB::table('buckets')->where('name', 'Yet to Call')->firstOrFail();
         $imported = 0;
         $existing = 0;
+        $updated = 0;
         $skipped = [];
 
-        DB::transaction(function () use ($rows, $headers, $bucket, &$imported, &$existing, &$skipped): void {
+        DB::transaction(function () use ($rows, $headers, $bucket, &$imported, &$existing, &$updated, &$skipped): void {
             foreach ($rows as $index => $row) {
                 $lead = array_combine($headers, array_pad($row, count($headers), null));
 
@@ -49,8 +50,19 @@ class WmLeadsSeeder extends Seeder
 
                 $metaLeadId = $this->metaLeadId($lead['id'] ?? null) ?? $this->fallbackLeadId($index);
 
-                if (Leads::where('lead_id', $metaLeadId)->exists()) {
+                $existingLead = Leads::where('lead_id', $metaLeadId)->first();
+
+                if ($existingLead) {
                     $existing++;
+
+                    if ($existingLead->lead_status === 'Lead') {
+                        $existingLead->update([
+                            'lead_bucket_id' => $bucket->id,
+                            'lead_status' => $bucket->name,
+                        ]);
+                        $updated++;
+                    }
+
                     continue;
                 }
 
@@ -106,7 +118,8 @@ class WmLeadsSeeder extends Seeder
 
         $this->command?->info(
             'WM leads import complete: ' . $imported . ' imported, '
-            . $existing . ' already existed, ' . count($skipped) . ' skipped.'
+            . $existing . ' already existed, ' . $updated . ' moved to Yet to Call, '
+            . count($skipped) . ' skipped.'
         );
         $this->command?->info('Skipped rows: storage/app/imports/wm-leads-skipped.json');
     }
