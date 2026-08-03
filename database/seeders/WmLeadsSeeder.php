@@ -18,11 +18,14 @@ class WmLeadsSeeder extends Seeder
     {
         $workbookPath = env(
             'WM_LEADS_SEEDER_FILE',
-            'C:\\Users\\ansh\\Downloads\\new leads - wm (1).xlsx'
+            storage_path('app/imports/new-leads-wm.xlsx')
         );
 
         if (! is_file($workbookPath)) {
-            throw new RuntimeException("WM leads workbook was not found: {$workbookPath}");
+            throw new RuntimeException(
+                "WM leads workbook was not found: {$workbookPath}. "
+                . 'Upload the file there or set WM_LEADS_SEEDER_FILE to its absolute path.'
+            );
         }
 
         $rows = IOFactory::load($workbookPath)
