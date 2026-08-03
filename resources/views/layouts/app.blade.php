@@ -163,6 +163,51 @@
       }
     }
 
+
+    /* Layout fix for sidebar & main container alignment */
+    @media (min-width: 1025px) {
+      .nxl-navigation {
+        width: 260px !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        z-index: 1020 !important;
+      }
+
+      .nxl-container {
+        margin-left: 260px !important;
+        width: calc(100% - 260px) !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+        transition: margin-left 0.3s ease, width 0.3s ease !important;
+      }
+
+      .nxl-header {
+        left: 260px !important;
+        width: calc(100% - 260px) !important;
+        transition: left 0.3s ease, width 0.3s ease !important;
+      }
+
+      /* Collapsed/Mini sidebar state */
+      html.minimenu .nxl-navigation,
+      body.minimenu .nxl-navigation {
+        width: 80px !important;
+      }
+
+      html.minimenu .nxl-container,
+      body.minimenu .nxl-container {
+        margin-left: 80px !important;
+        width: calc(100% - 80px) !important;
+      }
+
+      html.minimenu .nxl-header,
+      body.minimenu .nxl-header {
+        left: 80px !important;
+        width: calc(100% - 80px) !important;
+      }
+    }
+
     /* Prevent logo color inversion in dark mode */
     html.app-skin-dark .nxl-navigation .m-header .logo-lg,
     html.app-navigation-dark .nxl-navigation .m-header .logo-lg,

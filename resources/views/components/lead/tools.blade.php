@@ -27,8 +27,47 @@
         </div>
     </div>
 
+<style>
+    .view-toggle-btn {
+        border: none !important;
+        border-radius: 4px !important;
+        transition: all 0.2s ease !important;
+        color: #64748b !important;
+        background: transparent !important;
+    }
+    .view-toggle-btn.active-view {
+        background-color: #ffffff !important;
+        color: #006FC9 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    .view-toggle-btn:hover:not(.active-view) {
+        color: #1e293b !important;
+        background-color: rgba(255,255,255,0.6) !important;
+    }
+</style>
+
     <div class="page-header-right ms-auto">
         <div class="d-flex align-items-center gap-2">
+
+            {{-- View Switcher (List / Pipeline) --}}
+            <div class="btn-group p-1 bg-light rounded-2 border me-1" role="group" aria-label="View Switcher" style="background: #f1f5f9 !important;">
+                <button type="button" 
+                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn active-view" 
+                    id="btn-list-view" 
+                    onclick="switchLeadView('list')" 
+                    title="List View">
+                    <i class="feather-list fs-14"></i>
+                    <span class="d-none d-sm-inline fs-12 fw-semibold">List View</span>
+                </button>
+                <button type="button" 
+                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn" 
+                    id="btn-pipeline-view" 
+                    onclick="switchLeadView('pipeline')" 
+                    title="Pipeline View">
+                    <i class="feather-columns fs-14"></i>
+                    <span class="d-none d-sm-inline fs-12 fw-semibold">Pipeline View</span>
+                </button>
+            </div>
 
             {{-- Collapse Toggle --}}
             <button class="btn btn-icon btn-light-brand"
@@ -91,15 +130,8 @@
                     <a href="{{ route('lead.sample') }}" class="dropdown-item">Download Sample</a>
                     <div class="dropdown-divider"></div>
 
-                    <label for="importFile" class="dropdown-item cursor-pointer">
-                        <i class="feather-upload me-2"></i> Import Leads
-                    </label>
+                    <label for="importFile" class="dropdown-item">Import</label>
                     <input type="file" id="importFile" class="d-none" accept=".csv,.xlsx,.xls">
-
-                    <label for="importCommentsFile" class="dropdown-item cursor-pointer">
-                        <i class="feather-message-square me-2"></i> Import Comments Only
-                    </label>
-                    <input type="file" id="importCommentsFile" class="d-none" accept=".csv,.xlsx,.xls">
                 </div>
             </div>
 
@@ -302,143 +334,65 @@
     document.addEventListener('DOMContentLoaded', function() {
 
         const fileInput = document.getElementById('importFile');
-        const commentsFileInput = document.getElementById('importCommentsFile');
         const spinner = document.getElementById('import-spinner');
 
-        if (fileInput) {
-            fileInput.addEventListener('change', function() {
+        fileInput.addEventListener('change', function() {
 
-                if (!this.files.length) return;
+            if (!this.files.length) return;
 
-                const formData = new FormData();
-                formData.append('file', this.files[0]);
+            const formData = new FormData();
+            formData.append('file', this.files[0]);
 
-                spinner.classList.remove('d-none');
+            spinner.classList.remove('d-none');
 
-                fetch("{{ route('lead.import') }}", {
-                        method: "POST",
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: formData
-                    })
-                    .then(res => res.json())
-                    .then(data => {
+            fetch("{{ route('lead.import') }}", {
+                    method: "POST",
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
 
-                        if (data.status === "success") {
+                    if (data.status === "success") {
 
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Success',
-                                text: data.message,
-                                timer: 2000,
-                                showConfirmButton: false
-                            });
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: data.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
 
-                            const jobId = data.job_id;
+                        const jobId = data.job_id;
 
-                            const interval = setInterval(() => {
-                                fetch(`/lead-import-status/${jobId}`)
-                                    .then(res => res.json())
-                                    .then(resp => {
-                                        if (resp.status === 'success') {
-                                            const job = resp.data;
+                        const interval = setInterval(() => {
+                            fetch(`/lead-import-status/${jobId}`)
+                                .then(res => res.json())
+                                .then(resp => {
+                                    if (resp.status === 'success') {
+                                        const job = resp.data;
 
-                                            if (job.job_status === 'completed' || job.job_status === 'failed') {
-                                                clearInterval(interval);
-                                                spinner.classList.add('d-none');
-                                            }
+                                        if (job.job_status === 'completed' || job.job_status === 'failed') {
+                                            clearInterval(interval);
+                                            spinner.classList.add('d-none');
                                         }
-                                    });
-                            }, 2000);
+                                    }
+                                });
+                        }, 2000);
 
-                        } else {
-                            spinner.classList.add('d-none');
-                            Swal.fire('Error', data.message, 'error');
-                        }
-                    })
-                    .catch(() => {
+                    } else {
                         spinner.classList.add('d-none');
-                        Swal.fire('Error', 'Something went wrong', 'error');
-                    });
+                        Swal.fire('Error', data.message, 'error');
+                    }
+                })
+                .catch(() => {
+                    spinner.classList.add('d-none');
+                    Swal.fire('Error', 'Something went wrong', 'error');
+                });
 
-            });
-        }
-
-        if (commentsFileInput) {
-            commentsFileInput.addEventListener('change', function() {
-
-                if (!this.files.length) return;
-
-                const formData = new FormData();
-                formData.append('file', this.files[0]);
-
-                spinner.classList.remove('d-none');
-
-                fetch("{{ route('lead.importComments') }}", {
-                        method: "POST",
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: formData
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-
-                        if (data.status === "success") {
-
-                            Swal.fire({
-                                icon: 'info',
-                                title: 'Comments Import Started',
-                                text: data.message,
-                                timer: 3000,
-                                showConfirmButton: false
-                            });
-
-                            const jobId = data.job_id;
-
-                            const interval = setInterval(() => {
-                                fetch(`/lead-import-status/${jobId}`)
-                                    .then(res => res.json())
-                                    .then(resp => {
-                                        if (resp.status === 'success') {
-                                            const job = resp.data;
-
-                                            if (job.job_status === 'completed' || job.job_status === 'failed') {
-                                                clearInterval(interval);
-                                                spinner.classList.add('d-none');
-
-                                                if (job.job_status === 'completed') {
-                                                    const formattedMsg = (job.job_message || 'Comments imported successfully!').replace(/\n/g, '<br>');
-                                                    Swal.fire({
-                                                        icon: 'success',
-                                                        title: 'Comments Import Finished',
-                                                        html: '<div style="max-height: 350px; overflow-y: auto; text-align: left; font-size: 13px; padding: 5px;">' + formattedMsg + '</div>',
-                                                        confirmButtonText: 'OK',
-                                                        width: 600
-                                                    }).then(() => {
-                                                        window.location.reload();
-                                                    });
-                                                } else {
-                                                    Swal.fire('Import Failed', job.job_message || 'Import job failed.', 'error');
-                                                }
-                                            }
-                                        }
-                                    });
-                            }, 2000);
-
-                        } else {
-                            spinner.classList.add('d-none');
-                            Swal.fire('Error', data.message, 'error');
-                        }
-                    })
-                    .catch(() => {
-                        spinner.classList.add('d-none');
-                        Swal.fire('Error', 'Something went wrong while importing comments file.', 'error');
-                    });
-
-            });
-        }
+        });
 
     });
 </script>

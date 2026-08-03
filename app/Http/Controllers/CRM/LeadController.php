@@ -789,100 +789,24 @@ class LeadController extends Controller
 
         try {
             $storedPath = $file->store('imports');
-            $nextJobId = (\App\Models\LeadImportJob::max('id') ?? 0) + 1;
-            $importJob = new \App\Models\LeadImportJob();
-            $importJob->id = $nextJobId;
-            $importJob->file_path = $storedPath;
-            $importJob->status = 'pending';
-            $importJob->total_rows = $preflight['total_rows'] ?? 0;
-            $importJob->processed_rows = 0;
-            $importJob->save();
+            // LeadsImportJob::dispatch($storedPath, auth()->id());
+            $importJob = \App\Models\LeadImportJob::create([
+                'file_path' => $storedPath,
+                'status' => 'pending',
+                'total_rows' => $preflight['total_rows'] ?? 0,
+                'processed_rows' => 0,
+            ]);
 
-            $jobId = $importJob->id ?: $nextJobId;
+            LeadsImportJob::dispatch($importJob->id, auth()->id());
 
-            try {
-                \Illuminate\Support\Facades\DB::statement("ALTER TABLE `jobs` MODIFY `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT;");
-            } catch (\Throwable $e) {}
 
-            try {
-                LeadsImportJob::dispatch($jobId, auth()->id());
-            } catch (\Throwable $t) {
-                LeadsImportJob::dispatchSync($jobId, auth()->id());
-            }
-
-            return response()->json(['status' => 'success', 'message' => 'File uploaded successfully. Import has been queued and will be processed in the background.', 'job_id' => $jobId]);
+            return response()->json(['status' => 'success', 'message' => 'File uploaded successfully. Import has been queued and will be processed in the background.', 'job_id' => $importJob->id]);
         } catch (\Exception $e) {
             \Log::error("Import dispatch failed: " . $e->getMessage());
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to start import: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function importComments(Request $request)
-    {
-        try {
-            $request->validate([
-                'file' => [
-                    'required',
-                    'file',
-                    'max:20480',
-                    function ($attribute, $value, $fail) {
-                        $allowed = ['xls', 'xlsx', 'csv', 'txt'];
-                        if (!in_array(strtolower($value->getClientOriginalExtension()), $allowed)) {
-                            $fail('Please upload a valid Excel/CSV file (.xls, .xlsx, .csv, .txt).');
-                        }
-                    }
-                ]
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json(['status' => 'error', 'message' => implode(' ', \Illuminate\Support\Arr::flatten($e->errors()))], 422);
-        }
-
-        $file = $request->file('file');
-        $rowLimit = 5000;
-        $preflight = $this->preflightValidateExcel($file, $rowLimit);
-
-        if ($preflight['status'] === 'error') {
-            return response()->json(['status' => 'error', 'message' => $preflight['message']], 422);
-        }
-
-        try {
-            $storedPath = $file->store('imports');
-            $nextJobId = (\App\Models\LeadImportJob::max('id') ?? 0) + 1;
-            $importJob = new \App\Models\LeadImportJob();
-            $importJob->id = $nextJobId;
-            $importJob->file_path = $storedPath;
-            $importJob->status = 'pending';
-            $importJob->total_rows = $preflight['total_rows'] ?? 0;
-            $importJob->processed_rows = 0;
-            $importJob->save();
-
-            $jobId = $importJob->id ?: $nextJobId;
-
-            try {
-                \Illuminate\Support\Facades\DB::statement("ALTER TABLE `jobs` MODIFY `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT;");
-            } catch (\Throwable $e) {}
-
-            try {
-                \App\Jobs\LeadsCommentsImportJob::dispatch($jobId, auth()->id());
-            } catch (\Throwable $t) {
-                \App\Jobs\LeadsCommentsImportJob::dispatchSync($jobId, auth()->id());
-            }
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Comments file uploaded successfully. Processing comments import for existing leads...',
-                'job_id' => $jobId
-            ]);
-        } catch (\Exception $e) {
-            \Log::error("Comments import dispatch failed: " . $e->getMessage());
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to start comments import: ' . $e->getMessage()
+                'message' => 'Failed to start import. Please try again later.'
             ], 500);
         }
     }
@@ -1187,7 +1111,6 @@ class LeadController extends Controller
                 'job_status' => $importJob->status,
                 'total_rows' => $importJob->total_rows,
                 'processed_rows' => $importJob->processed_rows,
-                'job_message' => $importJob->message ?? $importJob->error_message ?? null,
             ]
         ]);
     }

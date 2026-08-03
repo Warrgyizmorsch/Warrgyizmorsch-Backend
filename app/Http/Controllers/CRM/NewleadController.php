@@ -591,7 +591,7 @@ class NewleadController extends Controller
             \App\Models\Order::where('lead_id', $lead->id)->delete();
         }
 
-        return response()->json(['success' => true, 'message' => 'Lead updated successfully.']);
+        return response()->json(['status' => 'success', 'success' => true, 'message' => 'Lead updated successfully.']);
     }
 
     public function bulkConvert(Request $request)
