@@ -67,8 +67,11 @@ class DashboardController extends Controller
             ->get();
 
         foreach ($buckets as $bucket) {
+            $childIds = $bucket->children->pluck('id')->toArray();
+            $allBucketIds = array_merge([$bucket->id], $childIds);
+
             $bucket->total_leads = (clone $leadQuery)
-                ->where('lead_bucket_id', $bucket->id)
+                ->whereIn('lead_bucket_id', $allBucketIds)
                 ->count();
         }
 
@@ -78,37 +81,122 @@ class DashboardController extends Controller
         $kanbanConvertedLeads = [];
 
         foreach ($buckets as $bucket) {
+            $childIds = $bucket->children->pluck('id')->toArray();
+            $allBucketIds = array_merge([$bucket->id], $childIds);
+
             $leads = Leads::with(['user', 'owner', 'bucket', 'category'])
-                ->where('lead_bucket_id', $bucket->id)
+                ->whereIn('lead_bucket_id', $allBucketIds)
+                ->where(function ($q) {
+                    $q->whereNull('is_converted')
+                      ->orWhere('is_converted', 0);
+                })
+                ->where(function ($q) {
+                    $q->whereNull('lead_status')
+                      ->orWhere('lead_status', '!=', 'Converted');
+                })
+                ->when($filterStart && $filterEnd, fn($q) => $q->whereBetween('created_at', [$filterStart, $filterEnd]))
                 ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
                 ->latest()
                 ->get();
 
             $kanbanBucketLeads[$bucket->id] = $leads;
-
             $kanbanSubStatusLeads[$bucket->id] = [];
+
+            $assignedLeadIds = [];
 
             foreach ($bucket->children as $child) {
                 $childLeads = $leads->filter(function ($l) use ($child) {
-                    return strcasecmp(trim($l->lead_status ?? ''), trim($child->name)) === 0;
+                    return (int)$l->lead_bucket_id === (int)$child->id
+                        || strcasecmp(trim($l->lead_status ?? ''), trim($child->name)) === 0
+                        || (string)$l->lead_status === (string)$child->id;
                 });
-                $child->total_leads = $childLeads->count();
+
+                foreach ($childLeads as $cl) {
+                    $assignedLeadIds[$cl->id] = true;
+                }
+
                 $kanbanSubStatusLeads[$bucket->id][$child->id] = $childLeads;
+            }
+
+            // Assign leads matching parent bucket or unassigned status to the first child column
+            $unassignedLeads = $leads->reject(fn($l) => isset($assignedLeadIds[$l->id]));
+            if ($unassignedLeads->isNotEmpty() && $bucket->children->isNotEmpty()) {
+                $firstChild = $bucket->children->first();
+                $existing = $kanbanSubStatusLeads[$bucket->id][$firstChild->id] ?? collect();
+                $kanbanSubStatusLeads[$bucket->id][$firstChild->id] = $existing->concat($unassignedLeads)->unique('id');
+            }
+
+            // Update total leads count on child buckets
+            foreach ($bucket->children as $child) {
+                $child->total_leads = ($kanbanSubStatusLeads[$bucket->id][$child->id] ?? collect())->count();
             }
 
             // Converted Leads for this bucket
             $kanbanConvertedLeads[$bucket->id] = Leads::with(['user', 'owner', 'bucket', 'category'])
-                ->where(function ($q) use ($bucket) {
-                    $q->where('lead_bucket_id', $bucket->id)
+                ->where(function ($q) use ($bucket, $allBucketIds) {
+                    $q->whereIn('lead_bucket_id', $allBucketIds)
                       ->orWhere('category_id', $bucket->id);
                 })
                 ->where(function ($q) {
                     $q->where('is_converted', 1)
                       ->orWhere('lead_status', 'Converted');
                 })
+                ->when($filterStart && $filterEnd, fn($q) => $q->whereBetween('created_at', [$filterStart, $filterEnd]))
                 ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
                 ->latest()
                 ->get();
+        }
+
+        // ── Unmapped / Other Leads (Leads with deleted/invalid/NULL bucket_id) ──
+        $allMappedBucketIds = [];
+        foreach ($buckets as $b) {
+            $allMappedBucketIds[] = $b->id;
+            foreach ($b->children as $c) {
+                $allMappedBucketIds[] = $c->id;
+            }
+        }
+
+        $otherLeads = Leads::with(['user', 'owner', 'bucket', 'category'])
+            ->where(function ($q) use ($allMappedBucketIds) {
+                $q->whereNotIn('lead_bucket_id', $allMappedBucketIds)
+                  ->orWhereNull('lead_bucket_id');
+            })
+            ->where(function ($q) {
+                $q->whereNull('is_converted')
+                  ->orWhere('is_converted', 0);
+            })
+            ->where(function ($q) {
+                $q->whereNull('lead_status')
+                  ->orWhere('lead_status', '!=', 'Converted');
+            })
+            ->when($filterStart && $filterEnd, fn($q) => $q->whereBetween('created_at', [$filterStart, $filterEnd]))
+            ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
+            ->latest()
+            ->get();
+
+        // ── Overview Statuses Summary Card Items ──
+        $overviewStatuses = [];
+        foreach ($buckets as $bucket) {
+            foreach ($bucket->children as $child) {
+                $count = ($kanbanSubStatusLeads[$bucket->id][$child->id] ?? collect())->count();
+                $overviewStatuses[] = [
+                    'id' => $child->id,
+                    'name' => $child->name,
+                    'bucket_id' => $bucket->id,
+                    'bucket_name' => $bucket->name,
+                    'count' => $count,
+                ];
+            }
+        }
+
+        if (isset($otherLeads) && $otherLeads->isNotEmpty()) {
+            $overviewStatuses[] = [
+                'id' => 'other',
+                'name' => 'Other / Unassigned',
+                'bucket_id' => 'other',
+                'bucket_name' => 'Unmapped',
+                'count' => $otherLeads->count(),
+            ];
         }
 
 
@@ -591,6 +679,8 @@ class DashboardController extends Controller
             'kanbanBucketLeads',
             'kanbanSubStatusLeads',
             'kanbanConvertedLeads',
+            'otherLeads',
+            'overviewStatuses',
             'firstBucket',
             'statusCounts',
             'totalLeads',

@@ -131,7 +131,19 @@ class NewleadController extends Controller
                       ->orWhereIn('lead_bucket_id', $orderBucketIds);
                 });
             } else {
-                $query->where('lead_bucket_id', $request->bucket_id);
+                $targetBucketObj = Bucket::with('children')->find($request->bucket_id);
+                if ($targetBucketObj && $targetBucketObj->children->isNotEmpty()) {
+                    $childBucketIds = $targetBucketObj->children->pluck('id')->toArray();
+                    $allTargetIds = array_merge([$targetBucketObj->id], $childBucketIds);
+                    $query->where(function($q) use ($allTargetIds, $request) {
+                        $q->whereIn('lead_bucket_id', $allTargetIds);
+                        if ($request->bucket_id == 46 || $request->bucket_id == 1) {
+                            $q->orWhereNull('lead_bucket_id');
+                        }
+                    });
+                } else {
+                    $query->where('lead_bucket_id', $request->bucket_id);
+                }
             }
         } else {
             // Default Modern Leads view: Exclude converted orders and order buckets
@@ -189,6 +201,16 @@ class NewleadController extends Controller
         } else {
             $totalLeadsCount = 0;
         }
+        // The list is paginated, while the pipeline must show every lead that
+        // matches the same active filters.
+        $pipelineLeads = (clone $query)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $pipelineLeads->each(function ($lead) {
+            $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
+        });
+
         // 5. Pagination (Appends query preserves filters on next pages)
         $perPage = request('per_page', 20);
         $leads = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends($request->query());
@@ -248,25 +270,55 @@ class NewleadController extends Controller
         $targetBucketId = $request->bucket_id ?? $defaultLeadBucketId;
         $isLeadBucket = ($targetBucketId == $defaultLeadBucketId);
 
+        $targetBucketObj = Bucket::with('children')->find($targetBucketId);
+        $targetBucketChildIds = $targetBucketObj ? $targetBucketObj->children->pluck('id')->toArray() : [];
+        $allTargetBucketIds = array_merge([$targetBucketId], $targetBucketChildIds);
+
         // Calculate Total Leads Count for the active target bucket
-        if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
-            $totalLeadsCount = Leads::where(function($q) use ($targetBucketId, $isLeadBucket) {
-                $q->where('lead_bucket_id', $targetBucketId);
-                if ($isLeadBucket) {
-                    $q->orWhereNull('lead_bucket_id');
-                }
-            })->count();
-        } elseif ($user) {
-            $totalLeadsCount = Leads::where('lead_owner', $user->id)
-                ->where(function($q) use ($targetBucketId, $isLeadBucket) {
-                    $q->where('lead_bucket_id', $targetBucketId);
+        if (!$request->filled('bucket_id') && !$request->filled('deleted_leads')) {
+            $totalLeadsCount = $leads->total();
+        } else {
+            if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
+                $totalLeadsCount = Leads::where(function($q) use ($allTargetBucketIds, $isLeadBucket) {
+                    $q->whereIn('lead_bucket_id', $allTargetBucketIds);
                     if ($isLeadBucket) {
                         $q->orWhereNull('lead_bucket_id');
                     }
-                })->count();
-        } else {
-            $totalLeadsCount = 0;
+                })
+                ->where(function($lq) {
+                    $lq->whereNull('is_converted')->orWhere('is_converted', 0);
+                })
+                ->count();
+            } elseif ($user) {
+                $totalLeadsCount = Leads::where('lead_owner', $user->id)
+                    ->where(function($q) use ($allTargetBucketIds, $isLeadBucket) {
+                        $q->whereIn('lead_bucket_id', $allTargetBucketIds);
+                        if ($isLeadBucket) {
+                            $q->orWhereNull('lead_bucket_id');
+                        }
+                    })
+                    ->where(function($lq) {
+                        $lq->whereNull('is_converted')->orWhere('is_converted', 0);
+                    })
+                    ->count();
+            } else {
+                $totalLeadsCount = 0;
+            }
         }
+
+        $filteredLeadCount = $leads->total();
+
+        $allMappedBucketIds = Bucket::where('is_deleted', 0)->pluck('id')->toArray();
+        $otherLeadsCount = Leads::where(function ($q) use ($allMappedBucketIds) {
+            $q->whereNotIn('lead_bucket_id', $allMappedBucketIds)->orWhereNull('lead_bucket_id');
+        })
+        ->where(function ($q) {
+            $q->whereNull('is_converted')->orWhere('is_converted', 0);
+        })
+        ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
+            $qq->where('lead_owner', auth()->id());
+        })
+        ->count();
 
         $childBuckets = collect();
         $childtotalLeadsCount = 0;
@@ -275,17 +327,18 @@ class NewleadController extends Controller
             $childBuckets = Bucket::where('parent_id', $targetBucketId)
                 ->where('is_deleted', 0)
                 ->select('buckets.*')
-                ->selectSub(function ($q) use ($targetBucketId, $isLeadBucket) {
+                ->selectSub(function ($q) use ($allTargetBucketIds, $isLeadBucket) {
                     $q->from('leads')
                         ->selectRaw('COUNT(*)')
-                        ->where(function($bQ) use ($targetBucketId, $isLeadBucket) {
-                            $bQ->where('leads.lead_bucket_id', $targetBucketId);
+                        ->where(function($bQ) use ($allTargetBucketIds, $isLeadBucket) {
+                            $bQ->whereIn('leads.lead_bucket_id', $allTargetBucketIds);
                             if ($isLeadBucket) {
                                 $bQ->orWhereNull('leads.lead_bucket_id');
                             }
                         })
                         ->where(function($sQ) {
                             $sQ->whereColumn('leads.lead_status', 'buckets.name')
+                               ->orWhereColumn('leads.lead_bucket_id', 'buckets.id')
                                ->orWhere(function($emptyQ) {
                                    $emptyQ->where('buckets.name', 'Yet to Call')
                                           ->where(function($nullQ) {
@@ -304,20 +357,8 @@ class NewleadController extends Controller
                 }, 'leads_count')
                 ->get();
 
-            $childtotalLeadsCount = Leads::where(function($q) use ($targetBucketId, $isLeadBucket) {
-                    $q->where('lead_bucket_id', $targetBucketId);
-                    if ($isLeadBucket) {
-                        $q->orWhereNull('lead_bucket_id');
-                    }
-                })
-                ->where(function($lq) {
-                    $lq->whereNull('is_converted')
-                       ->orWhere('is_converted', 0);
-                })
-                ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
-                    $qq->where('lead_owner', auth()->id());
-                })
-                ->count();
+            $systemTotalLeadsCount = Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
+            $childtotalLeadsCount = $systemTotalLeadsCount;
         }
 
         $filterBucket = Bucket::whereNull('parent_id')
@@ -386,7 +427,7 @@ class NewleadController extends Controller
 
 
         // Return to your new view
-        return view('crm.lead.newindex', compact('leads', 'childBuckets', 'filterBucket', 'mainbuckets', 'childtotalLeadsCount', 'categorys', 'buckets', 'deletedLeadsCount', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'followupsCount'));
+        return view('crm.lead.newindex', compact('leads', 'pipelineLeads', 'childBuckets', 'filterBucket', 'mainbuckets', 'childtotalLeadsCount', 'categorys', 'buckets', 'deletedLeadsCount', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'followupsCount', 'otherLeadsCount', 'systemTotalLeadsCount'));
     }
 
     public function updateQuick(Request $request, Leads $lead)
@@ -655,4 +696,3 @@ class NewleadController extends Controller
         }
     }
 }
-

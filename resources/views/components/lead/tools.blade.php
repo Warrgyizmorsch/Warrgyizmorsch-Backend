@@ -14,17 +14,6 @@
             <li class="breadcrumb-item">{{ $title ?? 'Leads' }}</li>
         </ul>
 
-        <div class="d-flex align-items-center ms-3 gap-2">
-            <span class="badge bg-primary px-2 py-1" style="font-size: 0.8rem;">
-                Total: {{ $totalLeadsCount }}
-            </span>
-
-            @if(request()->query() && $filteredLeadCount != $totalLeadsCount)
-            <span class="badge bg-info px-2 py-1" style="font-size: 0.8rem;">
-                Filtered: {{ $filteredLeadCount }}
-            </span>
-            @endif
-        </div>
     </div>
 
 <style>
@@ -51,22 +40,20 @@
 
             {{-- View Switcher (List / Pipeline) --}}
             <div class="btn-group p-1 bg-light rounded-2 border me-1" role="group" aria-label="View Switcher" style="background: #f1f5f9 !important;">
-                <button type="button" 
-                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn active-view" 
+                <a href="{{ route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'list'])) }}"
+                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ request('view') !== 'pipeline' ? 'active-view' : '' }}"
                     id="btn-list-view" 
-                    onclick="switchLeadView('list')" 
                     title="List View">
                     <i class="feather-list fs-14"></i>
                     <span class="d-none d-sm-inline fs-12 fw-semibold">List View</span>
-                </button>
-                <button type="button" 
-                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn" 
+                </a>
+                <a href="{{ route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'pipeline'])) }}"
+                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ request('view') === 'pipeline' ? 'active-view' : '' }}"
                     id="btn-pipeline-view" 
-                    onclick="switchLeadView('pipeline')" 
                     title="Pipeline View">
                     <i class="feather-columns fs-14"></i>
                     <span class="d-none d-sm-inline fs-12 fw-semibold">Pipeline View</span>
-                </button>
+                </a>
             </div>
 
             {{-- Collapse Toggle --}}

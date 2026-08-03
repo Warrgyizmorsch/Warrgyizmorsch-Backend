@@ -362,96 +362,64 @@
                     <div class="card-body">
                         <div class="hstack justify-content-between mb-4">
                             <div>
-                                <h5 class="mb-1 fw-bold">Pipeline Overview</h5>
+                                <h5 class="mb-1 fw-bold">Overview</h5>
                                 <span class="fs-12 text-muted">
-                                    Main Buckets Summary • Total: {{ $totalLeads }}
+                                    Lead Statuses Summary • Total: {{ $totalLeads }}
                                 </span>
                             </div>
                         </div>
 
                         <div class="row g-3">
+                            @if(isset($overviewStatuses) && !empty($overviewStatuses))
+                                @foreach($overviewStatuses as $statusItem)
+                                    @if($statusItem['count'] > 0 || in_array($statusItem['name'], ['Yet to Call', 'Qualifying', 'Proposal Sent', 'Negotiation', 'Awaiting Confirmation', 'No Response']))
+                                    @php
+                                        $sName = strtolower(trim($statusItem['name']));
+                                        $icon = 'bi-file-earmark-text';
+                                        $color = 'text-primary';
 
-                            @foreach($buckets as $bucket)
-                            @php
-                                $bucketName = strtolower(trim($bucket->name)); // Normalize for reliable matching
-
-                                // Default fallback
-                                $icon = 'bi-folder2-open';
-                                $color = 'text-primary';
-
-                                // Specific matches based on your exact bucket names
-                                if (str_contains($bucketName, 'new') || str_contains($bucketName, 'lead') || str_contains($bucketName, 'new lead')) {
-                                    $icon = 'bi-person-plus-fill'; // adding new person / fresh lead
-                                    $color = 'text-success'; // green = new & positive
-                                } elseif (str_contains($bucketName, 'not connected') || str_contains($bucketName, 'no connect')) {
-                                    $icon = 'bi-telephone-x'; // call failed / no connection
-                                    $color = 'text-danger'; // red = problem / needs attention
-                                } elseif (str_contains($bucketName, 'follow up') || str_contains($bucketName, 'follow-up')) {
-                                    $icon = 'bi-arrow-repeat'; // repeat / follow-up action
-                                    $color = 'text-warning'; // yellow = pending action
-                                } elseif (str_contains($bucketName, 'options shortlisting') || str_contains($bucketName, 'shortlist')) {
-                                    $icon = 'bi-list-check'; // checklist / shortlisting
-                                    $color = 'text-info'; // info blue = in progress / selection
-                                } elseif (str_contains($bucketName, 'application') || str_contains($bucketName, 'apply')) {
-                                    $icon = 'bi-file-earmark-person'; // application form with person
-                                    $color = 'text-info'; // info blue = core process step (changed to avoid clash with brand blue)
-                                } elseif (str_contains($bucketName, 'offer letter') || str_contains($bucketName, 'offer')) {
-                                    $icon = 'bi-envelope-check'; // envelope with check = offer sent/approved
-                                    $color = 'text-success'; // green = positive milestone
-                                } elseif (str_contains($bucketName, 'payment')) {
-                                    $icon = 'bi-currency-rupee'; // rupee / money (Bootstrap has bi-currency-rupee)
-                                    $color = 'text-success'; // green = money received or due
-                                } elseif (str_contains($bucketName, 'cas')) {
-                                    $icon = 'bi-shield-check'; // shield = compliance / CAS process
-                                    $color = 'text-info'; // info = verification step
-                                } elseif (str_contains($bucketName, 'visa')) {
-                                    $icon = 'bi-globe'; // globe = international / visa
-                                    $color = 'text-info'; // info = important international step (changed to avoid clash with brand blue)
-                                } elseif (str_contains($bucketName, 'enrollment') || str_contains($bucketName, 'enrol')) {
-                                    $icon = 'bi-mortarboard-fill'; // graduation cap = enrollment / admission
-                                    $color = 'text-success'; // green = final academic step
-                                } elseif (str_contains($bucketName, 'closed') || str_contains($bucketName, 'close')) {
-                                    $icon = 'bi-check2-circle'; // double check = completed & closed
-                                    $color = 'text-success'; // green = done
-                                } elseif (str_contains($bucketName, 'cold lead') || str_contains($bucketName, 'cold')) {
-                                    $icon = 'bi-snow'; // snowflake = cold / inactive
-                                    $color = 'text-muted'; // gray = low priority / dormant
-                                } elseif (str_contains($bucketName, 'next intake')) {
-                                    $icon = 'bi-calendar-event'; // calendar = future intake date
-                                    $color = 'text-warning'; // yellow = upcoming / pending
-                                }
-
-                                // Optional fallback if nothing matches
-                                if ($icon === 'bi-folder2-open' && str_contains($bucketName, 'lead')) {
-                                    $icon = 'bi-person-lines-fill';
-                                    $color = 'text-info';
-                                }
-                            @endphp
-
-                            <div class="col-xxl-2 col-lg-3 col-md-6">
-                                <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'lead_status' => '']) }}" class="text-decoration-none">
-                                    <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all">
-                                        <div class="card-body text-center">
-
-                                            <div class="mb-2">
-                                                <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
+                                        if (str_contains($sName, 'yet to call') || str_contains($sName, 'call')) {
+                                            $icon = 'bi-telephone-outbound-fill'; $color = 'text-primary';
+                                        } elseif (str_contains($sName, 'qualif')) {
+                                            $icon = 'bi-patch-check-fill'; $color = 'text-info';
+                                        } elseif (str_contains($sName, 'proposal') || str_contains($sName, 'offer')) {
+                                            $icon = 'bi-file-earmark-text-fill'; $color = 'text-warning';
+                                        } elseif (str_contains($sName, 'negotiat')) {
+                                            $icon = 'bi-sliders'; $color = 'text-warning';
+                                        } elseif (str_contains($sName, 'await') || str_contains($sName, 'confirm')) {
+                                            $icon = 'bi-hourglass-split'; $color = 'text-info';
+                                        } elseif (str_contains($sName, 'hold')) {
+                                            $icon = 'bi-pause-circle-fill'; $color = 'text-secondary';
+                                        } elseif (str_contains($sName, 'response') || str_contains($sName, 'no response')) {
+                                            $icon = 'bi-telephone-x-fill'; $color = 'text-danger';
+                                        } elseif (str_contains($sName, 'not interest') || str_contains($sName, 'not qualif') || str_contains($sName, 'close')) {
+                                            $icon = 'bi-x-circle-fill'; $color = 'text-muted';
+                                        } elseif (str_contains($sName, 'progress') || str_contains($sName, 'start') || str_contains($sName, 'active')) {
+                                            $icon = 'bi-play-circle-fill'; $color = 'text-success';
+                                        } elseif (str_contains($sName, 'other') || str_contains($sName, 'unassigned')) {
+                                            $icon = 'bi-question-circle-fill'; $color = 'text-warning';
+                                        }
+                                    @endphp
+                                    <div class="col-xxl-2 col-lg-3 col-md-4 col-6">
+                                        <a href="{{ $statusItem['bucket_id'] === 'other' ? route('modern.leads.index', ['deleted_leads' => 1]) : route('modern.leads.index', ['bucket_id' => $statusItem['bucket_id'], 'lead_status' => $statusItem['name']]) }}" class="text-decoration-none" title="{{ $statusItem['name'] }}">
+                                            <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all" style="{{ $statusItem['bucket_id'] === 'other' ? 'background-color: #fffbf0;' : '' }}">
+                                                <div class="card-body text-center p-3">
+                                                    <div class="mb-2">
+                                                        <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
+                                                    </div>
+                                                    <div class="fs-3 fw-bold text-dark">
+                                                        {{ $statusItem['count'] }}
+                                                    </div>
+                                                    <p class="fs-12 text-muted mb-0 fw-semibold text-truncate" title="{{ $statusItem['name'] }}">
+                                                        {{ $statusItem['name'] }}
+                                                    </p>
+                                                </div>
                                             </div>
-
-                                            <div class="fs-3 fw-bold text-dark">
-                                                {{ $bucket->total_leads }}
-                                            </div>
-
-                                            <p class="fs-12 text-muted mb-0">
-                                                {{ $bucket->name }}
-                                            </p>
-
-                                        </div>
+                                        </a>
                                     </div>
-                                </a>
-                            </div>
-
-                            @endforeach
-
+                                    @endif
+                                @endforeach
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -670,10 +638,10 @@
                         <div class="d-flex align-items-center gap-2">
                             <span class="fs-12 fw-semibold text-muted">Filter:</span>
                             <select id="dbSubKanbanFilter" class="form-select form-select-sm" style="width:auto;min-width:160px;" onchange="dbFilterSubKanban(this.value)">
+                                <option value="all" selected>All Lead Buckets</option>
                                 @foreach($buckets as $index => $b)
-                                    <option value="{{ $b->id }}" {{ $index === 0 ? 'selected' : '' }}>{{ $b->name }}</option>
+                                    <option value="{{ $b->id }}">{{ $b->name }}</option>
                                 @endforeach
-                                <option value="all">All Lead Buckets</option>
                             </select>
                             <a href="{{ route('modern.leads.index') }}" class="btn btn-sm btn-light-brand">
                                 <i class="feather-external-link me-1"></i> Open Leads
