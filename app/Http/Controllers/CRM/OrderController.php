@@ -121,7 +121,11 @@ class OrderController extends Controller
         $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
         $sources = LeadSource::pluck('source_name')->toArray();
         $categories = Category::where('is_active', 1)->get();
-        $allBuckets = Bucket::whereNull('parent_id')->where('is_deleted', 0)->with('children')->get();
+        $allBuckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where('name', 'NOT LIKE', '%lead%')
+            ->with('children')
+            ->get();
 
         return view('crm.orders.index', compact(
             'orders',

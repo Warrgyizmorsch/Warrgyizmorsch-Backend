@@ -34,12 +34,29 @@
                 width: 100%;
             }
         }
+        .order-status-strip { position: relative; background: #fff; border-bottom: 1px solid #e9ecef; padding: 10px 16px; }
+        .order-status-strip.has-overflow { padding-left: 44px; padding-right: 44px; }
+        .order-status-scroll { display: flex; width: 100%; min-width: 0; align-items: center; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-behavior: smooth; scroll-snap-type: x proximity; }
+        .order-status-scroll::-webkit-scrollbar { display: none; }
+        .order-status-tab { flex: 0 0 auto; scroll-snap-align: start; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cfe4f8; border-radius: 999px; padding: 6px 12px; background: #f2f8ff; color: #006FC9; font-size: 12px; font-weight: 700; line-height: 1; text-decoration: none; }
+        .order-status-tab:hover { color: #006FC9; background: #e5f2ff; }
+        .order-status-tab.is-active { background: #006FC9; border-color: #006FC9; color: #fff; box-shadow: 0 3px 8px rgba(0, 111, 201, .18); }
+        .order-status-arrow { display: none; position: absolute; top: 50%; z-index: 1; transform: translateY(-50%); width: 30px; height: 30px; padding: 0; border: 1px solid #dbe3ec; border-radius: 50%; background: #fff; color: #006FC9; box-shadow: 0 2px 6px rgba(15, 23, 42, .12); }
+        .order-status-strip.has-overflow .order-status-arrow { display: inline-flex; align-items: center; justify-content: center; }
+        .order-status-arrow:disabled { opacity: .35; cursor: default; }
+        .order-status-arrow.prev { left: 10px; }
+        .order-status-arrow.next { right: 10px; }
+        .order-list-toolbar { background: #fff; border-bottom: 1px solid #e9ecef; padding-top: 10px; padding-bottom: 10px; }
+        @media (max-width: 575.98px) {
+            .order-list-toolbar { gap: 12px !important; }
+            .order-list-toolbar > div:last-child { width: 100%; justify-content: flex-end; }
+        }
     </style>
 
     <div class="container-fluid px-0">
 
         <x-lead.tools :title="'Orders'" :buckets="$orderBuckets" :filterBucket="collect()" :totalLeadsCount="$totalOrdersCount"
-            :filteredLeadCount="$filteredOrdersCount" :owners="$owners" :sources="$sources" :categories="$categories" />
+            :filteredLeadCount="$filteredOrdersCount" :owners="$owners" :sources="$sources" :categories="$categories" :showViewSwitcher="false" />
 
         @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show mt-2" role="alert">
@@ -49,12 +66,15 @@
         @endif
 
         {{-- Order Master Status Navigation Bar --}}
-        <div class="d-flex overflow-auto border-bottom mb-2 mt-3 pb-2 gap-3 align-items-center">
+        <div class="order-status-strip has-overflow mt-3">
+            <button type="button" class="order-status-arrow prev" data-order-status-scroll="prev" aria-label="Previous order statuses"><i class="feather-chevron-left"></i></button>
+            <div class="order-status-scroll" id="order-status-scroll">
             @php
                 $isAllActive = !request()->has('bucket_id') || request('bucket_id') === 'all' || request('bucket_id') === 'all_orders';
             @endphp
             <a href="{{ route('orders.index') }}"
-                class="{{ $isAllActive ? 'btn btn-brand text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap">
+                class="order-status-tab {{ $isAllActive ? 'is-active' : '' }}">
+                <i class="feather-layers"></i>
                 My Orders ({{ $totalOrdersCount }})
             </a>
 
@@ -64,14 +84,17 @@
                         $isActive = request('bucket_id') == $bucket->id;
                     @endphp
                     <a href="{{ route('orders.index', ['bucket_id' => $bucket->id]) }}"
-                        class="{{ $isActive ? 'btn btn-brand text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap">
+                        class="order-status-tab {{ $isActive ? 'is-active' : '' }}">
+                        <i class="feather-circle"></i>
                         {{ $bucket->name }} ({{ $bucket->leads_count }})
                     </a>
                 @endforeach
             @endif
+            </div>
+            <button type="button" class="order-status-arrow next" data-order-status-scroll="next" aria-label="Next order statuses"><i class="feather-chevron-right"></i></button>
         </div>
 
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-3">
+        <div class="order-list-toolbar d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-3">
             <div class="d-flex align-items-center">
                 <div class="form-check">
                     <input type="checkbox" id="selectAll" class="form-check-input">
@@ -91,29 +114,6 @@
                     </form>
                     <span>Entries</span>
                 </div>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => '']) }}"
-                    class="btn btn-sm {{ request('lead_engagement_status') == '' ? 'btn-primary' : 'btn-light' }}">
-                    All
-                </a>
-                <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => 'hot']) }}"
-                    class="btn btn-sm {{ request('lead_engagement_status') == 'hot' ? 'btn-danger' : 'btn-light' }}">
-                    Hot
-                </a>
-                <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => 'warm']) }}"
-                    class="btn btn-sm {{ request('lead_engagement_status') == 'warm' ? 'btn-warning' : 'btn-light' }}">
-                    Warm
-                </a>
-                <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => 'cold']) }}"
-                    class="btn btn-sm {{ request('lead_engagement_status') == 'cold' ? 'btn-info' : 'btn-light' }}">
-                    Cold
-                </a>
-                <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => 'dead']) }}"
-                    class="btn btn-sm {{ request('lead_engagement_status') == 'dead' ? 'btn-dark' : 'btn-light' }}">
-                    Dead
-                </a>
             </div>
 
             <div class="d-flex flex-wrap gap-3">
@@ -220,9 +220,6 @@
                                     <span class="fs-12 text-truncate">{{ $order->bucket->name ?? 'Active production' }}</span>
                                     <i class="fa-solid fa-pen-to-square text-secondary ms-2"></i>
                                 </div>
-                                <small class="text-muted d-block mt-1 text-truncate" style="max-width: 190px;">
-                                    {{ $order->order_status ?? 'Production' }}
-                                </small>
                             </div>
 
                             {{-- Owner & Converted By --}}
@@ -619,6 +616,41 @@
         $(document).on('change', '.edit-bucket-select', function() {
             var leadId = $(this).data('lead-id');
             updateSubStatuses(this, leadId);
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusScroll = document.getElementById('order-status-scroll');
+            const statusStrip = statusScroll?.closest('.order-status-strip');
+            const previousButton = document.querySelector('[data-order-status-scroll="prev"]');
+            const nextButton = document.querySelector('[data-order-status-scroll="next"]');
+
+            if (!statusScroll || !statusStrip || !previousButton || !nextButton) return;
+
+            const updateArrowState = () => {
+                const hasOverflow = statusScroll.scrollWidth > statusScroll.clientWidth + 1 || window.innerWidth < 768;
+                statusStrip.classList.toggle('has-overflow', hasOverflow);
+                const maxScrollLeft = statusScroll.scrollWidth - statusScroll.clientWidth;
+                previousButton.disabled = !hasOverflow || statusScroll.scrollLeft <= 1;
+                nextButton.disabled = !hasOverflow || statusScroll.scrollLeft >= maxScrollLeft - 1;
+            };
+
+            const scrollStatuses = (direction) => {
+                const step = Math.max(statusScroll.clientWidth * .75, 180);
+                const maxScrollLeft = statusScroll.scrollWidth - statusScroll.clientWidth;
+                const targetLeft = Math.max(0, Math.min(maxScrollLeft, statusScroll.scrollLeft + (direction * step)));
+                statusScroll.scrollTo({ left: targetLeft, behavior: 'smooth' });
+            };
+
+            previousButton.addEventListener('click', () => scrollStatuses(-1));
+            nextButton.addEventListener('click', () => scrollStatuses(1));
+            statusScroll.addEventListener('scroll', updateArrowState, { passive: true });
+            window.addEventListener('resize', updateArrowState);
+            updateArrowState();
+            window.setTimeout(updateArrowState, 150);
+
+            if (window.ResizeObserver) {
+                new ResizeObserver(updateArrowState).observe(statusScroll);
+            }
         });
     </script>
 @endsection

@@ -121,6 +121,15 @@
         .engagement-warm-icon { color: #d97706; }
         .engagement-cold-icon { color: #0284c7; }
         .engagement-dead-icon { color: #475569; }
+        .lead-details-pane .nav-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+        .lead-details-pane .nav-tabs::-webkit-scrollbar { display: none; }
+        .lead-details-pane .nav-item { flex: 0 0 auto; }
+        .lead-details-pane .fs-15 { display: block; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+        @media (max-width: 575.98px) {
+            .lead-details-pane { padding: 16px !important; }
+            .lead-details-pane .nav-tabs { gap: 18px !important; margin-bottom: 24px !important; }
+            .lead-details-pane .lead-custom-tab { padding-bottom: .45rem !important; }
+        }
     </style>
     <style>
         /* View Details Modal Premium Styles */
@@ -1422,7 +1431,7 @@
 
                         {{-- LEAD DETAILS --}}
                         <div class="collapse w-100" id="details-{{ $lead->id }}">
-                            <div class="border-top p-4 bg-white"
+                            <div class="lead-details-pane border-top p-4 bg-white"
                                 style="border-left: 4px solid #006FC9; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
 
                                 <ul class="nav nav-tabs border-bottom-0 mb-4 gap-3" role="tablist">

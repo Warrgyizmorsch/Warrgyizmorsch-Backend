@@ -1,4 +1,4 @@
-@props(['buckets','filterBucket', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners','categories', 'title'])
+@props(['buckets','filterBucket', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners','categories', 'title', 'showViewSwitcher' => true])
 
 <div class="page-header">
     <div class="page-header-left d-flex align-items-center">
@@ -38,6 +38,7 @@
     <div class="page-header-right ms-auto">
         <div class="d-flex align-items-center gap-2">
 
+            @if($showViewSwitcher)
             {{-- View Switcher (List / Pipeline) --}}
             <div class="btn-group p-1 bg-light rounded-2 border me-1" role="group" aria-label="View Switcher" style="background: #f1f5f9 !important;">
                 <a href="{{ route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'list'])) }}"
@@ -55,6 +56,7 @@
                     <span class="d-none d-sm-inline fs-12 fw-semibold">Pipeline View</span>
                 </a>
             </div>
+            @endif
 
             {{-- Collapse Toggle --}}
             <button class="btn btn-icon btn-light-brand"
