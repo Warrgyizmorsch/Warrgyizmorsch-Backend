@@ -97,9 +97,9 @@ class AppServiceProvider extends ServiceProvider
                     }
                 }
 
-                // Dynamically build Order Master Menu if not present
-                $orderMasterExists = $menus->contains(fn($m) => strtolower($m->title ?? '') === 'order master');
-                if (!$orderMasterExists) {
+                // Dynamic Order Master sub-menus (only if user has permission for Order Master)
+                $orderMasterMenu = $menus->first(fn($m) => strtolower($m->title ?? '') === 'order master');
+                if ($orderMasterMenu) {
                     $orderBuckets = \App\Models\Bucket::whereNull('parent_id')
                         ->where('is_deleted', 0)
                         ->where('name', 'NOT LIKE', '%lead%')
@@ -107,11 +107,6 @@ class AppServiceProvider extends ServiceProvider
                         ->get();
 
                     if ($orderBuckets->count() > 0) {
-                        $orderMasterMenu = new \App\Models\Menu([
-                            'title' => 'Order Master',
-                            'icon'  => 'feather-shopping-bag',
-                        ]);
-
                         $children = collect();
 
                         // 1. My Orders (All Orders)
@@ -132,14 +127,6 @@ class AppServiceProvider extends ServiceProvider
                         }
 
                         $orderMasterMenu->setRelation('children', $children);
-
-                        // Insert right after Leads menu
-                        $leadsIndex = $menus->search(fn($m) => str_contains(strtolower($m->title ?? ''), 'lead'));
-                        if ($leadsIndex !== false) {
-                            $menus->splice($leadsIndex + 1, 0, [$orderMasterMenu]);
-                        } else {
-                            $menus->push($orderMasterMenu);
-                        }
                     }
                 }
             } else {

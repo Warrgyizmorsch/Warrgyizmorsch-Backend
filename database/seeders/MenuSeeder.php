@@ -111,6 +111,15 @@ class MenuSeeder extends Seeder
             'route_id'    => null,
             'sort_order'  => 4,
             'is_deleted'  => false,
+        // 5. Order Master (Parent)
+        $orderRouteId = DB::table('routes')->where('route_name', 'orders.index')->value('id');
+        DB::table('menus')->insert([
+            'parent_id'   => null,
+            'title'       => 'Order Master',
+            'icon'        => 'feather-shopping-bag',
+            'route_id'    => $orderRouteId,
+            'sort_order'  => 5,
+            'is_deleted'  => false,
             'created_at'  => now(),
             'updated_at'  => now(),
         ]);
