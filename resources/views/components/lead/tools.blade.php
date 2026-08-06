@@ -129,11 +129,12 @@
 </div>
 
 {{-- ✅ COLLAPSE --}}
-@php
+<!-- @php
     $actualFilterQueryParams = request()->except('bucket_id', 'lead_status', 'per_page', 'page');
     $hasActualFilters = !empty($actualFilterQueryParams);
 @endphp
-<div id="collapseOne" class="collapse mt-3 {{ $hasActualFilters ? 'show' : '' }}">
+<div id="collapseOne" class="collapse mt-3 {{ $hasActualFilters ? 'show' : '' }}"> -->
+<div id="collapseOne" class="collapse mt-3">
     <div class="card card-body shadow-sm">
 
         <form method="GET" action="{{ route('modern.leads.index') }}">

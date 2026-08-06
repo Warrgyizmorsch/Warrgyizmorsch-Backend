@@ -681,153 +681,159 @@
                             $statusProgress = 20;
                         }
                     @endphp
-                    <div class="card shadow-sm mb-3 border rounded-3" style="border-color: #e2e8f0 !important; background: #ffffff;">
-                        <div class="card-body" style="padding: 16px 20px;">
-                            <div class="d-flex flex-wrap flex-xl-nowrap align-items-center justify-content-between gap-3">
+                    <div class="card shadow-sm mb-3 border rounded-3 transition-all hover-shadow-md" style="border-color: #e2e8f0 !important; background: #ffffff;">
+                        <div class="card-body overflow-x-auto" style="padding: 12px 16px;">
+                            <div class="d-flex flex-nowrap align-items-center justify-content-between gap-2" style="min-width: max-content;">
 
-                                {{-- Checkbox --}}
+                                {{-- 1. Checkbox --}}
                                 <div class="form-check me-1 flex-shrink-0 align-self-center">
                                     <input type="checkbox" class="form-check-input lead-checkbox" value="{{ $lead->id }}" data-email="{{ optional($lead->user)->email }}">
                                 </div>
 
-                                {{-- 1st Column / Lead Info (Seamless layout without inner border box) --}}
-                                <div class="d-flex align-items-center flex-shrink-0" style="width: 245px; gap: 10px;">
-                                    {{-- Status-Wise Percentage Progress Conic Circle --}}
-                                    <div class="position-relative flex-shrink-0">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-2xs" style="width: 44px; height: 44px; font-size: 10px; background: conic-gradient({{ $iconColor }} 0% {{ $statusProgress }}%, #e2e8f0 {{ $statusProgress }}% 100%); padding: 3px;">
-                                            <div class="rounded-circle bg-white w-100 h-100 d-flex align-items-center justify-content-center fw-bold fs-11" style="color: {{ $iconColor }};">
-                                                {{ $statusProgress }}%
-                                            </div>
-                                        </div>
-                                        <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 10px; height: 10px;" title="Status: {{ $lead->lead_status }}"></span>
-                                    </div>
-
-                                    {{-- Details --}}
-                                    <div class="d-flex flex-column gap-0.5 flex-grow-1 text-truncate" style="min-width: 0;">
-                                        {{-- Row 1: Name (Left) + Edit Button & Info Icon (Right) --}}
-                                        <div class="d-flex align-items-center justify-content-between gap-1">
-                                            <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" class="fw-bold text-dark text-decoration-none hover-blue fs-14 text-truncate" style="--hover-color: #006FC9; color: #0f172a !important;" title="{{ $userName }}">
-                                                {{ $userName }}
-                                            </a>
-                                            <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                                <a href="javascript:void(0);" class="btn btn-xs py-0.5 px-1.5 rounded-2 border border-primary text-primary fw-semibold fs-10 bg-primary-subtle d-inline-flex align-items-center gap-0.5 text-decoration-none" title="Edit Lead Form" data-lead="{{ json_encode($lead ?? []) }}" data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)">
-                                                    <i class="fas fa-edit fs-9"></i> Edit
-                                                </a>
-                                                @if($lead->duplicate_count > 0)
-                                                    <span class="duplicate-info-wrapper">
-                                                        <a href="{{ request()->fullUrlWithQuery(['duplicate_of' => $lead->id]) }}" class="btn btn-xs btn-light text-secondary rounded-circle p-0 duplicate-btn d-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:10px;" title="View Duplicates">
-                                                            <i class="fa-solid fa-circle-info"></i>
-                                                        </a>
-                                                        <div class="duplicate-popup shadow">
-                                                            <strong>{{ $lead->duplicate_count }}</strong> Duplicate Leads <br> IDs: {{ $lead->duplicate_ids->implode(', ') }}
-                                                        </div>
-                                                    </span>
-                                                @else
-                                                    <a href="javascript:void(0);" class="btn btn-xs btn-light text-secondary rounded-circle p-0 d-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:10px;" title="Lead Details Info" data-lead="{{ json_encode($lead ?? []) }}" onclick="openViewDetailsModal(this)">
-                                                        <i class="fa-solid fa-circle-info"></i>
-                                                    </a>
-                                                @endif
-                                            </div>
-                                        </div>
-
-                                        {{-- Phone --}}
-                                        <div class="fs-11 text-secondary fw-medium text-truncate">
-                                            <i class="fas fa-phone-alt fs-10 text-primary me-1"></i>
-                                            {{ optional($lead->user)->contact_no ?? 'N/A' }}
-                                        </div>
-
-                                        {{-- Badges & Date --}}
-                                        <div class="d-flex align-items-center gap-1 flex-wrap fs-10 text-muted mt-0.5">
-                                            <span class="badge {{ $badgeClass }} fw-semibold px-1.5 py-0.5 rounded-pill text-uppercase" style="font-size: 9px;">{{ $engStatus }}</span>
-                                            @if($lead->product)
-                                                <span class="badge fw-semibold px-1.5 py-0.5 rounded-pill text-uppercase" style="background-color: #eff6ff; color: #2563eb; font-size: 9px;">{{ $lead->product }}</span>
-                                            @endif
-                                        </div>
-
-                                        {{-- Created Date --}}
-                                        <div class="fs-10 text-muted text-truncate mt-0.5">
-                                            <i class="far fa-calendar-alt text-primary fs-10 me-1"></i>
-                                            <span>Created <strong>{{ \Carbon\Carbon::parse($lead->created_at)->format('d M Y') }}</strong></span>
+                                {{-- 2. Conic Percentage Progress Circle --}}
+                                <div class="position-relative flex-shrink-0">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-2xs" style="width: 44px; height: 44px; font-size: 10px; background: conic-gradient({{ $iconColor }} 0% {{ $statusProgress }}%, #e2e8f0 {{ $statusProgress }}% 100%); padding: 3px;">
+                                        <div class="rounded-circle bg-white w-100 h-100 d-flex align-items-center justify-content-center fw-bold fs-11" style="color: {{ $iconColor }};">
+                                            {{ $statusProgress }}%
                                         </div>
                                     </div>
-                                </div>                                {{-- Status & Convert Section (Sleek 220px Width with Balanced Margin & Padding) --}}
-                                <div class="d-flex flex-column gap-2 flex-shrink-0" style="width: 220px;">
-
-                                    {{-- Top Status Card (Rendered in status master bucket_color) --}}
-                                    <div class="d-flex align-items-center justify-content-between p-2 rounded-3 border shadow-2xs" style="background-color: {{ $cardBg }}; border-color: {{ $borderColor }} !important;" title="Click to edit Lead Status">
-                                        <div class="d-flex align-items-center gap-2 flex-grow-1 text-truncate" style="cursor:pointer; min-width: 0;" data-bs-toggle="offcanvas" data-bs-target="#editStatusOffcanvas-{{ $lead->id }}">
-                                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 shadow-2xs" style="width: 36px; height: 36px; background-color: {{ $iconBg }};">
-                                                <i class="fas fa-tag fs-14" style="color: {{ $iconColor }};"></i>
-                                            </div>
-                                            <div class="d-flex flex-column text-truncate" style="min-width: 0;">
-                                                <span class="fw-bold fs-13 text-dark text-truncate" style="color: #0f172a !important;">{{ $statusName }}</span>
-                                                <span class="fs-10 text-muted">Lead Status</span>
-                                            </div>
-                                        </div>
-                                        <div class="ps-1.5 ms-1 flex-shrink-0">
-                                            <button type="button" class="btn btn-sm btn-icon rounded-3 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; background-color: {{ $btnBg }}; color: {{ $btnColor }}; border: 1px solid {{ $borderColor }};" data-bs-toggle="offcanvas" data-bs-target="#editStatusOffcanvas-{{ $lead->id }}" title="Edit Status">
-                                                <i class="fas fa-pen fs-11"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {{-- Bottom Convert Card --}}
-                                    <div class="d-flex align-items-center justify-content-between p-2 rounded-3 border shadow-2xs" style="background-color: #f0fdf4; border-color: #bbf7d0 !important;">
-                                        <a href="javascript:void(0);" class="d-flex align-items-center gap-2 flex-grow-1 text-decoration-none text-truncate" style="min-width: 0;" onclick="convertLeads([{{ $lead->id }}]); return false;" title="Convert Lead to Order">
-                                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 shadow-2xs" style="width: 36px; height: 36px; background-color: #dcfce7;">
-                                                <i class="fas fa-arrows-rotate fs-14 text-success"></i>
-                                            </div>
-                                            <div class="d-flex flex-column text-truncate" style="min-width: 0;">
-                                                <span class="fw-extrabold fs-13 text-success tracking-wide">CONVERT</span>
-                                                <span class="fs-10 text-muted text-truncate">Convert Status</span>
-                                            </div>
-                                        </a>
-                                        <div class="ps-1.5 ms-1 flex-shrink-0">
-                                            <button type="button" class="btn btn-sm btn-icon rounded-3 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; background-color: #dcfce7; color: #16a34a; border: 1px solid #86efac;" onclick="convertLeads([{{ $lead->id }}]); return false;" title="Convert Lead">
-                                                <i class="fas fa-chevron-right fs-11"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-
+                                    <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 10px; height: 10px;" title="Status: {{ $lead->lead_status }}"></span>
                                 </div>
 
-                                {{-- Latest Remark / Comment Box (Fluid Flex Item) --}}
-                                <div class="p-2 rounded-3 border d-flex flex-column justify-content-between position-relative shadow-2xs" style="{{ ($message || $followup) ? 'background:#f8fafc;' : 'background:#ffffff;' }} min-width: 140px; flex: 1 1 150px; min-height: 60px;">
-                                    @if($message || $followup)
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <strong class="fs-11 text-dark text-truncate" style="max-width: 80px;">{{ $commentUser }}</strong>
-                                            <div class="d-flex align-items-center gap-1">
-                                                @if($created_at)<span class="fs-10 text-muted">{{ $created_at->diffForHumans() }}</span>@endif
-                                                @if($updatesAfterCount > 0)
-                                                    <span class="badge rounded-pill bg-primary text-white" style="font-size: 9px; padding: 2px 4px;" title="{{ $updatesAfterCount }} follow-ups since comment">+{{ $updatesAfterCount }}</span>
-                                                @endif
+                                {{-- 3. Details (NAME, MOBILE NO., EMAIL, CREATED) --}}
+                                <div class="d-flex flex-column gap-0.5 flex-shrink-0 text-truncate" style="width: 175px; min-width: 0;">
+                                    {{-- Name --}}
+                                    <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" class="fw-bold text-dark text-decoration-none hover-blue fs-13 text-truncate" style="--hover-color: #006FC9; color: #0f172a !important;" title="{{ $userName }}">
+                                        {{ $userName }}
+                                    </a>
+                                    {{-- Mobile No --}}
+                                    <div class="fs-11 text-secondary fw-medium text-truncate">
+                                        <i class="fas fa-phone-alt fs-10 text-primary me-1"></i>
+                                        {{ optional($lead->user)->contact_no ?? 'N/A' }}
+                                    </div>
+                                    {{-- Email --}}
+                                    <div class="fs-11 text-muted text-truncate">
+                                        <i class="fas fa-envelope fs-10 text-primary me-1"></i>
+                                        {{ optional($lead->user)->email ?? 'N/A' }}
+                                    </div>
+                                    {{-- Created Date --}}
+                                    <div class="fs-10 text-muted text-truncate mt-0.5">
+                                        <i class="far fa-calendar-alt text-primary fs-10 me-1"></i>
+                                        <span>Created <strong>{{ \Carbon\Carbon::parse($lead->created_at)->format('d M Y') }}</strong></span>
+                                    </div>
+                                </div>
+
+                                {{-- 4. EDIT, (i), HOT / SAAP --}}
+                                <div class="d-flex flex-column justify-content-center gap-1 flex-shrink-0" style="width: 72px;">
+                                    {{-- Row 1: Edit & Info buttons --}}
+                                    <div class="d-flex align-items-center gap-1">
+                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="Edit Lead Form" data-lead="{{ json_encode($lead ?? []) }}" data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)">
+                                            <i class="fas fa-pen-to-square fs-10"></i>
+                                        </a>
+                                        @if($lead->duplicate_count > 0)
+                                            <span class="duplicate-info-wrapper">
+                                                <a href="{{ request()->fullUrlWithQuery(['duplicate_of' => $lead->id]) }}" class="btn btn-xs btn-light text-secondary rounded-circle p-0 duplicate-btn d-flex align-items-center justify-content-center border shadow-2xs" style="width:20px;height:20px;font-size:10px;" title="View Duplicates">
+                                                    <i class="fa-solid fa-circle-info"></i>
+                                                </a>
+                                                <div class="duplicate-popup shadow">
+                                                    <strong>{{ $lead->duplicate_count }}</strong> Duplicate Leads <br> IDs: {{ $lead->duplicate_ids->implode(', ') }}
+                                                </div>
+                                            </span>
+                                        @else
+                                            <a href="javascript:void(0);" class="btn btn-xs btn-light text-secondary rounded-circle p-0 d-flex align-items-center justify-content-center border shadow-2xs" style="width:20px;height:20px;font-size:10px;" title="Lead Details Info" data-lead="{{ json_encode($lead ?? []) }}" onclick="openViewDetailsModal(this)">
+                                                <i class="fa-solid fa-circle-info"></i>
+                                            </a>
+                                        @endif
+                                    </div>
+
+                                    {{-- Row 2: HOT Badge --}}
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge {{ $badgeClass }} fw-semibold px-1.5 py-0.5 rounded-pill text-uppercase" style="font-size: 8.5px;">{{ $engStatus }}</span>
+                                    </div>
+
+                                    {{-- Row 3: SAAP Product Badge (Stacked Below $engStatus) --}}
+                                    @if($lead->product)
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge fw-semibold px-1.5 py-0.5 rounded-pill text-uppercase" style="background-color: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-size: 8.5px;">{{ $lead->product }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+
+                                {{-- 5. STATUS --}}
+                                <div class="d-flex flex-column justify-content-center flex-shrink-0" style="width: 140px;">
+                                    {{-- Lead Status Box --}}
+                                    <div class="d-flex align-items-center justify-content-between p-1.5 rounded-3 border shadow-2xs" style="background-color: {{ $cardBg }}; border-color: {{ $borderColor }} !important;" title="Click to edit Lead Status">
+                                        <div class="d-flex align-items-center gap-1.5 flex-grow-1 text-truncate" style="cursor:pointer; min-width: 0;" data-bs-toggle="offcanvas" data-bs-target="#editStatusOffcanvas-{{ $lead->id }}">
+                                            <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 shadow-2xs" style="width: 28px; height: 28px; background-color: {{ $iconBg }};">
+                                                <i class="fas fa-tag fs-11" style="color: {{ $iconColor }};"></i>
+                                            </div>
+                                            <div class="d-flex flex-column text-truncate" style="min-width: 0;">
+                                                <span class="fw-bold fs-11 text-dark text-truncate" style="color: #0f172a !important;">{{ $statusName }}</span>
+                                                <span class="fs-9 text-muted" style="font-size: 9px;">Lead Status</span>
                                             </div>
                                         </div>
+                                        <div class="ps-0.5 flex-shrink-0">
+                                            <button type="button" class="btn btn-xs btn-icon rounded-2 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px; background-color: {{ $btnBg }}; color: {{ $btnColor }}; border: 1px solid {{ $borderColor }};" data-bs-toggle="offcanvas" data-bs-target="#editStatusOffcanvas-{{ $lead->id }}" title="Edit Status">
+                                                <i class="fas fa-pen fs-9"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- 6. Comment Box (Enlarged Width) --}}
+                                <div class="p-2 rounded-3 border d-flex flex-column justify-content-between position-relative shadow-2xs flex-shrink-0" style="{{ ($message || $followup) ? 'background:#f8fafc;' : 'background:#ffffff;' }} width: 160px; min-height: 64px;">
+                                    @if($message || $followup)
+                                        <div class="d-flex justify-content-between align-items-center mb-0.5">
+                                            <strong class="fs-10 text-dark text-truncate" style="max-width: 90px;">{{ $commentUser }}</strong>
+                                            @if($updatesAfterCount > 0)
+                                                <span class="badge rounded-pill bg-primary text-white" style="font-size: 8px; padding: 1px 4px;" title="{{ $updatesAfterCount }} follow-ups since comment">+{{ $updatesAfterCount }}</span>
+                                            @endif
+                                        </div>
                                         @if($message)
-                                            <p class="fs-11 text-dark mb-1 pe-4 text-truncate" title="{{ $message }}">{{ Str::limit($message, 40) }}</p>
+                                            <p class="fs-10 text-dark mb-1 pe-3 text-truncate" style="line-height: 1.25;" title="{{ $message }}">{{ Str::limit($message, 32) }}</p>
                                         @endif
-                                        @if($followup)
-                                            <div class="fs-10 text-primary fw-semibold">📅 {{ \Carbon\Carbon::parse($followup)->format('d M Y') }}</div>
+                                        @if($created_at)
+                                            <div class="fs-9 text-muted mt-auto" style="font-size: 9px;">{{ $created_at->diffForHumans() }}</div>
                                         @endif
-                                        <a class="open-callback position-absolute" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}" style="bottom: 4px; right: 6px; font-size: 13px; color: #006FC9;" title="Add/View Comments">
+                                        <a class="open-callback position-absolute" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}" style="bottom: 4px; right: 5px; font-size: 12px; color: #006FC9;" title="Add/View Comments">
                                             <i class="fas fa-comment-dots"></i>
                                         </a>
                                     @else
-                                        <div class="d-flex align-items-center justify-content-between text-muted fs-11 h-100 py-1">
+                                        <div class="d-flex align-items-center justify-content-between text-muted fs-10 h-100 py-1">
                                             <span>No comments</span>
-                                            <a class="open-callback" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}" style="font-size: 13px; color: #006FC9;" title="Add Comment">
+                                            <a class="open-callback" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}" style="font-size: 12px; color: #006FC9;" title="Add Comment">
                                                 <i class="fas fa-plus-circle"></i>
                                             </a>
                                         </div>
                                     @endif
                                 </div>
 
-                                {{-- Assignee / Owner Info --}}
-                                <div class="d-flex align-items-center gap-2 flex-shrink-0" style="width: 125px;">
+                                {{-- 7. Client / Business Info Box --}}
+                                <div class="p-2 rounded-3 border d-flex flex-column justify-content-between shadow-2xs flex-grow-1" style="background:#f8fafc; border-color:#e2e8f0 !important; min-width: 145px; max-width: 195px; min-height: 64px;">
+                                    <div class="fw-bold fs-11 text-dark text-truncate" title="Company Name: {{ $lead->business_name ?? 'N/A' }}">
+                                        <i class="fas fa-building text-primary me-1 fs-10" style="width: 11px;"></i>
+                                        <span>{{ $lead->business_name ?? 'N/A' }}</span>
+                                    </div>
+                                    <div class="fs-10 text-secondary text-truncate" title="Industry: {{ $lead->industry ?? 'N/A' }}">
+                                        <i class="fas fa-industry text-muted me-1 fs-9" style="width: 11px;"></i>
+                                        <span>{{ $lead->industry ?? 'N/A' }}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-between gap-1 fs-10 text-muted mt-0.5">
+                                        <span class="text-truncate" title="Employee Strength: {{ $lead->employee_strength ?? 'N/A' }}">
+                                            <i class="fas fa-users text-muted me-1 fs-9"></i>{{ $lead->employee_strength ?? 'N/A' }}
+                                        </span>
+                                        <span class="text-truncate fw-medium text-dark" title="City: {{ $lead->city ?? (optional($lead->user)->city ?? 'N/A') }}">
+                                            <i class="fas fa-map-marker-alt text-danger me-1 fs-9"></i>{{ $lead->city ?? (optional($lead->user)->city ?? 'N/A') }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- 8. Lead Owner Details --}}
+                                <div class="d-flex align-items-center gap-1.5 flex-shrink-0" style="width: 110px;">
                                     @if($lead->owner && $lead->owner->image && file_exists(public_path('storage/' . $lead->owner->image)))
-                                        <img src="{{ asset('storage/' . $lead->owner->image) }}" alt="{{ $ownerName }}" class="rounded-circle shadow-sm" style="width:32px; height:32px; object-fit:cover;">
+                                        <img src="{{ asset('storage/' . $lead->owner->image) }}" alt="{{ $ownerName }}" class="rounded-circle shadow-sm" style="width:30px; height:30px; object-fit:cover;">
                                     @else
-                                        <div class="rounded-circle bg-light text-primary border border-primary-subtle d-flex align-items-center justify-content-center fw-bold fs-11 shadow-sm" style="width:32px; height:32px;" title="{{ $ownerName }}">
+                                        <div class="rounded-circle bg-light text-primary border border-primary-subtle d-flex align-items-center justify-content-center fw-bold fs-10 shadow-sm" style="width:30px; height:30px;" title="{{ $ownerName }}">
                                             {{ $ownerInitials }}
                                         </div>
                                     @endif
@@ -837,11 +843,11 @@
                                     </div>
                                 </div>
 
-                                {{-- Action Buttons (2x2 Grid: 2 Top + 2 Bottom) --}}
-                                <div class="d-flex flex-column flex-shrink-0 ms-auto" style="gap: 3px;">
-                                    {{-- Row 1: View & Edit --}}
-                                    <div class="d-flex align-items-center" style="gap: 3px;">
-                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;" title="View Details"
+                                {{-- 9. Action Tools (Fit inside 84px without overflow) --}}
+                                <div class="d-flex flex-column flex-shrink-0 gap-1" style="width: 84px;">
+                                    {{-- Row 1: View Details, Quick Edit, Expand --}}
+                                    <div class="d-flex align-items-center gap-1">
+                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="View Details"
                                             data-lead="{{ json_encode($lead ?? []) }}"
                                             data-user="{{ json_encode($lead->user ?? []) }}"
                                             data-owner="{{ json_encode($lead->owner ?? []) }}"
@@ -849,19 +855,32 @@
                                             data-status="{{ $lead->lead_status ?? 'N/A' }}"
                                             data-engagement="{{ $lead->lead_engagement_status ?? 'N/A' }}"
                                             onclick="openViewDetailsModal(this)">
-                                            <i class="fas fa-eye fs-11"></i>
+                                            <i class="fas fa-eye fs-10"></i>
                                         </a>
-                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-secondary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;" data-lead="{{ json_encode($lead ?? []) }}" data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)" title="Edit Lead">
-                                            <i class="fas fa-edit fs-11"></i>
+                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-secondary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" data-lead="{{ json_encode($lead ?? []) }}" data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)" title="Edit Lead">
+                                            <i class="fas fa-edit fs-10"></i>
+                                        </a>
+                                        <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" class="btn btn-xs btn-icon btn-light text-muted border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="Expand Details">
+                                            <i class="fas fa-chevron-down fs-10"></i>
                                         </a>
                                     </div>
-                                    {{-- Row 2: More Options & Expand --}}
-                                    <div class="d-flex align-items-center" style="gap: 3px;">
+                                    {{-- Row 2: Convert Button & Dropdown --}}
+                                    <div class="d-flex align-items-center gap-1">
+                                        <button type="button" class="btn btn-xs btn-icon rounded-2 border shadow-2xs d-flex align-items-center justify-content-center" style="width: 25px; height: 25px; background-color: #dcfce7; color: #16a34a; border-color: #86efac !important;" onclick="convertLeads([{{ $lead->id }}]); return false;" title="Convert Lead to Order">
+                                            <i class="fas fa-arrows-rotate fs-10"></i>
+                                        </button>
                                         <div class="dropdown">
-                                            <a class="btn btn-xs btn-icon btn-light text-dark border shadow-2xs rounded-2 d-flex align-items-center justify-content-center dropdown-toggle" style="width: 28px; height: 28px;" href="#" role="button" id="moreOptions{{ $lead->id }}" data-bs-toggle="dropdown" aria-expanded="false" title="More Options">
-                                                <i class="fas fa-ellipsis-v fs-11"></i>
+                                            <a class="btn btn-xs btn-icon btn-light text-dark border shadow-2xs rounded-2 d-flex align-items-center justify-content-center dropdown-toggle" style="width: 25px; height: 25px;" href="#" role="button" id="moreOptions{{ $lead->id }}" data-bs-toggle="dropdown" aria-expanded="false" title="More Options">
+                                                <i class="fas fa-ellipsis-v fs-10"></i>
                                             </a>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" aria-labelledby="moreOptions{{ $lead->id }}">
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center text-success fw-bold" href="javascript:void(0);" onclick="convertLeads([{{ $lead->id }}]); return false;">
+                                                        <i class="fas fa-arrows-rotate me-2 text-success" style="width: 20px;"></i>
+                                                        Convert Lead to Order
+                                                    </a>
+                                                </li>
+                                                <li><hr class="dropdown-divider"></li>
                                                 <li>
                                                     <a class="dropdown-item d-flex align-items-center text-muted" href="javascript:void(0);" title="Missed Calls">
                                                         <i class="fas fa-phone-slash me-2" style="color: #006FC9; width: 20px;"></i>
@@ -906,13 +925,7 @@
                                                 </li>
                                             </ul>
                                         </div>
-                                        <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" class="btn btn-xs btn-icon btn-light text-muted border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;" title="Expand Details">
-                                            <i class="fas fa-chevron-down fs-11"></i>
-                                        </a>
                                     </div>
-                                </div>
-
-                                   
                                 </div>
 
                             </div>
@@ -1154,176 +1167,204 @@
                         </div>
 
                         {{-- CHANGE STATUS AND FOLLOW UP --}}
-                        <div class="offcanvas offcanvas-end" tabindex="-1" id="editStatusOffcanvas-{{ $lead->id }}"
-                            aria-labelledby="editStatusOffcanvasLabel-{{ $lead->id }}" style="width: 400px;">
-                            <div class="offcanvas-header border-bottom bg-light py-3">
-                                <h6 class="offcanvas-title d-flex align-items-center gap-2 fw-bold text-dark"
-                                    id="editStatusOffcanvasLabel-{{ $lead->id }}">
-                                    <i class="fa-solid fa-clipboard-list text-secondary"></i>
-                                    Edit Followup for <span
-                                        class="text-capitalize">{{ optional($lead->user)->name ?? 'User' }}</span>
-                                </h6>
-                                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"
-                                    aria-label="Close"></button>
+                        <div class="offcanvas offcanvas-end border-0 shadow-lg" tabindex="-1" id="editStatusOffcanvas-{{ $lead->id }}"
+                            aria-labelledby="editStatusOffcanvasLabel-{{ $lead->id }}" style="width: 420px; background: #f8fafc;">
+                            
+                            {{-- Offcanvas Header --}}
+                            <div class="offcanvas-header border-bottom bg-white py-3 px-4 shadow-2xs">
+                                <div class="d-flex align-items-center gap-2.5">
+                                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold fs-13 shadow-2xs" style="width: 36px; height: 36px;">
+                                        <i class="fa-solid fa-clipboard-check"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="offcanvas-title fw-bold text-dark mb-0 fs-14" id="editStatusOffcanvasLabel-{{ $lead->id }}">
+                                            Edit Followup
+                                        </h6>
+                                        <span class="fs-11 text-muted">
+                                            Lead: <strong class="text-dark">{{ optional($lead->user)->name ?? 'User' }}</strong>
+                                        </span>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
                             </div>
 
-                            <div class="offcanvas-body p-4 bg-white">
+                            <div class="offcanvas-body p-3.5">
                                 <form id="quickUpdateForm-{{ $lead->id }}" action="{{ route('lead.updateQuick', $lead->id) }}"
                                     method="POST" enctype="multipart/form-data">
                                     @csrf
 
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Engagement
-                                            Status </label>
-                                        <select class="form-select bg-light border-0 shadow-sm" name="lead_engagement_status"
-                                            style="font-size: 14px;">
-                                            <option value="">Select Engagement</option>
-                                            <option value="hot" {{ strtolower($lead->lead_engagement_status) == 'hot' ? 'selected' : '' }}>Hot</option>
-                                            <option value="warm" {{ strtolower($lead->lead_engagement_status) == 'warm' ? 'selected' : '' }}>Warm</option>
-                                            <option value="cold" {{ strtolower($lead->lead_engagement_status) == 'cold' ? 'selected' : '' }}>Cold</option>
-                                            <option value="dead" {{ strtolower($lead->lead_engagement_status) == 'dead' ? 'selected' : '' }}>Dead</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Status (Bucket) field commented out as per requirement -->
-                                    <!--
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Status <span
-                                                class="text-danger">*</span></label>
-                                        <select name="lead_bucket_id"
-                                            class="form-select bg-light border-0 shadow-sm bucket-select required-field"
-                                            style="font-size: 14px;">
-                                            <option value="" disabled>Select Status</option>
-                                            @foreach($mainbuckets as $bucket)
-                                                <option value="{{ $bucket->id }}" {{ $lead->lead_bucket_id == $bucket->id ? 'selected' : '' }}>
-                                                    {{ $bucket->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        @error('lead_bucket_id')
-                                            <small class="text-danger">{{ $message }}</small>
-                                        @enderror
-                                    </div>
-                                    -->
                                     <input type="hidden" name="lead_bucket_id" class="bucket-select" value="{{ $lead->lead_bucket_id ?? 46 }}">
 
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Status
-                                            <span class="text-danger">*</span></label>
-                                        <select name="lead_status"
-                                            class="form-select bg-light border-0 shadow-sm status-select required-field"
-                                            style="font-size: 14px;">
-                                            <option value="">Select Status</option>
-                                            @php
-                                                // Get the correct parent bucket to load status children
-                                                $statusBucket = $lead->bucket;
-
-                                                // If lead's bucket IS a child (has parent_id), go to parent to get sibling statuses
-                                                if ($statusBucket && $statusBucket->parent_id) {
-                                                    $statusBucket = \App\Models\Bucket::with('children')->find($statusBucket->parent_id);
-                                                }
-
-                                                // If bucket has no children, or bucket is null, fallback to default lead bucket 46
-                                                if (!$statusBucket || $statusBucket->children->isEmpty()) {
-                                                    $statusBucket = \App\Models\Bucket::with('children')->find(46);
-                                                }
-
-                                                $statusChildren = $statusBucket ? $statusBucket->children : collect();
-                                            @endphp
-                                            @foreach($statusChildren as $child)
-                                                <option data-bg="{{ $child->bucket_color }}" value="{{ $child->name }}" {{ $lead->lead_status == $child->name ? 'selected' : '' }}>
-                                                    {{ $child->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        @error('lead_status')
-                                            <small class="text-danger">{{ $message }}</small>
-                                        @enderror
-                                    </div>
-
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Follow Up
-                                            Type</label>
-                                        <select class="form-select bg-light border-0 shadow-sm" name="followup_type"
-                                            style="font-size: 14px;" onchange="checkFollowupCommentToggle(this)">
-                                            <option value="">--pls select Follow Up type --</option>
-                                            <option value="WhatsApp Call">WhatsApp Call</option>
-                                            <option value="Call">Call</option>
-                                            <option value="Whatsapp">Whatsapp</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Follow Up
-                                            Status</label>
-                                        <select class="form-select bg-light border-0 shadow-sm" name="followup_status"
-                                            style="font-size: 14px;" onchange="checkFollowupCommentToggle(this)">
-                                            <option value="">--select Follow Up status --</option>
-                                            <option value="Connected">Connected</option>
-                                            <option value="Not Connected">Not Connected</option>
-                                            <option value="Discussion Start">Discussion Start</option>
-                                            <option value="No Response">No Response</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Next Follow-up
-                                            Date</label>
-                                        <input type="datetime-local" class="form-control bg-light border-0 shadow-sm"
-                                            name="next_followup_date" value="" style="font-size: 14px;">
-                                    </div>
-
-                                    <div class="mb-4 comment-message-box">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Add Comment /
-                                            Message</label>
-                                        <textarea class="form-control bg-light border-0 shadow-sm" name="message" rows="3"
-                                            placeholder="Write a comment..." style="font-size: 14px; resize: none;"></textarea>
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">
-                                            Upload Call Recording
-                                        </label>
-                                        <input type="file" name="call_recording"
-                                            class="form-control bg-light border-0 shadow-sm" accept="audio/*"
-                                            style="font-size: 14px;">
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">
-                                            Upload Documents
-                                        </label>
-                                        <input type="file" name="followup_documents[]"
-                                            class="form-control bg-light border-0 shadow-sm" multiple
-                                            style="font-size: 14px;">
-                                        <small class="text-muted d-block mt-1" style="font-size: 11px;">Select multiple files if needed (PDF, DOC, DOCX, JPG, PNG).</small>
-                                        @if(!empty($lead->latestMessage->followup_documents))
-                                            <div class="mt-2 d-flex flex-column gap-1">
-                                                @foreach($lead->latestMessage->followup_documents as $doc)
-                                                    @php
-                                                        $docPath = is_array($doc) ? ($doc['path'] ?? '') : $doc;
-                                                        $docName = is_array($doc) ? ($doc['name'] ?? basename($docPath)) : basename($docPath);
-                                                    @endphp
-                                                    <div class="p-1 px-2 border rounded bg-light d-flex align-items-center justify-content-between" style="font-size: 11px;">
-                                                        <span class="text-truncate me-2 fw-medium">{{ $docName }}</span>
-                                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                                            <a href="{{ route('document.view', ['path' => $docPath]) }}" target="_blank" class="text-info text-decoration-none fw-semibold">
-                                                                <i class="feather-eye"></i> View
-                                                            </a>
-                                                            <span class="text-muted">|</span>
-                                                            <a href="{{ route('document.download', ['path' => $docPath, 'name' => $docName]) }}" class="text-primary text-decoration-none fw-semibold">
-                                                                <i class="feather-download"></i> Download
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                @endforeach
+                                    {{-- Card Box 1: Status & Engagement --}}
+                                    <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                                        <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                                            <i class="fas fa-sliders text-primary fs-12"></i>
+                                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status & Engagement</h6>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            {{-- Engagement Status --}}
+                                            <div class="mb-3">
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
+                                                </label>
+                                                <select class="form-select border-slate shadow-2xs fs-13" name="lead_engagement_status" style="border-color: #cbd5e1; border-radius: 8px;">
+                                                    <option value="">Select Engagement</option>
+                                                    <option value="hot" {{ strtolower($lead->lead_engagement_status) == 'hot' ? 'selected' : '' }}>🔥 Hot</option>
+                                                    <option value="warm" {{ strtolower($lead->lead_engagement_status) == 'warm' ? 'selected' : '' }}>⚡ Warm</option>
+                                                    <option value="cold" {{ strtolower($lead->lead_engagement_status) == 'cold' ? 'selected' : '' }}>❄️ Cold</option>
+                                                    <option value="dead" {{ strtolower($lead->lead_engagement_status) == 'dead' ? 'selected' : '' }}>💀 Dead</option>
+                                                </select>
                                             </div>
-                                        @endif
+
+                                            {{-- Lead Status --}}
+                                            <div>
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    <i class="fas fa-tag text-primary me-1 fs-10"></i>Lead Status <span class="text-danger">*</span>
+                                                </label>
+                                                <select name="lead_status"
+                                                    class="form-select border-slate shadow-2xs status-select required-field fs-13"
+                                                    style="border-color: #cbd5e1; border-radius: 8px;">
+                                                    <option value="">Select Status</option>
+                                                    @php
+                                                        $statusBucket = $lead->bucket;
+                                                        if ($statusBucket && $statusBucket->parent_id) {
+                                                            $statusBucket = \App\Models\Bucket::with('children')->find($statusBucket->parent_id);
+                                                        }
+                                                        if (!$statusBucket || $statusBucket->children->isEmpty()) {
+                                                            $statusBucket = \App\Models\Bucket::with('children')->find(46);
+                                                        }
+                                                        $statusChildren = $statusBucket ? $statusBucket->children : collect();
+                                                    @endphp
+                                                    @foreach($statusChildren as $child)
+                                                        <option data-bg="{{ $child->bucket_color }}" value="{{ $child->name }}" {{ $lead->lead_status == $child->name ? 'selected' : '' }}>
+                                                            {{ $child->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('lead_status')
+                                                    <small class="text-danger fs-11 mt-1 d-block">{{ $message }}</small>
+                                                @enderror
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div class="d-flex justify-content-end gap-3 pt-3 mt-4 border-top">
-                                        <button type="button" class="btn btn-white text-secondary fw-bold border px-4"
-                                            data-bs-dismiss="offcanvas" style="font-size: 13px;">CLOSE</button>
-                                        <button type="submit" class="btn btn-warning fw-bold px-4"
-                                            style="font-size: 13px; border-radius: 4px;">UPDATE DETAILS</button>
+                                    {{-- Card Box 2: Communication Details --}}
+                                    <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                                        <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                                            <i class="fas fa-comments text-info fs-12"></i>
+                                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication Details</h6>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            {{-- Communication Type --}}
+                                            <div class="mb-3">
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    <i class="fas fa-phone text-info me-1 fs-10"></i>Communication Type
+                                                </label>
+                                                <select class="form-select border-slate shadow-2xs fs-13" name="followup_type" style="border-color: #cbd5e1; border-radius: 8px;" onchange="checkFollowupCommentToggle(this)">
+                                                    <option value="">-- Select Communication Type --</option>
+                                                    <option value="WhatsApp Call">WhatsApp Call</option>
+                                                    <option value="Call">Call</option>
+                                                    <option value="Whatsapp">Whatsapp</option>
+                                                </select>
+                                            </div>
+
+                                            {{-- Communication Status --}}
+                                            <div>
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    <i class="fas fa-signal text-info me-1 fs-10"></i>Communication Status
+                                                </label>
+                                                <select class="form-select border-slate shadow-2xs fs-13" name="followup_status" style="border-color: #cbd5e1; border-radius: 8px;" onchange="checkFollowupCommentToggle(this)">
+                                                    <option value="">-- Select Communication Status --</option>
+                                                    <option value="Connected">Connected</option>
+                                                    <option value="Not Connected">Not Connected</option>
+                                                    <option value="Discussion Start">Discussion Start</option>
+                                                    <option value="No Response">No Response</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- Card Box 3: Remarks & Comments --}}
+                                    <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                                        <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                                            <i class="fas fa-comment-dots text-warning fs-12"></i>
+                                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Remarks & Comments</h6>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            {{-- Next Follow Up Date --}}
+                                            <div class="comment-message-box mb-3">
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    <i class="fas fa-calendar-alt text-primary me-1 fs-10"></i>Next Follow Up Date
+                                                </label>
+                                                <input type="datetime-local" class="form-control border-slate shadow-2xs fs-13"
+                                                    name="next_followup_date" value="" style="border-color: #cbd5e1; border-radius: 8px;">
+                                            </div>
+
+                                            <div>
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    Add Message / Remark
+                                                </label>
+                                                <textarea class="form-control border-slate shadow-2xs fs-13" name="message" rows="3"
+                                                    placeholder="Write followup notes or conversation details..." style="border-color: #cbd5e1; border-radius: 8px; resize: none;"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- Card Box 4: Audio Recordings & Document Uploads --}}
+                                    <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                                        <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                                            <i class="fas fa-paperclip text-success fs-12"></i>
+                                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Recordings & Document Uploads</h6>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            {{-- Upload Call Recording --}}
+                                            <div class="mb-3">
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    <i class="fas fa-microphone text-success me-1 fs-10"></i>Upload Call Recording
+                                                </label>
+                                                <input type="file" name="call_recording" class="form-control border-slate shadow-2xs fs-12" accept="audio/*" style="border-color: #cbd5e1; border-radius: 8px;">
+                                            </div>
+
+                                            {{-- Upload Documents --}}
+                                            <div>
+                                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                                    <i class="fas fa-file-arrow-up text-primary me-1 fs-10"></i>Upload Documents
+                                                </label>
+                                                <input type="file" name="followup_documents[]" class="form-control border-slate shadow-2xs fs-12" multiple style="border-color: #cbd5e1; border-radius: 8px;">
+                                                <small class="text-muted d-block mt-1 fs-10">Formats supported: PDF, DOC, DOCX, JPG, PNG.</small>
+                                                
+                                                @if(!empty($lead->latestMessage->followup_documents))
+                                                    <div class="mt-2.5 d-flex flex-column gap-1.5">
+                                                        <span class="fs-10 text-muted fw-semibold uppercase">Existing Attachments:</span>
+                                                        @foreach($lead->latestMessage->followup_documents as $doc)
+                                                            @php
+                                                                $docPath = is_array($doc) ? ($doc['path'] ?? '') : $doc;
+                                                                $docName = is_array($doc) ? ($doc['name'] ?? basename($docPath)) : basename($docPath);
+                                                            @endphp
+                                                            <div class="p-2 border rounded-2 bg-light d-flex align-items-center justify-content-between shadow-2xs" style="font-size: 11px;">
+                                                                <span class="text-truncate me-2 fw-medium text-dark"><i class="far fa-file-alt text-primary me-1"></i>{{ $docName }}</span>
+                                                                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                                                    <a href="{{ route('document.view', ['path' => $docPath]) }}" target="_blank" class="btn btn-xs btn-light text-info p-1 px-2 rounded border text-decoration-none">
+                                                                        <i class="fas fa-eye me-0.5"></i> View
+                                                                    </a>
+                                                                    <a href="{{ route('document.download', ['path' => $docPath, 'name' => $docName]) }}" class="btn btn-xs btn-light text-primary p-1 px-2 rounded border text-decoration-none">
+                                                                        <i class="fas fa-download me-0.5"></i> Download
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- Offcanvas Footer --}}
+                                    <div class="d-flex align-items-center justify-content-end gap-2 pt-3 border-top mt-4">
+                                        <button type="button" class="btn btn-light text-secondary fw-semibold border px-3 py-1.5 fs-13" data-bs-dismiss="offcanvas">Cancel</button>
+                                        <button type="submit" class="btn text-white fw-bold px-4 py-1.5 fs-13 shadow-sm d-inline-flex align-items-center gap-1.5" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%); border: none; border-radius: 6px;">
+                                            <i class="fas fa-check-circle fs-12"></i> Update Details
+                                        </button>
                                     </div>
                                 </form>
                             </div>
