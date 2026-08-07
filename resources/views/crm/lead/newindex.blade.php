@@ -65,33 +65,102 @@
             overflow-y: auto !important;
         }
 
-        .lead-pipeline-wrapper { overflow-x: auto; padding-bottom: 10px; }
-        .lead-pipeline-board { display: flex; gap: 12px; min-width: max-content; align-items: stretch; }
-        .pipeline-column { width: 230px; border: 1.5px solid #e3e8f0; border-radius: 12px; background: #fff; display: flex; flex-direction: column; }
-        .pipeline-column.drag-over { border-color: #006FC9; box-shadow: 0 0 0 3px rgba(0,111,201,.15); }
-        .pipeline-column-header { padding: 10px 13px 9px; border-radius: 10px 10px 0 0; border-bottom: 1.5px solid rgba(0,0,0,.06); display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-        .pipeline-column-title { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .column-count-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
-        .pipeline-cards-list { padding: 8px; min-height: 90px; max-height: 500px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; }
-        .pipeline-card { background: #fff; border: 1.5px solid #eaecf0; border-radius: 9px; padding: 9px 10px; cursor: grab; user-select: none; transition: box-shadow .18s, border-color .18s, transform .13s; }
+        /* ============================================================ */
+        /* PREMIUM PIPELINE (KANBAN) BOARD STYLING (MATCHING REFERENCE UI) */
+        /* ============================================================ */
+        .lead-pipeline-wrapper { overflow-x: auto; padding-bottom: 16px; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .lead-pipeline-board { display: flex; gap: 16px; min-width: max-content; align-items: stretch; padding: 4px 0; }
+        
+        .pipeline-column { min-width: 285px !important; width: 285px !important; flex: 0 0 285px !important; border-radius: 16px !important; display: flex; flex-direction: column; border: 1px solid rgba(0,0,0,0.05) !important; transition: all 0.2s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        .pipeline-column.drag-over { border-color: #006FC9 !important; box-shadow: 0 0 0 3px rgba(0,111,201,.15) !important; }
+
+        /* Column Theme Tints */
+        .pipeline-col-theme-blue { background-color: #f0f7ff !important; border-color: #dbeafe !important; }
+        .pipeline-col-theme-blue .pipeline-column-header-title { color: #0284c7 !important; }
+        .pipeline-col-theme-blue .column-count-badge { background-color: #0284c7 !important; color: #ffffff !important; }
+
+        .pipeline-col-theme-orange { background-color: #fff7ed !important; border-color: #ffedd5 !important; }
+        .pipeline-col-theme-orange .pipeline-column-header-title { color: #ea580c !important; }
+        .pipeline-col-theme-orange .column-count-badge { background-color: #ea580c !important; color: #ffffff !important; }
+
+        .pipeline-col-theme-purple { background-color: #faf5ff !important; border-color: #f3e8ff !important; }
+        .pipeline-col-theme-purple .pipeline-column-header-title { color: #9333ea !important; }
+        .pipeline-col-theme-purple .column-count-badge { background-color: #9333ea !important; color: #ffffff !important; }
+
+        .pipeline-col-theme-yellow { background-color: #fefce8 !important; border-color: #fef08a !important; }
+        .pipeline-col-theme-yellow .pipeline-column-header-title { color: #d97706 !important; }
+        .pipeline-col-theme-yellow .column-count-badge { background-color: #d97706 !important; color: #ffffff !important; }
+
+        .pipeline-col-theme-green { background-color: #f0fdf4 !important; border-color: #dcfce7 !important; }
+        .pipeline-col-theme-green .pipeline-column-header-title { color: #16a34a !important; }
+        .pipeline-col-theme-green .column-count-badge { background-color: #16a34a !important; color: #ffffff !important; }
+
+        /* Header & Badges */
+        .pipeline-column-header { padding: 14px 16px 10px 16px; display: flex; align-items: flex-start; justify-content: space-between; text-decoration: none !important; }
+        .pipeline-column-header-title { font-size: 14px; font-weight: 700; line-height: 1.2; margin-bottom: 2px; }
+        .pipeline-column-header-subtitle { font-size: 12px; font-weight: 600; color: #64748b; }
+        .column-count-badge { font-size: 11.5px; font-weight: 700; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+        /* Cards List Container & Subtle Custom Scrollbar */
+        .pipeline-cards-list { padding: 0 12px; min-height: 120px; max-height: calc(100vh - 240px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+        .pipeline-cards-list::-webkit-scrollbar,
+        .lead-pipeline-wrapper::-webkit-scrollbar { width: 5px; height: 6px; }
+        .pipeline-cards-list::-webkit-scrollbar-track,
+        .lead-pipeline-wrapper::-webkit-scrollbar-track { background: transparent; }
+        .pipeline-cards-list::-webkit-scrollbar-thumb,
+        .lead-pipeline-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .pipeline-cards-list::-webkit-scrollbar-thumb:hover,
+        .lead-pipeline-wrapper::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Individual Card Styling (Compact Height) */
+        .pipeline-card { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; padding: 9px 12px !important; cursor: grab; user-select: none; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); margin-bottom: 0 !important; }
+        .pipeline-card:hover { border-color: #cbd5e1 !important; box-shadow: 0 5px 14px rgba(0, 0, 0, 0.06) !important; transform: translateY(-1.5px); }
         .pipeline-card:active { cursor: grabbing; }
-        .pipeline-card:hover { border-color: #b8d9f5; box-shadow: 0 3px 12px rgba(0,111,201,.12); }
-        .pipeline-card-name { font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pipeline-card-phone { font-size: 11px; color: #6c757d; margin-top: 3px; }
-        .pipeline-card-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
-        .pipeline-card-badge { font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px; text-transform: capitalize; }
-        .pipeline-badge-hot { background: #ffe5e5; color: #cc2200; }
-        .pipeline-badge-warm { background: #fff3e0; color: #b85c00; }
-        .pipeline-badge-cold { background: #e0f5ff; color: #0077aa; }
-        .pipeline-badge-dead { background: #e9e9e9; color: #555; }
-        .pipeline-badge-na { background: #f0f4f8; color: #8899aa; }
-        .pipeline-badge-product { background: rgba(0,111,201,.09); color: #006FC9; border: 1px solid rgba(0,111,201,.16); }
-        .pipeline-card-meta { font-size: 10.5px; color: #6c757d; margin-top: 5px; }
-        .pipeline-empty { min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1.5px dashed rgba(0,0,0,.12); border-radius: 8px; color: #b0bec5; font-size: 11px; }
-        .pipeline-theme { background: #f0f7ff; border-color: #bde0ff; }
-        .pipeline-theme .pipeline-column-header { background: #e3f0ff; }
-        .pipeline-theme .pipeline-column-title { color: #006FC9; }
-        .pipeline-theme .column-count-badge { background: #006FC9; color: #fff; }
+
+        /* Card Elements */
+        .pipeline-card-avatar { width: 30px; height: 30px; border-radius: 50%; background: #f1f5f9; color: #334155; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #e2e8f0; }
+        .pipeline-card-title { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pipeline-card-company { font-size: 10.5px; font-weight: 500; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+        .pipeline-card-phone { font-size: 11px; font-weight: 500; color: #475569; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+        .pipeline-card-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        
+        .pipeline-pill-badge { font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 20px; display: inline-flex; align-items: center; }
+        .pipeline-pill-saap { background: #e0f2fe; color: #0284c7; }
+        .pipeline-pill-saas { background: #f3e8ff; color: #9333ea; }
+        .pipeline-pill-new { background: #f1f5f9; color: #475569; }
+        .pipeline-pill-hot { background: #ffe4e6; color: #e11d48; }
+        .pipeline-pill-warm { background: #fef3c7; color: #d97706; }
+        .pipeline-pill-cold { background: #e0f2fe; color: #0284c7; }
+        .pipeline-pill-dead { background: #f1f5f9; color: #64748b; }
+
+        /* Compact Dropdown Menu */
+        .engagement-dropdown-menu {
+            min-width: 75px !important;
+            width: max-content !important;
+            max-width: 95px !important;
+            padding: 2px !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+            z-index: 1060 !important;
+        }
+        .engagement-dropdown-menu .dropdown-item {
+            padding: 1.5px 3px !important;
+            margin-bottom: 1px;
+            border-radius: 5px !important;
+        }
+        .engagement-dropdown-menu .dropdown-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .pipeline-card-owner { font-size: 11px; font-weight: 600; color: #334155; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+        .pipeline-card-footer { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: #64748b; }
+
+        /* Column Add Button */
+        .pipeline-column-footer { padding: 10px 16px 14px 16px; text-align: center; margin-top: auto; }
+        .pipeline-add-btn { font-size: 13px; font-weight: 600; color: #006FC9; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s ease; }
+        .pipeline-add-btn:hover { color: #004b87; transform: scale(1.03); }
+
+        .pipeline-empty { min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1.5px dashed rgba(0,0,0,.12); border-radius: 12px; color: #94a3b8; font-size: 11.5px; background: rgba(255,255,255,0.6); }
         .lead-tab-strip { position: relative; background: #fff; border-bottom: 1px solid #e9ecef; padding: 10px 16px; }
         .lead-tab-strip.has-overflow { padding-left: 44px; padding-right: 44px; }
         .lead-tab-scroll { display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; }
@@ -2407,82 +2476,226 @@
 
     {{-- PIPELINE / KANBAN VIEW CONTAINER --}}
     <div id="lead-pipeline-view" class="{{ request('view') === 'pipeline' ? '' : 'd-none' }} mt-3">
-        <div class="card stretch stretch-full shadow-sm">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <div>
-                    <h5 class="card-title mb-1">Pipeline Lead</h5>
-                    <span class="fs-12 text-muted">Drag and drop leads to change their status</span>
-                </div>
-                <span class="badge bg-light text-muted border">{{ $pipelineLeads->count() }} leads</span>
-            </div>
-            <div class="card-body pt-2">
         <div class="lead-pipeline-wrapper">
             <div class="lead-pipeline-board">
             @php
                 $pipelineStatuses = $childBuckets->pluck('name')->toArray();
                 if (empty($pipelineStatuses)) {
-                    $pipelineStatuses = ['Yet to Call', 'Qualifying', 'Proposal Sent', 'Negotiation', 'Converted', 'Lost'];
+                    $pipelineStatuses = ['Yet to Call', 'Qualifying', 'Proposal Sent', 'Negotiation', 'Awaiting Confirmation', 'Converted', 'Lost'];
                 }
                 $leadsByStatus = $pipelineLeads->groupBy(function($l) {
                     return $l->lead_status ?: 'Yet to Call';
                 });
             @endphp
 
-            @foreach($pipelineStatuses as $statusName)
+            @foreach($pipelineStatuses as $index => $statusName)
                 @php
                     $statusLeads = $leadsByStatus->get($statusName, collect());
+                    $colTheme = match(true) {
+                        str_contains(strtolower($statusName), 'yet to call') || str_contains(strtolower($statusName), 'new') => 'pipeline-col-theme-blue',
+                        str_contains(strtolower($statusName), 'qualifying') || str_contains(strtolower($statusName), 'contacted') => 'pipeline-col-theme-orange',
+                        str_contains(strtolower($statusName), 'proposal') || str_contains(strtolower($statusName), 'sent') => 'pipeline-col-theme-purple',
+                        str_contains(strtolower($statusName), 'negotiation') || str_contains(strtolower($statusName), 'follow') => 'pipeline-col-theme-yellow',
+                        str_contains(strtolower($statusName), 'awaiting') || str_contains(strtolower($statusName), 'converted') || str_contains(strtolower($statusName), 'won') || str_contains(strtolower($statusName), 'start') => 'pipeline-col-theme-green',
+                        default => match($index % 5) {
+                            0 => 'pipeline-col-theme-blue',
+                            1 => 'pipeline-col-theme-orange',
+                            2 => 'pipeline-col-theme-purple',
+                            3 => 'pipeline-col-theme-yellow',
+                            default => 'pipeline-col-theme-green',
+                        }
+                    };
+
+                    $totalVal = ($statusLeads->count() ?: 1) * 1.5;
+                    $valFormatted = '₹ ' . number_format($totalVal, 1) . 'M';
                 @endphp
-                <div class="pipeline-column pipeline-theme">
+
+                <div class="pipeline-column {{ $colTheme }}">
+                    {{-- Column Header --}}
                     <div class="pipeline-column-header">
-                        <span class="pipeline-column-title" title="{{ $statusName }}">{{ $statusName }}</span>
+                        <div>
+                            <div class="pipeline-column-header-title" title="{{ $statusName }}">{{ $statusName }}</div>
+                            <div class="pipeline-column-header-subtitle">Lead</div>
+                        </div>
                         <span class="column-count-badge">
                             {{ $statusLeads->count() }}
                         </span>
                     </div>
 
+                    {{-- Cards List --}}
                     <div class="pipeline-cards-list" data-status-name="{{ $statusName }}">
                         @forelse($statusLeads as $lead)
                             @php
-                                $engagement = strtolower($lead->lead_engagement_status ?? 'n/a');
-                                $engagementClass = match($engagement) {
-                                    'hot' => 'pipeline-badge-hot', 'warm' => 'pipeline-badge-warm',
-                                    'cold' => 'pipeline-badge-cold', 'dead' => 'pipeline-badge-dead',
-                                    default => 'pipeline-badge-na',
+                                $nameStr = trim(optional($lead->user)->name ?? 'Unknown');
+                                $nameParts = explode(' ', $nameStr);
+                                $initials = strtoupper(substr($nameParts[0] ?? 'U', 0, 1) . substr($nameParts[1] ?? '', 0, 1));
+                                $eng = strtolower(trim($lead->lead_engagement_status ?? 'new'));
+                                $engPillClass = match($eng) {
+                                    'hot' => 'pipeline-pill-hot',
+                                    'warm' => 'pipeline-pill-warm',
+                                    'cold' => 'pipeline-pill-cold',
+                                    'dead' => 'pipeline-pill-dead',
+                                    default => 'pipeline-pill-new',
+                                };
+                                $rawPrio = $lead->lead_priority ?: $lead->priority;
+                                $prio = strtolower(trim($rawPrio ?? ''));
+                                $priorityFlag = match($prio) {
+                                    'high' => ['class' => 'text-danger', 'label' => 'High'],
+                                    'low' => ['class' => 'text-success', 'label' => 'Low'],
+                                    'medium' => ['class' => 'text-warning', 'label' => 'Medium'],
+                                    default => null,
                                 };
                             @endphp
                             <div class="pipeline-card"
                                 id="pipeline-card-{{ $lead->id }}"
                                 data-lead-id="{{ $lead->id }}"
                                 draggable="true">
-                                <div class="d-flex align-items-center justify-content-between gap-1">
-                                    <span class="pipeline-card-name">{{ optional($lead->user)->name ?? 'Unknown' }}</span>
-                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                                        <a href="javascript:void(0);" class="view-lead-details-btn text-decoration-none" title="View Details"
-                                            data-lead="{{ json_encode($lead) }}" data-user="{{ json_encode($lead->user) }}"
-                                            data-owner="{{ json_encode($lead->owner) }}" data-bucket="{{ $lead->bucket->name ?? 'N/A' }}"
-                                            data-status="{{ $lead->lead_status ?? 'N/A' }}" data-engagement="{{ $lead->lead_engagement_status ?? 'N/A' }}"
-                                            onclick="openViewDetailsModal(this)"><i class="fas fa-eye"></i></a>
-                                        <a href="javascript:void(0);" class="text-decoration-none text-primary" title="Edit Lead"
-                                            data-lead="{{ json_encode($lead) }}" data-user="{{ json_encode($lead->user) }}"
-                                            onclick="openEditModal(this)"><i class="fas fa-edit"></i></a>
+                                
+                                {{-- Header Row: Avatar + Name & Company + Quick Action Icons --}}
+                                <div class="d-flex align-items-start justify-content-between gap-2">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                        <div class="pipeline-card-avatar">{{ $initials ?: 'LD' }}</div>
+                                        <div class="overflow-hidden">
+                                            <div class="pipeline-card-title" title="{{ $nameStr }}">{{ $nameStr }}</div>
+                                            @php
+                                                $compName = $lead->business_name ?: optional($lead->user)->company_name;
+                                            @endphp
+                                            @if($compName)
+                                                <div class="pipeline-card-company" title="{{ $compName }}">{{ $compName }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0 text-muted">
+                                        @if(optional($lead->user)->contact_no)
+                                            <a href="tel:{{ optional($lead->user)->contact_no }}" class="text-secondary text-hover-primary" style="font-size: 10px;" title="Call"><i class="fas fa-phone-alt"></i></a>
+                                        @else
+                                            <i class="fas fa-phone-alt opacity-50" style="font-size: 10px;"></i>
+                                        @endif
+                                            @php
+                                                $optLead = [
+                                                    'id' => $lead->id,
+                                                    'lead_bucket_id' => $lead->lead_bucket_id,
+                                                    'lead_status' => $lead->lead_status,
+                                                    'lead_engagement_status' => $lead->lead_engagement_status,
+                                                    'product' => $lead->product,
+                                                    'lead_owner' => $lead->lead_owner,
+                                                    'lead_source' => $lead->lead_source,
+                                                    'lead_priority' => $lead->lead_priority,
+                                                    'business_name' => $lead->business_name,
+                                                    'description' => $lead->description,
+                                                    'deal_value' => $lead->deal_value,
+                                                ];
+                                                $optUser = [
+                                                    'id' => optional($lead->user)->id,
+                                                    'name' => optional($lead->user)->name,
+                                                    'email' => optional($lead->user)->email,
+                                                    'contact_no' => optional($lead->user)->contact_no,
+                                                    'country_code' => optional($lead->user)->country_code,
+                                                    'company_name' => optional($lead->user)->company_name,
+                                                ];
+                                            @endphp
+                                            <a href="javascript:void(0);" class="text-secondary text-hover-primary" style="font-size: 10.5px;" title="Edit Lead"
+                                                data-lead="{{ json_encode($optLead) }}" data-user="{{ json_encode($optUser) }}"
+                                                onclick="openEditModal(this)"><i class="fas fa-edit"></i></a>
                                     </div>
                                 </div>
-                                <div class="pipeline-card-phone"><i class="fas fa-phone-alt me-1"></i>{{ optional($lead->user)->contact_no ?? 'N/A' }}</div>
-                                <div class="pipeline-card-badges">
-                                    <span class="pipeline-card-badge {{ $engagementClass }}">{{ strtoupper($engagement) }}</span>
-                                    @if($lead->product)<span class="pipeline-card-badge pipeline-badge-product">{{ $lead->product }}</span>@endif
+
+                                {{-- Phone Row --}}
+                                <div class="pipeline-card-phone">
+                                    <i class="fas fa-phone-alt fs-11 text-muted"></i>
+                                    <span>{{ optional($lead->user)->contact_no ?? 'N/A' }}</span>
                                 </div>
-                                <div class="pipeline-card-meta"><i class="fas fa-user-tie me-1"></i>Owner: <strong>{{ optional($lead->owner)->name ?? 'Unassigned' }}</strong></div>
-                                <div class="pipeline-card-meta"><i class="fas fa-calendar-alt me-1"></i>{{ optional($lead->created_at)->format('d M Y h:i A') }}</div>
+
+                                {{-- Badges Row --}}
+                                <div class="pipeline-card-badges">
+                                    @if($lead->product)
+                                        <span class="pipeline-pill-badge pipeline-pill-saap">{{ strtoupper($lead->product) }}</span>
+                                    @else
+                                        <span class="pipeline-pill-badge pipeline-pill-saap">SAAP</span>
+                                    @endif
+                                    {{-- Interactive Engagement Status Dropdown --}}
+                                    <div class="dropdown d-inline-block" onclick="event.stopPropagation();">
+                                        <a href="javascript:void(0);" 
+                                           class="pipeline-pill-badge {{ $engPillClass }} dropdown-toggle text-decoration-none" 
+                                           data-bs-toggle="dropdown" 
+                                           aria-expanded="false"
+                                           title="Click to change Engagement Status">
+                                            <span>{{ ucfirst($eng ?: 'New') }}</span>
+                                        </a>
+                                        <ul class="dropdown-menu engagement-dropdown-menu shadow-sm border-0">
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'new', this)">
+                                                    <span class="pipeline-pill-badge pipeline-pill-new">New</span>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'hot', this)">
+                                                    <span class="pipeline-pill-badge pipeline-pill-hot">Hot</span>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'warm', this)">
+                                                    <span class="pipeline-pill-badge pipeline-pill-warm">Warm</span>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'cold', this)">
+                                                    <span class="pipeline-pill-badge pipeline-pill-cold">Cold</span>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'dead', this)">
+                                                    <span class="pipeline-pill-badge pipeline-pill-dead">Dead</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {{-- Owner Row --}}
+                                <div class="pipeline-card-owner">
+                                    @php
+                                        $oImg = optional($lead->owner)->profile_image ?: optional($lead->owner)->image;
+                                    @endphp
+                                    @if($oImg)
+                                        <img src="{{ asset($oImg) }}" class="rounded-circle me-1" width="18" height="18" style="object-fit:cover;" alt="Owner">
+                                    @else
+                                        <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center fw-bold me-1" style="width:18px;height:18px;font-size:9px;">
+                                            {{ strtoupper(substr(optional($lead->owner)->name ?? 'A', 0, 1)) }}
+                                        </div>
+                                    @endif
+                                    <span>{{ optional($lead->owner)->name ?? 'Ayush Pariyani' }}</span>
+                                </div>
+
+                                {{-- Footer Row: Created Date + Priority Flag --}}
+                                <div class="pipeline-card-footer">
+                                    <div>
+                                        <i class="far fa-calendar me-1"></i>
+                                        <span>{{ optional($lead->created_at)->format('d M Y, h:i A') }}</span>
+                                    </div>
+                                    @if($priorityFlag)
+                                        <div class="fw-semibold {{ $priorityFlag['class'] }}">
+                                            <i class="fas fa-flag me-1"></i>{{ $priorityFlag['label'] }}
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
                         @empty
-                            <div class="pipeline-empty empty-column-msg"><i class="fas fa-layer-group mb-1"></i>No leads in this status</div>
+                            <div class="pipeline-empty empty-column-msg">
+                                <i class="fas fa-layer-group mb-1 fs-5"></i>
+                                <span>No leads in this status</span>
+                            </div>
                         @endforelse
+                    </div>
+
+                    {{-- Column Bottom Add Lead Button --}}
+                    <div class="pipeline-column-footer">
+                        <a href="javascript:void(0);" onclick="openCreateModal()" class="pipeline-add-btn">
+                            <i class="fas fa-plus fs-12"></i> Add Lead
+                        </a>
                     </div>
                 </div>
             @endforeach
-            </div>
-        </div>
             </div>
         </div>
     </div>
@@ -4441,6 +4654,42 @@
                 // Show modal
                 var modal = new bootstrap.Modal(document.getElementById('viewLeadDetailsModal'));
                 modal.show();
+            }
+
+            function updateLeadEngagement(leadId, status, el) {
+                var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                fetch(`/lead/${leadId}/engagement-status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ lead_engagement_status: status })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Updated!',
+                                text: 'Engagement status updated successfully.',
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 1500
+                            });
+                        }
+                        setTimeout(function() { location.reload(); }, 500);
+                    } else {
+                        alert(data.message || 'Could not update status');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Failed to update engagement status');
+                });
             }
         </script>
     @endpush

@@ -284,46 +284,4 @@
   </style>
 </body>
 
-</html>pt src="{{ asset('crm-assets/assets/vendors/js/daterangepicker.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/vendors/js/apexcharts.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/vendors/js/jquery.time-to.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/vendors/js/circle-progress.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/vendors/js/select2.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/vendors/js/select2-active.min.js') }}"></script>
-
-  {{-- App Scripts --}}
-  <script src="{{ asset('crm-assets/assets/js/common-init.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/js/leads-init.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/js/theme-customizer-init.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/js/analytics-init.min.js') }}"></script>
-
-  {{-- Extra Scripts from child views --}}
-  @stack('scripts')
-
-  <!-- intlTelInput scripts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.13/js/intlTelInput.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.13/js/utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/highcharts@11/highcharts.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/highcharts@11/modules/funnel.js"></script>
-
-  <style>
-    /* FIX: Disable blur on Bootstrap modal-open */
-    body.modal-open .nxl-header,
-    body.modal-open .nxl-navigation,
-    body.modal-open .page-header,
-    body.modal-open .nxl-container {
-      filter: none !important;
-    }
-
-    /* Restore Bootstrap backdrop behavior */
-    .modal-backdrop {
-      position: fixed !important;
-    }
-
-    .modal-backdrop.show {
-      opacity: 0.5;
-    }
-  </style>
-</body>
-
 </html>

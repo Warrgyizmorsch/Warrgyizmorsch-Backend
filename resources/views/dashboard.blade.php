@@ -78,7 +78,7 @@
             flex-shrink: 0;
         }
 
-        /* ---- Body ---- */
+        /* ---- Body & Custom Scrollbar ---- */
         .db-kanban-col-body {
             padding: 8px;
             flex: 1;
@@ -86,6 +86,26 @@
             flex-direction: column;
             overflow-y: auto;
             max-height: 500px;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        .db-kanban-col-body::-webkit-scrollbar,
+        .db-subkanban-board::-webkit-scrollbar {
+            width: 5px;
+            height: 6px;
+        }
+        .db-kanban-col-body::-webkit-scrollbar-track,
+        .db-subkanban-board::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .db-kanban-col-body::-webkit-scrollbar-thumb,
+        .db-subkanban-board::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .db-kanban-col-body::-webkit-scrollbar-thumb:hover,
+        .db-subkanban-board::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
         .db-kanban-col-body.no-leads {
             min-height: 80px;
@@ -191,6 +211,43 @@
         .db-theme-default    .db-kanban-col-header { background:#eef1f6; }
         .db-theme-default    .db-kanban-col-title  { color:#4a5568; }
         .db-theme-default    .db-kanban-col-count  { background:#718096; color:#fff; }
+
+        /* Pipeline Pill Badges */
+        .pipeline-card-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        .pipeline-pill-badge { font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 20px; display: inline-flex; align-items: center; }
+        .pipeline-pill-saap { background: #e0f2fe; color: #0284c7; }
+        .pipeline-pill-saas { background: #f3e8ff; color: #9333ea; }
+        .pipeline-pill-new { background: #f1f5f9; color: #475569; }
+        .pipeline-pill-hot { background: #ffe4e6; color: #e11d48; }
+        .pipeline-pill-warm { background: #fef3c7; color: #d97706; }
+        .pipeline-pill-cold { background: #e0f2fe; color: #0284c7; }
+        .pipeline-pill-dead { background: #f1f5f9; color: #64748b; }
+
+        /* Ultra Compact Dropdown Menu */
+        .engagement-dropdown-menu {
+            min-width: 75px !important;
+            width: max-content !important;
+            max-width: 95px !important;
+            padding: 2px !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+            z-index: 1060 !important;
+        }
+        .engagement-dropdown-menu .dropdown-item {
+            padding: 1.5px 3px !important;
+            margin-bottom: 1px;
+            border-radius: 5px !important;
+        }
+        .engagement-dropdown-menu .dropdown-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .pipeline-card-avatar { width: 30px; height: 30px; border-radius: 50%; background: #f1f5f9; color: #334155; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #e2e8f0; }
+        .pipeline-card-title { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pipeline-card-company { font-size: 10.5px; font-weight: 500; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+        .pipeline-card-phone { font-size: 11px; font-weight: 500; color: #475569; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+        .pipeline-card-owner { font-size: 11px; font-weight: 600; color: #334155; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+        .pipeline-card-footer { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: #64748b; }
     </style>
     <div class="page-header">
         <div class="page-header-left d-flex align-items-center">
@@ -675,7 +732,7 @@
                                                 <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'lead_status' => $child->name]) }}" class="db-kanban-col-header text-decoration-none" title="{{ $child->name }} ({{ $bucket->name }})">
                                                     <div class="d-flex flex-column overflow-hidden">
                                                         <span class="db-kanban-col-title" title="{{ $child->name }}">{{ $child->name }}</span>
-                                                        <span style="font-size:9.5px;opacity:0.75;font-weight:600;" class="text-truncate">{{ $bucket->name }}</span>
+                                                        <span class="pipeline-column-header-subtitle">Lead</span>
                                                     </div>
                                                     <span class="db-kanban-col-count" id="dbKSubColCount-{{ $bucket->id }}-{{ $child->id }}">{{ $cLeads->count() }}</span>
                                                 </a>
@@ -695,73 +752,144 @@
                                                     @else
                                                         @foreach($cLeads as $kl)
                                                             @php
-                                                                $kEng = strtolower(trim($kl->lead_engagement_status ?? 'n/a'));
-                                                                $kStarHtml = match($kEng) {
-                                                                    'hot'  => '<span class="db-star-wrap text-warning" title="Hot (3 Stars)"><i class="fas fa-star" style="font-size:9px;"></i><i class="fas fa-star" style="font-size:9px;"></i><i class="fas fa-star" style="font-size:9px;"></i></span>',
-                                                                    'warm' => '<span class="db-star-wrap text-warning" title="Warm (2 Stars)"><i class="fas fa-star" style="font-size:9px;"></i><i class="fas fa-star" style="font-size:9px;"></i></span>',
-                                                                    'cold' => '<span class="db-star-wrap text-warning" title="Cold (1 Star)"><i class="fas fa-star" style="font-size:9px;"></i></span>',
-                                                                    'dead' => '<span class="db-star-wrap text-danger" title="Dead (Red Star)"><i class="fas fa-star" style="font-size:9px;"></i></span>',
-                                                                    default => '<span class="text-muted" style="font-size:9.5px;font-weight:600;">N/A</span>',
+                                                                $kNameStr = optional($kl->user)->name ?? 'Unknown';
+                                                                $kWords = explode(' ', trim($kNameStr));
+                                                                $kInitials = '';
+                                                                if (count($kWords) >= 2) {
+                                                                    $kInitials = strtoupper(substr($kWords[0], 0, 1) . substr($kWords[1], 0, 1));
+                                                                } elseif (count($kWords) == 1 && !empty($kWords[0])) {
+                                                                    $kInitials = strtoupper(substr($kWords[0], 0, 2));
+                                                                }
+
+                                                                $kCompName = $kl->business_name ?: optional($kl->user)->company_name;
+
+                                                                $kEng = strtolower(trim($kl->lead_engagement_status ?? ''));
+                                                                $kPillClass = match($kEng) {
+                                                                    'hot'  => 'pipeline-pill-hot',
+                                                                    'warm' => 'pipeline-pill-warm',
+                                                                    'cold' => 'pipeline-pill-cold',
+                                                                    'dead' => 'pipeline-pill-dead',
+                                                                    default => 'pipeline-pill-new',
                                                                 };
-                                                                $kBadgeBg = match($kEng) {
-                                                                    'hot', 'warm', 'cold' => 'background:#fff8e1; border:1px solid #ffe082;',
-                                                                    'dead'  => 'background:#ffebee; border:1px solid #ffcdd2;',
-                                                                    default => 'background:#f0f4f8; border:1px solid #e2e8f0;',
+
+                                                                $kRawPrio = $kl->lead_priority ?: $kl->priority;
+                                                                $kPrio = strtolower(trim($kRawPrio ?? ''));
+                                                                $kPriorityFlag = match($kPrio) {
+                                                                    'high'   => ['class' => 'text-danger', 'label' => 'High'],
+                                                                    'low'    => ['class' => 'text-success', 'label' => 'Low'],
+                                                                    'medium' => ['class' => 'text-warning', 'label' => 'Medium'],
+                                                                    default  => null,
                                                                 };
+                                                                
+                                                                $optLead = [
+                                                                    'id' => $kl->id,
+                                                                    'lead_bucket_id' => $kl->lead_bucket_id,
+                                                                    'lead_status' => $kl->lead_status,
+                                                                    'lead_engagement_status' => $kl->lead_engagement_status,
+                                                                    'product' => $kl->product,
+                                                                    'lead_owner' => $kl->lead_owner,
+                                                                    'lead_source' => $kl->lead_source,
+                                                                    'lead_priority' => $kl->lead_priority,
+                                                                    'business_name' => $kl->business_name,
+                                                                    'description' => $kl->description,
+                                                                    'deal_value' => $kl->deal_value,
+                                                                ];
+                                                                $optUser = [
+                                                                    'id' => optional($kl->user)->id,
+                                                                    'name' => optional($kl->user)->name,
+                                                                    'email' => optional($kl->user)->email,
+                                                                    'contact_no' => optional($kl->user)->contact_no,
+                                                                    'country_code' => optional($kl->user)->country_code,
+                                                                    'company_name' => optional($kl->user)->company_name,
+                                                                ];
                                                             @endphp
-                                                            <div class="db-kcard"
+                                                            <div class="pipeline-card db-kcard"
+                                                                 id="dbSubKCard-{{ $kl->id }}"
                                                                  draggable="true"
                                                                  data-lead-id="{{ $kl->id }}"
                                                                  data-bucket-id="{{ $bucket->id }}"
-                                                                 data-sub-status="{{ $child->name }}"
-                                                                 id="dbSubKCard-{{ $kl->id }}">
+                                                                 data-sub-status="{{ $child->name }}">
 
-                                                                {{-- Name + Edit Button --}}
-                                                                <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
-                                                                    <span class="db-kc-name fw-bold text-dark" style="font-size: 13px;">{{ optional($kl->user)->name ?? 'Unknown' }}</span>
-                                                                    <a href="javascript:void(0);" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}" onclick="event.stopPropagation(); openEditModal(this);">
-                                                                        <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i>
-                                                                    </a>
-                                                                </div>
-
-                                                                {{-- Phone --}}
-                                                                <div class="db-kc-phone mb-1">
-                                                                    <i class="fas fa-phone-alt" style="font-size:9px;color:#90a4ae;margin-right:3px;"></i>
-                                                                    {{ optional($kl->user)->contact_no ?? 'N/A' }}
-                                                                </div>
-
-                                                                {{-- Direct 3-Star Rating Widget (No Dropdown) --}}
-                                                                <div class="db-kc-badges position-relative mb-1">
-                                                                    <div class="db-star-rating-bar d-inline-flex align-items-center gap-1" onclick="event.stopPropagation();" style="padding: 2px 6px; border-radius: 12px; {{ $kEng === 'dead' ? 'background: #ffebee; border: 1px solid #ffcdd2;' : 'background: #fff8e1; border: 1px solid #ffe082;' }}">
-                                                                        @if($kEng === 'dead')
-                                                                            {{-- 3 Red Stars for DEAD + Cross --}}
-                                                                            <i class="fas fa-star db-star-btn text-danger" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement({{ $kl->id }}, 'cold', this)" title="Set Cold (1 Star)"></i>
-                                                                            <i class="fas fa-star db-star-btn text-danger" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement({{ $kl->id }}, 'warm', this)" title="Set Warm (2 Stars)"></i>
-                                                                            <i class="fas fa-star db-star-btn text-danger" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement({{ $kl->id }}, 'hot', this)" title="Set Hot (3 Stars)"></i>
-                                                                            <i class="fas fa-times-circle db-star-btn text-danger ms-1" style="font-size:11px; cursor:pointer; opacity:0.9;" onclick="dbChangeEngagement({{ $kl->id }}, 'dead', this)" title="Dead"></i>
-                                                                        @else
-                                                                            {{-- 3 Stars (1 Cold, 2 Warm, 3 Hot) + Cross --}}
-                                                                            <i class="{{ $kEng === 'hot' || $kEng === 'warm' || $kEng === 'cold' ? 'fas fa-star text-warning' : 'far fa-star text-muted' }} db-star-btn" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement({{ $kl->id }}, 'cold', this)" title="Set Cold (1 Star)"></i>
-                                                                            <i class="{{ $kEng === 'hot' || $kEng === 'warm' ? 'fas fa-star text-warning' : 'far fa-star text-muted' }} db-star-btn" style="font-size:10px; cursor:pointer; opacity: {{ $kEng === 'cold' ? '0.4' : '1' }};" onclick="dbChangeEngagement({{ $kl->id }}, 'warm', this)" title="Set Warm (2 Stars)"></i>
-                                                                            <i class="{{ $kEng === 'hot' ? 'fas fa-star text-warning' : 'far fa-star text-muted' }} db-star-btn" style="font-size:10px; cursor:pointer; opacity: {{ $kEng === 'hot' ? '1' : '0.4' }};" onclick="dbChangeEngagement({{ $kl->id }}, 'hot', this)" title="Set Hot (3 Stars)"></i>
-                                                                            <i class="fas fa-times-circle db-star-btn text-muted ms-1" style="font-size:11px; cursor:pointer; opacity:0.4;" onclick="dbChangeEngagement({{ $kl->id }}, 'dead', this)" title="Set Dead"></i>
-                                                                        @endif
+                                                                {{-- Header Row: Avatar + Name & Company + Quick Action Icons --}}
+                                                                <div class="d-flex align-items-start justify-content-between gap-2">
+                                                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                                                        <div class="pipeline-card-avatar">{{ $kInitials ?: 'LD' }}</div>
+                                                                        <div class="overflow-hidden">
+                                                                            <div class="pipeline-card-title" title="{{ $kNameStr }}">{{ $kNameStr }}</div>
+                                                                            @if($kCompName)
+                                                                                <div class="pipeline-card-company" title="{{ $kCompName }}">{{ $kCompName }}</div>
+                                                                            @endif
+                                                                        </div>
                                                                     </div>
+                                                                    <div class="d-flex align-items-center gap-2 flex-shrink-0 text-muted">
+                                                                        @if(optional($kl->user)->contact_no)
+                                                                            <a href="tel:{{ optional($kl->user)->contact_no }}" class="text-secondary text-hover-primary" style="font-size: 10px;" title="Call"><i class="fas fa-phone-alt"></i></a>
+                                                                        @else
+                                                                            <i class="fas fa-phone-alt opacity-50" style="font-size: 10px;"></i>
+                                                                        @endif
+                                                                        <a href="javascript:void(0);" class="text-secondary text-hover-primary" style="font-size: 10.5px;" title="Edit Lead"
+                                                                            data-lead="{{ json_encode($optLead) }}" data-user="{{ json_encode($optUser) }}"
+                                                                            onclick="event.stopPropagation(); openEditModal(this);"><i class="fas fa-edit"></i></a>
+                                                                    </div>
+                                                                </div>
+
+                                                                {{-- Phone Row --}}
+                                                                <div class="pipeline-card-phone">
+                                                                    <i class="fas fa-phone-alt fs-11 text-muted"></i>
+                                                                    <span>{{ optional($kl->user)->contact_no ?? 'N/A' }}</span>
+                                                                </div>
+
+                                                                {{-- Badges Row --}}
+                                                                <div class="pipeline-card-badges">
                                                                     @if($kl->product)
-                                                                        <span class="db-kc-badge db-kc-badge-prod ms-1">{{ $kl->product }}</span>
+                                                                        <span class="pipeline-pill-badge pipeline-pill-saap">{{ strtoupper($kl->product) }}</span>
+                                                                    @else
+                                                                        <span class="pipeline-pill-badge pipeline-pill-saap">SAAP</span>
                                                                     @endif
+                                                                    <div class="dropdown d-inline-block" onclick="event.stopPropagation();">
+                                                                        <a href="javascript:void(0);" 
+                                                                           class="pipeline-pill-badge {{ $kPillClass }} dropdown-toggle text-decoration-none" 
+                                                                           data-bs-toggle="dropdown" 
+                                                                           aria-expanded="false"
+                                                                           title="Click to change Engagement Status">
+                                                                            <span>{{ ucfirst($kEng ?: 'New') }}</span>
+                                                                        </a>
+                                                                        <ul class="dropdown-menu engagement-dropdown-menu shadow-sm border-0">
+                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'new', this)"><span class="pipeline-pill-badge pipeline-pill-new">New</span></a></li>
+                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'hot', this)"><span class="pipeline-pill-badge pipeline-pill-hot">Hot</span></a></li>
+                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'warm', this)"><span class="pipeline-pill-badge pipeline-pill-warm">Warm</span></a></li>
+                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'cold', this)"><span class="pipeline-pill-badge pipeline-pill-cold">Cold</span></a></li>
+                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'dead', this)"><span class="pipeline-pill-badge pipeline-pill-dead">Dead</span></a></li>
+                                                                        </ul>
+                                                                    </div>
                                                                 </div>
 
-                                                                {{-- Owner --}}
-                                                                <div class="db-kc-owner text-muted mb-1" style="font-size:10.5px;">
-                                                                    <i class="fas fa-user-tie text-secondary me-1" style="font-size:9.5px;"></i>
-                                                                    Owner: <span class="fw-semibold text-dark">{{ optional($kl->owner)->name ?? 'Unassigned' }}</span>
+                                                                {{-- Owner Row --}}
+                                                                <div class="pipeline-card-owner">
+                                                                    @php
+                                                                        $dbOwnerImg = optional($kl->owner)->profile_image ?: optional($kl->owner)->image;
+                                                                    @endphp
+                                                                    @if($dbOwnerImg)
+                                                                        <img src="{{ asset($dbOwnerImg) }}" class="rounded-circle me-1" width="18" height="18" style="object-fit:cover;" alt="Owner">
+                                                                    @else
+                                                                        <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center fw-bold me-1" style="width:18px;height:18px;font-size:9px;">
+                                                                            {{ strtoupper(substr(optional($kl->owner)->name ?? 'A', 0, 1)) }}
+                                                                        </div>
+                                                                    @endif
+                                                                    <span>{{ optional($kl->owner)->name ?? 'Ayush Pariyani' }}</span>
                                                                 </div>
 
-                                                                {{-- Created date --}}
-                                                                <div class="db-kc-date" style="font-size: 10px;">
-                                                                    <i class="fas fa-calendar-alt" style="font-size:9px;"></i>
-                                                                    Create On {{ \Carbon\Carbon::parse($kl->created_at)->format('d M Y h:i A') }}
+                                                                {{-- Footer Row: Created Date + Priority Flag --}}
+                                                                <div class="pipeline-card-footer">
+                                                                    <div>
+                                                                        <i class="far fa-calendar me-1"></i>
+                                                                        <span>{{ optional($kl->created_at)->format('d M Y, h:i A') }}</span>
+                                                                    </div>
+                                                                    @if($kPriorityFlag)
+                                                                        <div class="fw-semibold {{ $kPriorityFlag['class'] }}">
+                                                                            <i class="fas fa-flag me-1"></i>{{ $kPriorityFlag['label'] }}
+                                                                        </div>
+                                                                    @endif
                                                                 </div>
                                                             </div>
                                                         @endforeach
@@ -809,49 +937,84 @@
                                             @else
                                                 @foreach($cConvLeads as $kl)
                                                     @php
-                                                        $kEng = strtolower(trim($kl->lead_engagement_status ?? 'n/a'));
+                                                        $kNameStr = optional($kl->user)->name ?? 'Unknown';
+                                                        $kWords = explode(' ', trim($kNameStr));
+                                                        $kInitials = '';
+                                                        if (count($kWords) >= 2) {
+                                                            $kInitials = strtoupper(substr($kWords[0], 0, 1) . substr($kWords[1], 0, 1));
+                                                        } elseif (count($kWords) == 1 && !empty($kWords[0])) {
+                                                            $kInitials = strtoupper(substr($kWords[0], 0, 2));
+                                                        }
+
+                                                        $kCompName = $kl->business_name ?: optional($kl->user)->company_name;
                                                     @endphp
-                                                    <div class="db-kcard border-success-subtle bg-white"
+                                                    <div class="pipeline-card db-kcard border-success-subtle bg-white"
                                                          draggable="false"
                                                          data-lead-id="{{ $kl->id }}"
                                                          data-bucket-id="{{ $bucket->id }}"
                                                          data-sub-status="Converted Lead"
                                                          id="dbSubKCard-{{ $kl->id }}">
 
-                                                        {{-- Name + Edit Button --}}
-                                                        <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
-                                                            <span class="db-kc-name fw-bold text-dark" style="font-size: 13px;">{{ optional($kl->user)->name ?? 'Unknown' }}</span>
-                                                            <a href="javascript:void(0);" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}" onclick="event.stopPropagation(); openEditModal(this);">
-                                                                <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i>
-                                                            </a>
+                                                        {{-- Header Row: Avatar + Name & Company + Quick Action Icons --}}
+                                                        <div class="d-flex align-items-start justify-content-between gap-2">
+                                                            <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                                                <div class="pipeline-card-avatar">{{ $kInitials ?: 'LD' }}</div>
+                                                                <div class="overflow-hidden">
+                                                                    <div class="pipeline-card-title" title="{{ $kNameStr }}">{{ $kNameStr }}</div>
+                                                                    @if($kCompName)
+                                                                        <div class="pipeline-card-company" title="{{ $kCompName }}">{{ $kCompName }}</div>
+                                                                    @endif
+                                                                </div>
+                                                            </div>
+                                                            <div class="d-flex align-items-center gap-2 flex-shrink-0 text-muted">
+                                                                @if(optional($kl->user)->contact_no)
+                                                                    <a href="tel:{{ optional($kl->user)->contact_no }}" class="text-secondary text-hover-primary" style="font-size: 10px;" title="Call"><i class="fas fa-phone-alt"></i></a>
+                                                                @else
+                                                                    <i class="fas fa-phone-alt opacity-50" style="font-size: 10px;"></i>
+                                                                @endif
+                                                                <a href="javascript:void(0);" class="text-secondary text-hover-primary" style="font-size: 10.5px;" title="Edit Lead"
+                                                                    data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}"
+                                                                    onclick="event.stopPropagation(); openEditModal(this);"><i class="fas fa-edit"></i></a>
+                                                            </div>
                                                         </div>
 
-                                                        {{-- Phone --}}
-                                                        <div class="db-kc-phone mb-1">
-                                                            <i class="fas fa-phone-alt" style="font-size:9px;color:#90a4ae;margin-right:3px;"></i>
-                                                            {{ optional($kl->user)->contact_no ?? 'N/A' }}
+                                                        {{-- Phone Row --}}
+                                                        <div class="pipeline-card-phone">
+                                                            <i class="fas fa-phone-alt fs-11 text-muted"></i>
+                                                            <span>{{ optional($kl->user)->contact_no ?? 'N/A' }}</span>
                                                         </div>
 
-                                                        {{-- Badges --}}
-                                                        <div class="db-kc-badges position-relative mb-1 d-flex align-items-center gap-1 flex-wrap">
-                                                            <span class="badge bg-success text-white" style="font-size:10px;">
+                                                        {{-- Badges Row --}}
+                                                        <div class="pipeline-card-badges">
+                                                            <span class="pipeline-pill-badge" style="background:#dcfce7; color:#16a34a;">
                                                                 <i class="fas fa-check-circle me-1"></i>Converted
                                                             </span>
                                                             @if($kl->product)
-                                                                <span class="db-kc-badge db-kc-badge-prod">{{ $kl->product }}</span>
+                                                                <span class="pipeline-pill-badge pipeline-pill-saap">{{ strtoupper($kl->product) }}</span>
                                                             @endif
                                                         </div>
 
-                                                        {{-- Owner --}}
-                                                        <div class="db-kc-owner text-muted mb-1" style="font-size:10.5px;">
-                                                            <i class="fas fa-user-tie text-secondary me-1" style="font-size:9.5px;"></i>
-                                                            Owner: <span class="fw-semibold text-dark">{{ optional($kl->owner)->name ?? 'Unassigned' }}</span>
+                                                        {{-- Owner Row --}}
+                                                        <div class="pipeline-card-owner">
+                                                            @php
+                                                                $dbOwnerImg = optional($kl->owner)->profile_image ?: optional($kl->owner)->image;
+                                                            @endphp
+                                                            @if($dbOwnerImg)
+                                                                <img src="{{ asset($dbOwnerImg) }}" class="rounded-circle me-1" width="18" height="18" style="object-fit:cover;" alt="Owner">
+                                                            @else
+                                                                <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center fw-bold me-1" style="width:18px;height:18px;font-size:9px;">
+                                                                    {{ strtoupper(substr(optional($kl->owner)->name ?? 'A', 0, 1)) }}
+                                                                </div>
+                                                            @endif
+                                                            <span>{{ optional($kl->owner)->name ?? 'Ayush Pariyani' }}</span>
                                                         </div>
 
-                                                        {{-- Created date --}}
-                                                        <div class="db-kc-date" style="font-size: 10px;">
-                                                            <i class="fas fa-calendar-alt" style="font-size:9px;"></i>
-                                                            Create On {{ \Carbon\Carbon::parse($kl->created_at)->format('d M Y h:i A') }}
+                                                        {{-- Footer Row --}}
+                                                        <div class="pipeline-card-footer">
+                                                            <div>
+                                                                <i class="far fa-calendar me-1"></i>
+                                                                <span>{{ optional($kl->created_at)->format('d M Y, h:i A') }}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 @endforeach
@@ -871,6 +1034,42 @@
                                 } else {
                                     col.style.display = 'none';
                                 }
+                            });
+                        }
+
+                        function updateLeadEngagement(leadId, status, el) {
+                            var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
+                            fetch(`/lead/${leadId}/engagement-status`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrfToken,
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify({ lead_engagement_status: status })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status) {
+                                    if (typeof Swal !== 'undefined') {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Updated!',
+                                            text: 'Engagement status updated successfully.',
+                                            toast: true,
+                                            position: 'top-end',
+                                            showConfirmButton: false,
+                                            timer: 1500
+                                        });
+                                    }
+                                    setTimeout(function() { location.reload(); }, 500);
+                                } else {
+                                    alert(data.message || 'Could not update status');
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                alert('Failed to update engagement status');
                             });
                         }
 
@@ -2139,6 +2338,50 @@
             max-height: 75px;
             overflow-y: auto !important;
         }
+        
+        /* Individual Card Styling (Compact Height) */
+        .db-kcard,
+        .pipeline-card { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; padding: 9px 12px !important; cursor: grab; user-select: none; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); margin-bottom: 0 !important; }
+        .db-kcard:hover,
+        .pipeline-card:hover { border-color: #cbd5e1 !important; box-shadow: 0 5px 14px rgba(0, 0, 0, 0.06) !important; transform: translateY(-1.5px); }
+
+        /* Card Elements */
+        .pipeline-card-avatar { width: 30px; height: 30px; border-radius: 50%; background: #f1f5f9; color: #334155; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #e2e8f0; }
+        .pipeline-card-title { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pipeline-card-company { font-size: 10.5px; font-weight: 500; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+        .pipeline-card-phone { font-size: 11px; font-weight: 500; color: #475569; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+        .pipeline-card-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        
+        .pipeline-pill-badge { font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 20px; display: inline-flex; align-items: center; }
+        .pipeline-pill-saap { background: #e0f2fe; color: #0284c7; }
+        .pipeline-pill-saas { background: #f3e8ff; color: #9333ea; }
+        .pipeline-pill-new { background: #f1f5f9; color: #475569; }
+        .pipeline-pill-hot { background: #ffe4e6; color: #e11d48; }
+        .pipeline-pill-warm { background: #fef3c7; color: #d97706; }
+        .pipeline-pill-cold { background: #e0f2fe; color: #0284c7; }
+        .pipeline-pill-dead { background: #f1f5f9; color: #64748b; }
+
+        /* Compact Dropdown Menu */
+        .engagement-dropdown-menu {
+            min-width: 80px !important;
+            width: max-content !important;
+            max-width: 100px !important;
+            padding: 4px !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1) !important;
+        }
+        .engagement-dropdown-menu .dropdown-item {
+            padding: 3px 5px !important;
+            margin-bottom: 2px;
+            border-radius: 6px !important;
+        }
+        .engagement-dropdown-menu .dropdown-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .pipeline-card-owner { font-size: 11px; font-weight: 600; color: #334155; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+        .pipeline-card-footer { margin-top: 6px; padding-top: 6px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: #64748b; }
+
         .contact-card {
             background: #fdfdfd;
             border: 1px solid #e2e8f0;

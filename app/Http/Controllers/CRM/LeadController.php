@@ -1634,15 +1634,30 @@ class LeadController extends Controller
     public function updateEngagementStatus(Request $request, Leads $lead)
     {
         $request->validate([
-            'lead_engagement_status' => 'nullable|in:hot,warm,cold,dead'
+            'lead_engagement_status' => 'nullable|string'
         ]);
 
+        $oldEngagement = $lead->lead_engagement_status;
         $lead->update([
             'lead_engagement_status' => $request->lead_engagement_status
         ]);
 
+        try {
+            LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => auth()->id(),
+                'action' => 'engagement_status_changed',
+                'changes' => [
+                    'old' => $oldEngagement,
+                    'new' => $request->lead_engagement_status
+                ]
+            ]);
+        } catch (\Exception $e) {}
+
         return response()->json([
-            'message' => 'Engagement status updated successfully'
+            'status' => true,
+            'message' => 'Engagement status updated successfully',
+            'lead_engagement_status' => $lead->lead_engagement_status
         ]);
     }
 
