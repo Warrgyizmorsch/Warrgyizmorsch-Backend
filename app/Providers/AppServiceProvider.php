@@ -133,7 +133,21 @@ class AppServiceProvider extends ServiceProvider
                 $menus = collect(); // empty collection if not logged in
             }
 
-            $view->with('menus', $menus);
+                // Rename 'Lead Questions' / 'Question' / 'Questions' menu title to 'Attribute' (including child menus)
+                $renameMenuToAttribute = function ($menuList) use (&$renameMenuToAttribute) {
+                    foreach ($menuList as $m) {
+                        $titleLower = strtolower(trim($m->title ?? ''));
+                        if (in_array($titleLower, ['lead question', 'lead questions', 'question', 'questions'])) {
+                            $m->title = 'Attribute';
+                        }
+                        if ($m->children && count($m->children)) {
+                            $renameMenuToAttribute($m->children);
+                        }
+                    }
+                };
+                $renameMenuToAttribute($menus);
+
+                $view->with('menus', $menus);
         });
     }
 }

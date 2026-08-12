@@ -124,6 +124,10 @@
                         <i class="feather-upload me-2"></i> Custom Import (Mapping)
                     </a>
 
+                    <a href="javascript:void(0)" onclick="openCompareExcelModal()" class="dropdown-item fw-bold text-info">
+                        <i class="feather-check-square me-2"></i> Compare Excel vs Database
+                    </a>
+
                     <label for="importFile" class="dropdown-item text-muted">Auto Import (Direct)</label>
                     <input type="file" id="importFile" class="d-none" accept=".csv,.xlsx,.xls">
                 </div>

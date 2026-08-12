@@ -178,7 +178,7 @@ class WmLeadsSeeder extends Seeder
     {
         try {
             return Carbon::parse((string) $value)->setTimezone(config('app.timezone'));
-        } catch (\Throwable) {
+        } catch (\Throwable $th) {
             return now();
         }
     }

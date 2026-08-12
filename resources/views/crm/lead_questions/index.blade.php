@@ -5,15 +5,15 @@
     <div class="page-header d-flex justify-content-between align-items-center">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Lead Questions</h5>
+                <h5 class="m-b-10">Lead Attributes</h5>
             </div>
             <ul class="breadcrumb mb-0">
                 <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Home</a></li>
-                <li class="breadcrumb-item active">Lead Questions</li>
+                <li class="breadcrumb-item active">Attribute</li>
             </ul>
         </div>
         <button type="button" class="btn btn-primary" id="add-question-btn">
-            <i class="feather-plus me-2"></i> Add Question
+            <i class="feather-plus me-2"></i> Add Attribute
         </button>
     </div>
 
@@ -64,7 +64,7 @@
                 <!-- Questions Table -->
                 <div class="card stretch">
                     <div class="card-header">
-                        <h5 class="mb-0">Questions List</h5>
+                        <h5 class="mb-0">Attribute List</h5>
                     </div>
                     <div class="card-body table-responsive">
                         <table class="table table-bordered align-middle mb-0">

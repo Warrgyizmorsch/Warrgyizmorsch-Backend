@@ -232,13 +232,81 @@ class NewleadController extends Controller
             'Converted',
             'Lost'
         ];
+        $applyLeadFilters = function ($q) use ($request) {
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $digitsOnly = preg_replace('/\D+/', '', $search);
+                $q->whereHas('user', function ($uQ) use ($search, $digitsOnly) {
+                    $uQ->where('name', 'like', "%{$search}%")
+                       ->orWhere('email', 'like', "%{$search}%");
+                    if ($digitsOnly !== '') {
+                        $uQ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                    } else {
+                        $uQ->orWhere('contact_no', 'like', "%{$search}%");
+                    }
+                });
+            }
+            if ($request->filled('from') && $request->filled('to')) {
+                $from = \Carbon\Carbon::parse($request->from)->startOfDay();
+                $to = \Carbon\Carbon::parse($request->to)->endOfDay();
+                $q->whereBetween('leads.date', [$from, $to]);
+            } elseif ($request->filled('from')) {
+                $from = \Carbon\Carbon::parse($request->from)->toDateString();
+                $q->whereDate('leads.date', $from);
+            }
+            if ($request->filled('source')) {
+                $q->where('leads.platform', 'like', "%{$request->source}%");
+            }
+            if ($request->filled('owner_id')) {
+                if ($request->owner_id === 'null') {
+                    $q->whereNull('leads.lead_owner');
+                } else {
+                    $q->where('leads.lead_owner', $request->owner_id);
+                }
+            }
+            if ($request->filled('lead_engagement_status')) {
+                $q->where('leads.lead_engagement_status', strtolower($request->lead_engagement_status));
+            }
+            if ($request->filled('category_id')) {
+                $q->where('leads.category_id', $request->category_id);
+            }
+            if ($request->filled('country')) {
+                $q->where('leads.applying_country_for_a_visa', 'like', "%{$request->country}%");
+            }
+            if ($request->filled('course')) {
+                $q->where('leads.what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
+            }
+            if ($request->filled('campaign_name')) {
+                $q->where('leads.campaign_name', 'like', "%{$request->campaign_name}%");
+            }
+            if ($request->filled('adset_name')) {
+                $q->where('leads.adset_name', 'like', "%{$request->adset_name}%");
+            }
+            if ($request->filled('ad_name')) {
+                $q->where('leads.ad_name', 'like', "%{$request->ad_name}%");
+            }
+            if ($request->filled('has_followups')) {
+                $today = \Carbon\Carbon::today();
+                $type = $request->followup_type_filter ?? 'upcoming';
+                $q->whereHas('messages', function ($mQ) use ($today, $type) {
+                    $mQ->whereNotNull('next_followup_date');
+                    if ($type == 'missed') {
+                        $mQ->whereDate('next_followup_date', '<', $today)->where('is_done', 0);
+                    } else {
+                        $mQ->whereDate('next_followup_date', '>=', $today);
+                    }
+                });
+            }
+        };
+
         $buckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
             ->withCount([
-                'leads' => function ($q) {
+                'leads' => function ($q) use ($applyLeadFilters) {
                     if (auth()->check() && auth()->user()->role_id == 3) {
                         $q->where('lead_owner', auth()->id());
                     }
+                    $applyLeadFilters($q);
                 }
             ])
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
@@ -309,11 +377,13 @@ class NewleadController extends Controller
         $childBuckets = collect();
         $childtotalLeadsCount = 0;
 
+        $hasActiveFilter = $request->filled('search') || $request->filled('from') || $request->filled('source') || $request->filled('owner_id') || $request->filled('lead_engagement_status') || $request->filled('category_id') || $request->filled('country') || $request->filled('course') || $request->filled('campaign_name') || $request->filled('has_followups');
+
         if ($targetBucketId) {
             $childBuckets = Bucket::where('parent_id', $targetBucketId)
                 ->where('is_deleted', 0)
                 ->select('buckets.*')
-                ->selectSub(function ($q) use ($allTargetBucketIds, $isLeadBucket) {
+                ->selectSub(function ($q) use ($allTargetBucketIds, $isLeadBucket, $applyLeadFilters) {
                     $q->from('leads')
                         ->selectRaw('COUNT(*)')
                         ->where(function($bQ) use ($allTargetBucketIds, $isLeadBucket) {
@@ -340,20 +410,28 @@ class NewleadController extends Controller
                         ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
                             $qq->where('leads.lead_owner', auth()->id());
                         });
+
+                    $applyLeadFilters($q);
                 }, 'leads_count')
                 ->get();
 
-            $systemTotalLeadsCount = Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
-            $childtotalLeadsCount = $systemTotalLeadsCount;
+            $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
+
+            if ($hasActiveFilter && empty($request->lead_status)) {
+                $childtotalLeadsCount = $leads->total();
+            } else {
+                $childtotalLeadsCount = $childBuckets->sum('leads_count');
+            }
         }
 
         $filterBucket = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
             ->withCount([
-                'leads' => function ($q) {
+                'leads' => function ($q) use ($applyLeadFilters) {
                     if (auth()->check() && auth()->user()->role_id == 3) {
                         $q->where('lead_owner', auth()->id());
                     }
+                    $applyLeadFilters($q);
                 }
             ])
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
@@ -794,13 +872,14 @@ class NewleadController extends Controller
                 return is_null($val) ? null : trim((string)$val);
             };
 
-            // Get default bucket & status for new imported leads
             $defaultBucketId = \App\Models\Bucket::whereNull('parent_id')
                 ->where('is_deleted', 0)
                 ->where(function($q) {
                     $q->where('name', 'LIKE', '%lead%')->orWhere('id', 1);
                 })
                 ->value('id') ?? 1;
+
+            $bucketName = \App\Models\Bucket::where('id', $defaultBucketId)->value('name') ?? 'Lead Bucket';
 
             $defaultStatus = \App\Models\Bucket::where('parent_id', $defaultBucketId)
                 ->where('is_deleted', 0)
@@ -834,7 +913,6 @@ class NewleadController extends Controller
                     $email = 'lead_' . time() . '_' . $r . '@crmtemp.com';
                 }
 
-                // --- B. Find or Create User in users table ---
                 $user = User::where(function ($q) use ($cleanPhone, $email) {
                     if ($cleanPhone && $email) {
                         $q->where('contact_no', $cleanPhone)->orWhere('email', $email);
@@ -846,12 +924,19 @@ class NewleadController extends Controller
                 })->first();
 
                 if (!$user) {
+                    $rawCountryCode = $getVal($r, $mapping['country_code'] ?? '');
+                    if ($rawCountryCode) {
+                        $countryCode = substr(trim((string)$rawCountryCode), 0, 10);
+                    } else {
+                        $countryCode = '+91';
+                    }
+
                     // Create new User record safely based on existing columns in users table
                     $userData = [
                         'name' => $name ?: 'Lead ' . $cleanPhone,
                         'email' => $email,
                         'contact_no' => $cleanPhone,
-                        'country_code' => $getVal($r, $mapping['country_code'] ?? '') ?: '+91',
+                        'country_code' => $countryCode,
                         'role_id' => 2, // Standard Lead Client Role
                         'password' => \Illuminate\Support\Facades\Hash::make('user@123'),
                     ];
@@ -879,7 +964,7 @@ class NewleadController extends Controller
                 $dateVal = $getVal($r, $mapping['date'] ?? '');
                 if ($dateVal) {
                     try { $leadDate = \Carbon\Carbon::parse($dateVal)->toDateString(); }
-                    catch (\Throwable) { $leadDate = now()->toDateString(); }
+                    catch (\Throwable $th) { $leadDate = now()->toDateString(); }
                 } else {
                     $leadDate = now()->toDateString();
                 }
@@ -958,7 +1043,7 @@ class NewleadController extends Controller
                     if ($nextFollowupVal) {
                         try {
                             $parsedNextFollowup = \Carbon\Carbon::parse($nextFollowupVal);
-                        } catch (\Throwable) {
+                        } catch (\Throwable $th) {
                             $parsedNextFollowup = null;
                         }
                     }
@@ -988,6 +1073,7 @@ class NewleadController extends Controller
 
             return response()->json([
                 'status' => 'success',
+                'imported_count' => $importedCount,
                 'message' => "Successfully imported {$importedCount} lead(s) into database!",
             ]);
 
@@ -1053,5 +1139,135 @@ class NewleadController extends Controller
             'messages' => $messages,
             'todoTasks' => $todoTasks,
         ]);
+    }
+
+    /**
+     * Compare uploaded Excel against database records by email/mobile.
+     * Returns lists of existing leads vs new non-existing leads.
+     */
+    public function compareExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:20480',
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestDataRow();
+            $highestColumn = $sheet->getHighestDataColumn();
+
+            $row1 = $sheet->rangeToArray("A1:{$highestColumn}1", null, true, true, true)[1] ?? [];
+            $colMap = [];
+            foreach ($row1 as $colLetter => $hdr) {
+                $hdrName = trim((string)$hdr);
+                if ($hdrName !== '') {
+                    $colMap[strtolower($hdrName)] = $colLetter;
+                }
+            }
+
+            // Identify email & phone column letters
+            $emailCol = null;
+            $phoneCol = null;
+            $nameCol = null;
+
+            foreach ($colMap as $hName => $col) {
+                if (!$emailCol && (str_contains($hName, 'email') || str_contains($hName, 'mail'))) {
+                    $emailCol = $col;
+                }
+                if (!$phoneCol && (str_contains($hName, 'phone') || str_contains($hName, 'mobile') || str_contains($hName, 'contact'))) {
+                    $phoneCol = $col;
+                }
+                if (!$nameCol && (str_contains($hName, 'name') || str_contains($hName, 'client') || str_contains($hName, 'student'))) {
+                    $nameCol = $col;
+                }
+            }
+
+            // Fallbacks if not auto-detected
+            if (!$emailCol) $emailCol = reset($colMap);
+            if (!$phoneCol) $phoneCol = count($colMap) > 1 ? array_values($colMap)[1] : reset($colMap);
+            if (!$nameCol) $nameCol = reset($colMap);
+
+            $excelRows = [];
+            for ($r = 2; $r <= $highestRow; $r++) {
+                $rawEmail = strtolower(trim((string)$sheet->getCell("{$emailCol}{$r}")->getValue()));
+                $rawPhone = preg_replace('/[^\d]/', '', (string)$sheet->getCell("{$phoneCol}{$r}")->getValue());
+                if (strlen($rawPhone) > 10) {
+                    $rawPhone = substr($rawPhone, -10);
+                }
+                $rawName = trim((string)$sheet->getCell("{$nameCol}{$r}")->getValue());
+
+                if (empty($rawEmail) && empty($rawPhone) && empty($rawName)) {
+                    continue;
+                }
+
+                $excelRows[] = [
+                    'row' => $r,
+                    'name' => $rawName ?: ('Row #' . $r),
+                    'email' => $rawEmail,
+                    'phone' => $rawPhone,
+                ];
+            }
+
+            // Fetch DB users matching collected emails and phones
+            $emails = array_filter(array_column($excelRows, 'email'));
+            $phones = array_filter(array_column($excelRows, 'phone'));
+
+            $existingUsers = User::where(function($q) use ($emails, $phones) {
+                if (!empty($emails)) $q->whereIn('email', $emails);
+                if (!empty($phones)) $q->orWhereIn('contact_no', $phones);
+            })->get();
+
+            $existingEmailMap = $existingUsers->pluck('email')->filter()->map(fn($e) => strtolower($e))->toArray();
+            $existingPhoneMap = $existingUsers->pluck('contact_no')->filter()->toArray();
+
+            $existingList = [];
+            $newList = [];
+
+            foreach ($excelRows as $item) {
+                $isEmailMatch = !empty($item['email']) && in_array($item['email'], $existingEmailMap);
+                $isPhoneMatch = !empty($item['phone']) && in_array($item['phone'], $existingPhoneMap);
+
+                if ($isEmailMatch || $isPhoneMatch) {
+                    $matchedUser = $existingUsers->first(function($u) use ($item) {
+                        return ($item['email'] && strtolower($u->email) === $item['email']) || 
+                               ($item['phone'] && $u->contact_no === $item['phone']);
+                    });
+
+                    $existingList[] = [
+                        'row' => $item['row'],
+                        'name' => $item['name'],
+                        'email' => $item['email'] ?: 'N/A',
+                        'phone' => $item['phone'] ?: 'N/A',
+                        'db_name' => $matchedUser->name ?? 'DB User',
+                        'match_type' => ($isEmailMatch && $isPhoneMatch) ? 'Email & Phone' : ($isEmailMatch ? 'Email' : 'Phone'),
+                    ];
+                } else {
+                    $newList[] = [
+                        'row' => $item['row'],
+                        'name' => $item['name'],
+                        'email' => $item['email'] ?: 'N/A',
+                        'phone' => $item['phone'] ?: 'N/A',
+                    ];
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'total_scanned' => count($excelRows),
+                'existing_count' => count($existingList),
+                'new_count' => count($newList),
+                'existing_list' => $existingList,
+                'new_list' => $newList,
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('Excel Compare Error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error comparing Excel file: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

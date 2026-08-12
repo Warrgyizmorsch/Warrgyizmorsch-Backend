@@ -281,7 +281,7 @@ class LeadsImportJob implements ShouldQueue
                         $date = Carbon::instance(ExcelDate::excelToDateTimeObject((float)$dateCell))->toDateString();
                     } else {
                         try { $date = Carbon::parse($dateCell)->toDateString(); } 
-                        catch (\Throwable) { $date = now()->toDateString(); }
+                        catch (\Throwable $th) { $date = now()->toDateString(); }
                     }
                 } else {
                     $date = now()->toDateString();
