@@ -33,6 +33,7 @@ class NewleadController extends Controller
             'bucket.children',
             'messages.user',
             'messages.lead',
+            'latestMessage',
             'attributes',
             'todoTasks.assignee',
             'latestAssignHistory',
@@ -216,22 +217,24 @@ class NewleadController extends Controller
         $leads = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends($request->query());
 
 
-        $leads->getCollection()->transform(function ($lead) {
+        // Batch calculation for duplicate leads to eliminate N+1 queries
+        $uids = $leads->getCollection()->pluck('uid')->filter()->unique();
+        $duplicateGroup = collect();
+        if ($uids->isNotEmpty()) {
+            $duplicateGroup = Leads::whereIn('uid', $uids)
+                ->select('id', 'uid')
+                ->get()
+                ->groupBy('uid');
+        }
 
-            $duplicateLeads = Leads::where('uid', $lead->uid)
-                ->where('id', '!=', $lead->id)
-                ->pluck('id');
+        $leads->getCollection()->transform(function ($lead) use ($duplicateGroup) {
+            $matching = $duplicateGroup->get($lead->uid, collect());
+            $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
 
-            $lead->duplicate_count = $duplicateLeads->count();
-            $lead->duplicate_ids = $duplicateLeads;
-
-            return $lead;
-        });
-        // echo "<pre>";print_r($leads->toArray());exit;
-
-        // Attach last message
-        $leads->getCollection()->transform(function ($lead) {
+            $lead->duplicate_count = $otherIds->count();
+            $lead->duplicate_ids = $otherIds;
             $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
+
             return $lead;
         });
 
@@ -426,8 +429,10 @@ class NewleadController extends Controller
 
 
 
+        $allBucketsWithChildren = Bucket::with('children')->where('is_deleted', 0)->get()->keyBy('id');
+
         // Return to your new view
-        return view('crm.lead.newindex', compact('leads', 'pipelineLeads', 'childBuckets', 'filterBucket', 'mainbuckets', 'childtotalLeadsCount', 'categorys', 'buckets', 'deletedLeadsCount', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'followupsCount', 'otherLeadsCount', 'systemTotalLeadsCount'));
+        return view('crm.lead.newindex', compact('leads', 'pipelineLeads', 'childBuckets', 'filterBucket', 'mainbuckets', 'childtotalLeadsCount', 'categorys', 'buckets', 'deletedLeadsCount', 'owners', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'followupsCount', 'otherLeadsCount', 'systemTotalLeadsCount', 'allBucketsWithChildren'));
     }
 
     public function updateQuick(Request $request, Leads $lead)
@@ -692,6 +697,334 @@ class NewleadController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * STEP 1: Upload Excel/CSV temporarily and extract sheet column headers.
+     * The data is NOT saved to the database yet.
+     */
+    public function uploadImportFile(Request $request)
+    {
+        // 1. Validate that a file is provided and is an excel/csv file
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:20480',
+        ]);
+
+        try {
+            // 2. Store the uploaded file in 'temp_imports' directory inside storage/app
+            $file = $request->file('file');
+            $tempFilename = 'import_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('temp_imports', $tempFilename);
+
+            $fullPath = storage_path('app/' . $path);
+
+            // 3. Load the spreadsheet to read row 1 (the headers)
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($fullPath);
+            $sheet = $spreadsheet->getActiveSheet();
+
+            // 4. Get the highest data column (e.g. 'G')
+            $highestColumn = $sheet->getHighestDataColumn();
+
+            // 5. Read row 1 as array
+            $headerRow = $sheet->rangeToArray("A1:{$highestColumn}1", null, true, true, true)[1] ?? [];
+
+            // 6. Format headers cleanly
+            $headers = [];
+            foreach ($headerRow as $colLetter => $headerName) {
+                $trimmed = trim((string)$headerName);
+                if ($trimmed !== '') {
+                    $headers[] = [
+                        'col' => $colLetter,
+                        'name' => $trimmed,
+                    ];
+                }
+            }
+
+            // 7. Get first 3 data rows for live preview in modal
+            $previewRows = [];
+            $highestRow = min($sheet->getHighestDataRow(), 4);
+            for ($r = 2; $r <= $highestRow; $r++) {
+                $rowData = [];
+                foreach ($headers as $h) {
+                    $val = $sheet->getCell($h['col'] . $r)->getValue();
+                    $rowData[$h['name']] = is_null($val) ? '' : (string)$val;
+                }
+                $previewRows[] = $rowData;
+            }
+
+            // 8. Return JSON response with temp_file_id and headers list
+            return response()->json([
+                'status' => 'success',
+                'temp_file_id' => $tempFilename,
+                'headers' => $headers,
+                'preview' => $previewRows,
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('Upload import file error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to read uploaded file: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * STEP 2: Process the mapped data and save to Users & Leads tables.
+     * Unmapped fields will be saved inside the 'custom_attributes' JSON column.
+     */
+    public function processImport(Request $request)
+    {
+        // 1. Validate temp_file_id and mapping inputs
+        $request->validate([
+            'temp_file_id' => 'required|string',
+            'mapping' => 'required|array',
+        ]);
+
+        $tempFilename = $request->temp_file_id;
+        $fullPath = storage_path('app/temp_imports/' . $tempFilename);
+
+        // 2. Check if temporary file exists
+        if (!file_exists($fullPath)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Temporary import file not found or expired. Please upload again.',
+            ], 400);
+        }
+
+        // 3. Receive field mapping selected by user (db_field => excel_header_name)
+        $mapping = $request->mapping;
+
+        try {
+            // 4. Load spreadsheet and get active sheet
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($fullPath);
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestDataRow();
+            $highestColumn = $sheet->getHighestDataColumn();
+
+            // 5. Read row 1 headers map (Header Name -> Column Letter)
+            $row1 = $sheet->rangeToArray("A1:{$highestColumn}1", null, true, true, true)[1] ?? [];
+            $colMap = [];
+            foreach ($row1 as $colLetter => $hdr) {
+                $colMap[trim((string)$hdr)] = $colLetter;
+            }
+
+            // Helper closure to read cell value by header name
+            $getVal = function (int $row, string $headerName) use ($colMap, $sheet) {
+                if (empty($headerName) || !isset($colMap[$headerName])) {
+                    return null;
+                }
+                $col = $colMap[$headerName];
+                $val = $sheet->getCell("{$col}{$row}")->getValue();
+                return is_null($val) ? null : trim((string)$val);
+            };
+
+            // Get default bucket & status for new imported leads
+            $defaultBucketId = \App\Models\Bucket::whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->where(function($q) {
+                    $q->where('name', 'LIKE', '%lead%')->orWhere('id', 1);
+                })
+                ->value('id') ?? 1;
+
+            $defaultStatus = \App\Models\Bucket::where('parent_id', $defaultBucketId)
+                ->where('is_deleted', 0)
+                ->value('name') ?? 'Yet to Call';
+
+            $importedCount = 0;
+
+            // 6. Start database transaction for safety
+            DB::beginTransaction();
+
+            for ($r = 2; $r <= $highestRow; $r++) {
+
+                // --- A. Extract User / Contact Info ---
+                $name = $getVal($r, $mapping['name'] ?? '');
+                $email = strtolower(trim((string)$getVal($r, $mapping['email'] ?? '')));
+                $phoneRaw = $getVal($r, $mapping['contact_no'] ?? '');
+
+                // Clean phone number (keep digits only)
+                $cleanPhone = preg_replace('/[^\d]/', '', (string)$phoneRaw);
+                if (strlen($cleanPhone) > 10) {
+                    $cleanPhone = substr($cleanPhone, -10);
+                }
+
+                // Skip row if completely empty (no phone, name, or email)
+                if (empty($cleanPhone) && empty($name) && empty($email)) {
+                    continue;
+                }
+
+                // Dummy fallback email if missing
+                if (empty($email)) {
+                    $email = 'lead_' . time() . '_' . $r . '@crmtemp.com';
+                }
+
+                // --- B. Find or Create User in users table ---
+                $user = User::where(function ($q) use ($cleanPhone, $email) {
+                    if ($cleanPhone && $email) {
+                        $q->where('contact_no', $cleanPhone)->orWhere('email', $email);
+                    } elseif ($cleanPhone) {
+                        $q->where('contact_no', $cleanPhone);
+                    } elseif ($email) {
+                        $q->where('email', $email);
+                    }
+                })->first();
+
+                if (!$user) {
+                    // Create new User record safely based on existing columns in users table
+                    $userData = [
+                        'name' => $name ?: 'Lead ' . $cleanPhone,
+                        'email' => $email,
+                        'contact_no' => $cleanPhone,
+                        'country_code' => $getVal($r, $mapping['country_code'] ?? '') ?: '+91',
+                        'role_id' => 2, // Standard Lead Client Role
+                        'password' => \Illuminate\Support\Facades\Hash::make('user@123'),
+                    ];
+
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'city')) {
+                        $userData['city'] = $getVal($r, $mapping['user_city'] ?? '') ?: $getVal($r, $mapping['city'] ?? '');
+                    }
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'address')) {
+                        $userData['address'] = $getVal($r, $mapping['address'] ?? '');
+                    }
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'state')) {
+                        $userData['state'] = $getVal($r, $mapping['state'] ?? '');
+                    }
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'pincode')) {
+                        $userData['pincode'] = $getVal($r, $mapping['pincode'] ?? '');
+                    }
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'company_name')) {
+                        $userData['company_name'] = $getVal($r, $mapping['company_name'] ?? '');
+                    }
+
+                    $user = User::create($userData);
+                }
+
+                // --- C. Extract Lead Specific Fields ---
+                $dateVal = $getVal($r, $mapping['date'] ?? '');
+                if ($dateVal) {
+                    try { $leadDate = \Carbon\Carbon::parse($dateVal)->toDateString(); }
+                    catch (\Throwable) { $leadDate = now()->toDateString(); }
+                } else {
+                    $leadDate = now()->toDateString();
+                }
+
+                // --- D. Collect Extra Unmapped Data into custom_attributes JSON ---
+                $customAttributes = [];
+                
+                // Get list of standard mapped headers
+                $mappedStandardHeaders = array_values(array_filter($mapping, fn($v) => is_string($v) && !empty($v)));
+
+                foreach ($colMap as $headerName => $colLetter) {
+                    // If header was NOT mapped to any standard DB field
+                    if (!in_array($headerName, $mappedStandardHeaders)) {
+                        $cellVal = $getVal($r, $headerName);
+                        if (!is_null($cellVal) && $cellVal !== '') {
+                            $customAttributes[$headerName] = $cellVal;
+                        }
+                    }
+                }
+
+                // --- E. Create Lead Record in leads table ---
+                $rawLeadData = [
+                    'uid' => $user->id, // Link to User ID
+                    'date' => $leadDate,
+                    'campaign_name' => $getVal($r, $mapping['campaign_name'] ?? ''),
+                    'adset_name' => $getVal($r, $mapping['adset_name'] ?? ''),
+                    'ad_name' => $getVal($r, $mapping['ad_name'] ?? ''),
+                    'form_name' => $getVal($r, $mapping['form_name'] ?? ''),
+                    'platform' => $getVal($r, $mapping['platform'] ?? ''),
+                    'page_url' => $getVal($r, $mapping['page_url'] ?? ''),
+                    'whats_your_preferred_intake' => $getVal($r, $mapping['whats_your_preferred_intake'] ?? ''),
+                    'budget' => $getVal($r, $mapping['budget'] ?? ''),
+                    'applying_country_for_a_visa' => $getVal($r, $mapping['applying_country_for_a_visa'] ?? ''),
+                    'what_course_are_you_planning_to_study' => $getVal($r, $mapping['what_course_are_you_planning_to_study'] ?? ''),
+                    'highest_completed' => $getVal($r, $mapping['highest_completed'] ?? ''),
+                    'any_academic_gap' => $getVal($r, $mapping['any_academic_gap'] ?? ''),
+                    'english_test_status' => $getVal($r, $mapping['english_test_status'] ?? ''),
+                    'visa_type' => $getVal($r, $mapping['visa_type'] ?? ''),
+                    'product' => $getVal($r, $mapping['product'] ?? ''),
+                    'services' => $getVal($r, $mapping['services'] ?? ''),
+                    'business_name' => $getVal($r, $mapping['business_name'] ?? ''),
+                    'industry' => $getVal($r, $mapping['industry'] ?? ''),
+                    'employee_strength' => $getVal($r, $mapping['employee_strength'] ?? ''),
+                    'website' => $getVal($r, $mapping['website'] ?? ''),
+                    'gst_number' => $getVal($r, $mapping['gst_number'] ?? ''),
+                    'pain_points' => $getVal($r, $mapping['pain_points'] ?? ''),
+                    'description' => $getVal($r, $mapping['description'] ?? ''),
+                    'city' => $getVal($r, $mapping['city'] ?? ''),
+                    'state' => $getVal($r, $mapping['state'] ?? ''),
+                    'pincode' => $getVal($r, $mapping['pincode'] ?? ''),
+                    'address' => $getVal($r, $mapping['address'] ?? ''),
+                    'lead_status' => $getVal($r, $mapping['lead_status'] ?? '') ?: $defaultStatus,
+                    'lead_engagement_status' => $getVal($r, $mapping['lead_engagement_status'] ?? ''),
+                    'lead_bucket_id' => $defaultBucketId,
+                    'lead_owner' => auth()->id(),
+                    'imported_by' => auth()->id(),
+                    'custom_attributes' => !empty($customAttributes) ? $customAttributes : null,
+                ];
+
+                // Dynamically filter fields to match existing database table columns
+                $existingLeadColumns = \Illuminate\Support\Facades\Schema::getColumnListing('leads');
+                $leadData = array_filter(
+                    $rawLeadData,
+                    fn($key) => in_array($key, $existingLeadColumns),
+                    ARRAY_FILTER_USE_KEY
+                );
+
+                $lead = Leads::create($leadData);
+
+                // --- F. Create Callback Message / Followup Remark in callback_messages table ---
+                $callbackMessageText = $getVal($r, $mapping['callback_message'] ?? '') ?: $getVal($r, $mapping['description'] ?? '');
+                $nextFollowupVal = $getVal($r, $mapping['next_followup_date'] ?? '');
+
+                if ($callbackMessageText || $nextFollowupVal) {
+                    $parsedNextFollowup = null;
+                    if ($nextFollowupVal) {
+                        try {
+                            $parsedNextFollowup = \Carbon\Carbon::parse($nextFollowupVal);
+                        } catch (\Throwable) {
+                            $parsedNextFollowup = null;
+                        }
+                    }
+
+                    CallBack::create([
+                        'lead_id' => $lead->id,
+                        'created_by' => auth()->id(),
+                        'message' => $callbackMessageText ?: 'Imported Lead Remark',
+                        'status' => $lead->lead_status ?? $defaultStatus,
+                        'bucket' => $bucketName,
+                        'lead_engagement_status' => $lead->lead_engagement_status,
+                        'followup_type' => $getVal($r, $mapping['followup_type'] ?? '') ?: 'Imported Note',
+                        'followup_status' => $getVal($r, $mapping['followup_status'] ?? '') ?: null,
+                        'next_followup_date' => $parsedNextFollowup,
+                        'is_done' => 0,
+                    ]);
+                }
+
+                $importedCount++;
+            }
+
+            // 7. Commit database transaction
+            DB::commit();
+
+            // 8. Delete temporary uploaded file
+            @unlink($fullPath);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Successfully imported {$importedCount} lead(s) into database!",
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Log::error('Import process error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error processing import file: ' . $e->getMessage(),
             ], 500);
         }
     }

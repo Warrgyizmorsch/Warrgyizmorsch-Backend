@@ -117,9 +117,14 @@
                     <div class="dropdown-divider"></div>
 
                     <a href="{{ route('lead.sample') }}" class="dropdown-item">Download Sample</a>
+                    
                     <div class="dropdown-divider"></div>
+                    <!-- <label for="importFile" class="dropdown-item">Import</label> -->
+                    <a href="javascript:void(0)" onclick="openCustomImportModal()" class="dropdown-item fw-bold text-primary">
+                        <i class="feather-upload me-2"></i> Custom Import (Mapping)
+                    </a>
 
-                    <label for="importFile" class="dropdown-item">Import</label>
+                    <label for="importFile" class="dropdown-item text-muted">Auto Import (Direct)</label>
                     <input type="file" id="importFile" class="d-none" accept=".csv,.xlsx,.xls">
                 </div>
             </div>

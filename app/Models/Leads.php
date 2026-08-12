@@ -48,6 +48,7 @@ class Leads extends Model
         'pincode',
         'address',
         'documents',
+        'custom_attributes',
     ];
 
     public function user()
@@ -61,6 +62,7 @@ class Leads extends Model
         'services' => 'array',
         'client_details' => 'array',
         'documents' => 'array',
+        'custom_attributes' => 'array',
     ];
 
     public function bucket()
