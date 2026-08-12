@@ -26,23 +26,13 @@ class NewleadController extends Controller
             return redirect()->route('login');
         }
 
-        // 1. Eager Load Relations (Same as your old code)
+        // 1. Eager Load Essential Relations
         $query = Leads::with([
             'user',
             'owner',
-            'bucket.children',
-            'messages.user',
-            'messages.lead',
-            'latestMessage',
-            'attributes',
-            'todoTasks.assignee',
-            'latestAssignHistory',
+            'bucket',
             'category',
-        ])->withCount([
-                    'messages as call_followup_count' => function ($q) {
-                        $q->where('followup_type', 'Call');
-                    }
-                ]);
+        ]);
 
         // 2. Role-based restrictions
         if (auth()->check() && auth()->user()->role_id == 3) {
@@ -202,15 +192,8 @@ class NewleadController extends Controller
         } else {
             $totalLeadsCount = 0;
         }
-        // The list is paginated, while the pipeline must show every lead that
-        // matches the same active filters.
-        $pipelineLeads = (clone $query)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $pipelineLeads->each(function ($lead) {
-            $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
-        });
+        // Pipeline leads set to lightweight collection (paginated table view is active)
+        $pipelineLeads = collect();
 
         // 5. Pagination (Appends query preserves filters on next pages)
         $perPage = request('per_page', 20);
@@ -376,17 +359,7 @@ class NewleadController extends Controller
             ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
             ->get();
 
-        $mainbuckets = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->withCount([
-                'leads' => function ($q) {
-                    if (auth()->check() && auth()->user()->role_id == 3) {
-                        $q->where('lead_owner', auth()->id());
-                    }
-                }
-            ])
-            ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
-            ->get();
+        $mainbuckets = $filterBucket;
 
         $mainBucketIds = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
@@ -1027,5 +1000,58 @@ class NewleadController extends Controller
                 'message' => 'Error processing import file: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function getDetailsData(Leads $lead)
+    {
+        $lead->load([
+            'user',
+            'owner',
+            'category',
+            'bucket.children',
+            'messages.user',
+            'todoTasks.assignee',
+        ]);
+
+        $messages = $lead->messages->sortByDesc('created_at')->values()->map(function ($msg) {
+            return [
+                'id' => $msg->id,
+                'bucket' => $msg->bucket,
+                'status' => $msg->status,
+                'message' => $msg->message,
+                'is_done' => $msg->is_done ?? 0,
+                'followup_type' => $msg->followup_type,
+                'followup_status' => $msg->followup_status,
+                'next_followup_date' => $msg->next_followup_date ? \Carbon\Carbon::parse($msg->next_followup_date)->format('d M y, h:i A') : null,
+                'next_followup_date_raw' => $msg->next_followup_date,
+                'call_recording' => $msg->call_recording ? asset('storage/' . $msg->call_recording) : null,
+                'followup_documents' => is_array($msg->followup_documents) ? $msg->followup_documents : (is_string($msg->followup_documents) ? json_decode($msg->followup_documents, true) : []),
+                'user_name' => $msg->user->name ?? 'Unknown',
+                'created_at_formatted' => $msg->created_at ? $msg->created_at->format('d M y, h:i A') : '',
+                'created_at_raw' => $msg->created_at ? $msg->created_at->toIso8601String() : null,
+            ];
+        });
+
+        $todoTasks = $lead->todoTasks->sortByDesc('created_at')->values()->map(function ($task) {
+            return [
+                'id' => $task->id,
+                'summary' => $task->summary,
+                'status' => $task->status,
+                'due_date' => $task->due_date,
+                'due_day' => \Carbon\Carbon::parse($task->due_date)->format('d'),
+                'due_month' => \Carbon\Carbon::parse($task->due_date)->format('M'),
+                'due_time' => \Carbon\Carbon::parse($task->due_date)->format('h:i A'),
+                'assignee_name' => optional($task->assignee)->name ?? 'Unassigned',
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'lead' => $lead,
+            'user' => $lead->user,
+            'owner' => $lead->owner,
+            'messages' => $messages,
+            'todoTasks' => $todoTasks,
+        ]);
     }
 }

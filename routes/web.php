@@ -197,6 +197,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Modern Leads
     Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
+    Route::get('/modern-leads/{lead}/details-data', [NewleadController::class, 'getDetailsData'])->name('modern.leads.details.data');
     Route::post('/modern-leads/import/upload', [NewleadController::class, 'uploadImportFile'])->name('modern.leads.import.upload');
     Route::post('/modern-leads/import/process', [NewleadController::class, 'processImport'])->name('modern.leads.import.process');
     Route::post('/modern-leads/convert', [NewleadController::class, 'bulkConvert'])->name('modern.leads.convert');

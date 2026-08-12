@@ -772,7 +772,7 @@
                                 {{-- 3. Details (NAME, MOBILE NO., EMAIL, CREATED) --}}
                                 <div class="d-flex flex-column gap-0.5 flex-shrink-0 text-truncate" style="width: 175px; min-width: 0;">
                                     {{-- Name --}}
-                                    <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" class="fw-bold text-dark text-decoration-none hover-blue fs-13 text-truncate" style="--hover-color: #006FC9; color: #0f172a !important;" title="{{ $userName }}">
+                                    <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" onclick="loadLeadDetailsCollapse({{ $lead->id }})" class="fw-bold text-dark text-decoration-none hover-blue fs-13 text-truncate" style="--hover-color: #006FC9; color: #0f172a !important;" title="{{ $userName }}">
                                         {{ $userName }}
                                     </a>
                                     {{-- Mobile No --}}
@@ -796,7 +796,7 @@
                                 <div class="d-flex flex-column justify-content-center gap-1 flex-shrink-0" style="width: 72px;">
                                     {{-- Row 1: Edit & Info buttons --}}
                                     <div class="d-flex align-items-center gap-1">
-                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="Edit Lead Form" data-lead="{{ json_encode($lead ?? []) }}" data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)">
+                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="Edit Lead Form" onclick="openEditModalLazy({{ $lead->id }})">
                                             <i class="fas fa-pen-to-square fs-10"></i>
                                         </a>
                                         @if($lead->duplicate_count > 0)
@@ -832,7 +832,7 @@
                                 <div class="d-flex flex-column justify-content-center flex-shrink-0" style="width: 140px;">
                                     {{-- Lead Status Box --}}
                                     <div class="d-flex align-items-center justify-content-between p-1.5 rounded-3 border shadow-2xs" style="background-color: {{ $cardBg }}; border-color: {{ $borderColor }} !important;" title="Click to edit Lead Status">
-                                        <div class="d-flex align-items-center gap-1.5 flex-grow-1 text-truncate" style="cursor:pointer; min-width: 0;" data-bs-toggle="offcanvas" data-bs-target="#editStatusOffcanvas-{{ $lead->id }}">
+                                        <div class="d-flex align-items-center gap-1.5 flex-grow-1 text-truncate" style="cursor:pointer; min-width: 0;" onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})">
                                             <div class="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 shadow-2xs" style="width: 28px; height: 28px; background-color: {{ $iconBg }};">
                                                 <i class="fas fa-tag fs-11" style="color: {{ $iconColor }};"></i>
                                             </div>
@@ -842,7 +842,7 @@
                                             </div>
                                         </div>
                                         <div class="ps-0.5 flex-shrink-0">
-                                            <button type="button" class="btn btn-xs btn-icon rounded-2 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px; background-color: {{ $btnBg }}; color: {{ $btnColor }}; border: 1px solid {{ $borderColor }};" data-bs-toggle="offcanvas" data-bs-target="#editStatusOffcanvas-{{ $lead->id }}" title="Edit Status">
+                                            <button type="button" class="btn btn-xs btn-icon rounded-2 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px; background-color: {{ $btnBg }}; color: {{ $btnColor }}; border: 1px solid {{ $borderColor }};" onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})" title="Edit Status">
                                                 <i class="fas fa-pen fs-9"></i>
                                             </button>
                                         </div>
@@ -864,13 +864,13 @@
                                         @if($created_at)
                                             <div class="fs-9 text-muted mt-auto" style="font-size: 9px;">{{ $created_at->diffForHumans() }}</div>
                                         @endif
-                                        <a class="open-callback position-absolute" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}" style="bottom: 4px; right: 5px; font-size: 12px; color: #006FC9;" title="Add/View Comments">
+                                        <a class="open-callback position-absolute" href="javascript:void(0);" onclick="openHistoryOffcanvas({{ $lead->id }})" style="bottom: 4px; right: 5px; font-size: 12px; color: #006FC9;" title="Add/View Comments">
                                             <i class="fas fa-comment-dots"></i>
                                         </a>
                                     @else
                                         <div class="d-flex align-items-center justify-content-between text-muted fs-10 h-100 py-1">
                                             <span>No comments</span>
-                                            <a class="open-callback" href="javascript:void(0);" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}" style="font-size: 12px; color: #006FC9;" title="Add Comment">
+                                            <a class="open-callback" href="javascript:void(0);" onclick="openHistoryOffcanvas({{ $lead->id }})" style="font-size: 12px; color: #006FC9;" title="Add Comment">
                                                 <i class="fas fa-plus-circle"></i>
                                             </a>
                                         </div>
@@ -916,20 +916,13 @@
                                 <div class="d-flex flex-column flex-shrink-0 gap-1" style="width: 84px;">
                                     {{-- Row 1: View Details, Quick Edit, Expand --}}
                                     <div class="d-flex align-items-center gap-1">
-                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="View Details"
-                                            data-lead="{{ json_encode($lead ?? []) }}"
-                                            data-user="{{ json_encode($lead->user ?? []) }}"
-                                            data-owner="{{ json_encode($lead->owner ?? []) }}"
-                                            data-bucket="{{ $lead->bucket->name ?? 'N/A' }}"
-                                            data-status="{{ $lead->lead_status ?? 'N/A' }}"
-                                            data-engagement="{{ $lead->lead_engagement_status ?? 'N/A' }}"
-                                            onclick="openViewDetailsModal(this)">
+                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="View Details" onclick="openViewDetailsModalLazy({{ $lead->id }})">
                                             <i class="fas fa-eye fs-10"></i>
                                         </a>
-                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-secondary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" data-lead="{{ json_encode($lead ?? []) }}" data-user="{{ json_encode($lead->user ?? []) }}" onclick="openEditModal(this)" title="Edit Lead">
+                                        <a href="javascript:void(0);" class="btn btn-xs btn-icon btn-light text-secondary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" onclick="openEditModalLazy({{ $lead->id }})" title="Edit Lead">
                                             <i class="fas fa-edit fs-10"></i>
                                         </a>
-                                        <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" class="btn btn-xs btn-icon btn-light text-muted border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="Expand Details">
+                                        <a data-bs-toggle="collapse" href="#details-{{ $lead->id }}" onclick="loadLeadDetailsCollapse({{ $lead->id }})" class="btn btn-xs btn-icon btn-light text-muted border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" title="Expand Details">
                                             <i class="fas fa-chevron-down fs-10"></i>
                                         </a>
                                     </div>
@@ -982,13 +975,13 @@
                                                 </li>
                                                 <li>
                                                     <a href="javascript:void(0);" class="dropdown-item d-flex align-items-center text-muted" style="color: #006FC9;"
-                                                        data-bs-toggle="offcanvas" data-bs-target="#whatsappSent{{ $lead->id }}">
+                                                        onclick="openWhatsAppOffcanvas({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'User') }}', '{{ optional($lead->user)->contact_no ?? '-' }}', '{{ asset($lead->user?->image ? 'storage/' . $lead->user->image : 'images/blank.jpeg') }}')">
                                                         <i class="fab fa-whatsapp me-2" style="color: #006FC9; width: 20px;"></i>WhatsApp
                                                     </a>
                                                 </li>
                                                 <li>
                                                     <a href="javascript:void(0);" class="dropdown-item d-flex align-items-center text-muted" style="color: #006FC9;"
-                                                        data-bs-toggle="offcanvas" data-bs-target="#SMSSent{{ $lead->id }}">
+                                                        onclick="openSMSOffcanvas({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'User') }}', '{{ optional($lead->user)->contact_no ?? '' }}')">
                                                         <i class="fa-solid fa-message me-2" style="color: #006FC9; width: 20px;"></i>SMS
                                                     </a>
                                                 </li>
@@ -998,1215 +991,22 @@
                                 </div>
 
                             </div>
-
-                            @include('crm.lead.call-back')
-                        </div>
-                    </div>
-                        {{-- whatsapp offcanvace --}}
-
-                        <div class="content-area offcanvas offcanvas-end" data-scrollbar-target="#psScrollbarInit"
-                            style="width:400px" tabindex="-1" id="whatsappSent{{ $lead->id }}"
-                            aria-labelledby="whatsappOffcanvasLabel{{ $lead->id }}">
-                            <div class="content-area-header sticky-top" style="background-color:#ffffff;">
-                                <div class="offcanvas-header  gap-4">
-
-                                    <a href="javascript:void(0);" class="d-flex align-items-center justify-content-center gap-3"
-                                        data-bs-toggle="offcanvas" data-bs-target="#userProfileDetails">
-                                        <div class="avatar-image">
-                                            <img
-                                                src="{{ $lead->user?->image ? asset('storage/' . $lead->user->image) : asset('images/blank.jpeg') }}">
-                                        </div>
-                                        <div class="d-none d-sm-block">
-                                            <div class="fw-bold d-flex align-items-center">
-                                                {{ optional($lead->user)->name ?? 'User' }}
-                                            </div>
-                                            <div class="d-flex align-items-center mt-1">
-                                                <span class="wd-7 ht-7 rounded-circle opacity-75 me-2 bg-success"></span>
-                                                <span
-                                                    class="fs-9 text-uppercase fw-bold text-success">{{ optional($lead->user)->contact_no ?? '-' }}</span>
-                                            </div>
-                                        </div>
-                                    </a>
-                                    <button type="button" class="btn-close text-reset cancel-offcanvas"
-                                        data-id="{{ $lead->id }}" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                                </div>
-
-                            </div>
-                            <div class="content-area-body h-100 p-4" style="background-color:#efeae2;">
-                                <!--! BEGIN: Single Message [start] !-->
-                                <div class="d-flex mb-3">
-                                    <div class="p-2 px-3 bg-white rounded-3 shadow-sm" style="max-width: 60%;">
-                                        Hi,
-                                        <div class="text-muted fs-10 text-end mt-1">10:30 AM</div>
-                                    </div>
-                                </div>
-
-                                <!-- RIGHT (Your Message) -->
-                                <div class="d-flex justify-content-end mb-3">
-                                    <div class="p-2 px-3 rounded-3 shadow-sm" style="background-color:#d9fdd3; max-width: 60%;">
-                                        hy
-                                        <div class="text-muted fs-10 text-end mt-1">10:31 AM</div>
-                                    </div>
-                                </div>
-
-                                <!-- LEFT -->
-                                <div class="d-flex mb-3">
-                                    <div class="p-2 px-3 bg-white rounded-3 shadow-sm" style="max-width: 60%;">
-                                        Hello
-                                        <div class="text-muted fs-10 text-end mt-1">10:32 AM</div>
-                                    </div>
-                                </div>
-
-                                <!-- RIGHT -->
-                                <div class="d-flex justify-content-end mb-3">
-                                    <div class="p-2 px-3 rounded-3 shadow-sm" style="background-color:#d9fdd3; max-width: 60%;">
-                                        hello
-                                        <div class="text-muted fs-10 text-end mt-1">10:33 AM</div>
-                                    </div>
-                                </div>
-
-                            </div>
-                            <!--! BEGIN: Message Editor !-->
-                            <div
-                                class="d-flex align-items-center justify-content-between border-top border-gray-5 bg-white  sticky-bottom">
-                                <div class="d-flex align-center">
-                                    <div class="dropdown border-end border-gray-5">
-                                        <a href="javascript:void(0)" data-bs-toggle="dropdown">
-                                            <div class="wd-60 d-flex align-items-center justify-content-center"
-                                                data-bs-toggle="tooltip" data-bs-trigger="hover" title="Pick Template"
-                                                style="height: 59px"><i class="feather-hash"></i></div>
-                                        </a>
-                                        <ul class="dropdown-menu wd-300">
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-file-text me-3"></i>Welcome you message</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-file-text me-3"></i>Your issues solved</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-file-text me-3"></i>Thank you message</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-file-text me-3"></i>Make a offer message</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-file-text me-3"></i>Add the Unsubscribe option</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-file-text me-3"></i>Thank your customer for joining</a>
-                                            </li>
-                                            <li class="dropdown-divider"></li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-save me-3"></i>Save as Template</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-sun me-3"></i>Manage Template</a>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <div class="dropdown border-end border-gray-5">
-                                        <a href="javascript:void(0)" data-bs-toggle="dropdown">
-                                            <div class="wd-60 d-flex align-items-center justify-content-center"
-                                                data-bs-toggle="tooltip" data-bs-trigger="hover" title="Upload Attachments"
-                                                style="height: 59px"><i class="feather-link"></i></div>
-                                        </a>
-                                        <ul class="dropdown-menu">
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-image me-3"></i>Upload Images</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-mic me-3"></i>Upload Audios</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-video me-3"></i>Upload Videos</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item"><i
-                                                        class="feather-file me-3"></i>Upload Documents</a>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <div class="dropdown border-end border-gray-5 d-none d-sm-block">
-                                        <a href="javascript:void(0)" data-bs-toggle="dropdown">
-                                            <div class="wd-60 d-flex align-items-center justify-content-center"
-                                                data-bs-toggle="tooltip" data-bs-trigger="hover" title="Calling Options"
-                                                style="height: 59px"><i class="feather-phone-call"></i></div>
-                                        </a>
-                                        <ul class="dropdown-menu">
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item" data-bs-toggle="modal"
-                                                    data-bs-target="#voiceCallingModalScreen"><i
-                                                        class="feather-phone-call me-3"></i>Audio Call</a>
-                                            </li>
-                                            <li>
-                                                <a href="javascript:void(0)" class="dropdown-item" data-bs-toggle="modal"
-                                                    data-bs-target="#videoCallingModalScreen"><i
-                                                        class="feather-video me-3"></i>Video Call</a>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <input class="form-control border-0 emoji-picker" placeholder="Type your message here...">
-                                <div class="border-start border-gray-5 send-message">
-                                    <a href="javascript:void(0)" class="wd-60 d-flex align-items-center justify-content-center"
-                                        data-bs-toggle="tooltip" data-bs-trigger="hover" title="Send Message"
-                                        style="height: 59px"><i class="feather-send"></i></a>
-                                </div>
-                            </div>
-                            <!--! END: Message Editor !-->
                         </div>
 
-                        {{-- SMS Offcanvas --}}
-                        <div class="offcanvas offcanvas-end" tabindex="-1" id="SMSSent{{ $lead->id }}"
-                            aria-labelledby="SMSSentOffcanvasLabel{{ $lead->id }}" style="width: 400px;">
-
-                            <div class="offcanvas-header border-bottom bg-light py-3">
-                                <h6 class="offcanvas-title d-flex align-items-center gap-2 fw-bold text-dark"
-                                    id="SMSSentOffcanvasLabel{{ $lead->id }}">
-                                    <i class="fa-regular fa-comment-dots text-secondary"></i>
-                                    Send SMS to <span class="text-capitalize">{{ optional($lead->user)->name ?? 'User' }}</span>
-                                </h6>
-                                <button type="button" class="btn-close text-reset cancel-offcanvas" data-id="{{ $lead->id }}"
-                                    data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                            </div>
-
-                            <div class="offcanvas-body p-3" style="background-color: #f4f6f8;">
-
-                                <hr class="my-2">
-
-                                <!-- Options -->
-                                <div class="mb-3">
-
-                                    <div class="form-check">
-                                        <input class="form-check-input number-checkbox" type="checkbox" value="+916265455843">
-                                        <label class="form-check-label" for="mobileNo">Mobile No</label>
-                                    </div>
-
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="fatherNo">
-                                        <label class="form-check-label" for="fatherNo">Father's Number</label>
-                                    </div>
-
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="motherNo">
-                                        <label class="form-check-label" for="motherNo">Mother's Number</label>
-                                    </div>
-
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="whatsappNo">
-                                        <label class="form-check-label" for="whatsappNo">Whatsapp No</label>
-                                    </div>
-                                </div>
-
-                                <!-- Template Select -->
-                                <select class="form-control template-dropdown">
-                                    <option selected disabled>Select Template</option>
-                                </select>
-
-                                <!-- Message Box -->
-                                <div class="mb-3 flex-grow-1 d-flex flex-column">
-                                    <label class="form-label fw-semibold">Message</label>
-                                    <textarea class="form-control flex-grow-1" rows="12" placeholder="Type your message...">
-
-                                                                                                </textarea>
-                                    <small class="text-muted mt-1 text-end">0/160</small>
-                                </div>
-
-                                <!-- Buttons -->
-                                <div class="d-flex justify-content-end gap-2 mt-auto">
-                                    <button class=" btn btn-light border text-reset cancel-offcanvas" data-id="{{ $lead->id }}"
-                                        data-bs-dismiss="offcanvas" aria-label="Close">Cancel</button>
-                                    <button class="btn text-white send-sms-btn" style="background-color: #006FC9;">Send
-                                        SMS</button>
-                                </div>
-
-
-                            </div>
-                        </div>
-
-                        {{-- CHANGE STATUS AND FOLLOW UP OFFCANVAS --}}
-                        @include('crm.lead.edit-followup')
-
-                        {{-- ADD TO-DO TASK --}}
-                        <div class="offcanvas offcanvas-end" tabindex="-1" id="todoOffcanvas-{{ $lead->id }}"
-                            style="width: 420px;">
-
-                            <div class="offcanvas-header border-bottom">
-                                <h5 class="offcanvas-title fw-bold text-dark" style="font-size: 18px;">To-Do Task</h5>
-                                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"
-                                    aria-label="Close"></button>
-                            </div>
-
-                            <div class="offcanvas-body p-0">
-
-                                <div class="p-4" style="background-color: #f8fafc;">
-                                    <h6 class="fw-bold mb-3 text-dark" style="font-size: 15px;">Add New To-Do Task:</h6>
-
-                                    <form action="{{ route('lead.storeTodo', $lead->id) }}" method="POST">
-                                        @csrf
-
-                                        <div class="mb-3">
-                                            <label class="form-label text-muted mb-1" style="font-size: 13px;">Summary:</label>
-                                            <textarea class="form-control" name="summary" rows="3"
-                                                placeholder="Write Your Summary" required
-                                                style="font-size: 14px; border-color: #cbd5e1;"></textarea>
-                                        </div>
-
-                                        @if(auth()->check() && auth()->user()->role_id == 1)
-                                            <div class="mb-3">
-                                                <label class="form-label text-muted mb-1" style="font-size: 13px;">Assign To</label>
-                                                <select class="form-select" name="assign_to" required
-                                                    style="font-size: 14px; border-color: #cbd5e1;">
-                                                    <option value="" disabled selected>Select User</option>
-                                                    @foreach($owners as $owner)
-                                                        <option value="{{ $owner->id }}">{{ $owner->name }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        @endif
-
-                                        <div class="mb-3">
-                                            <label class="form-label text-muted mb-1" style="font-size: 13px;">Due Date</label>
-                                            <input type="datetime-local" class="form-control" name="due_date" required
-                                                style="font-size: 14px; border-color: #cbd5e1;">
-                                        </div>
-
-                                        <div class="text-end mt-2">
-                                            <button type="submit" class="btn btn-warning fw-bold px-4 py-2"
-                                                style="font-size: 13px;">SAVE TO-DO</button>
-                                        </div>
-                                    </form>
-                                </div>
-
-                                <hr class="m-0" style="border-color: #e2e8f0;">
-
-                                <div class="p-4 bg-white">
-                                    @forelse($lead->todoTasks->sortByDesc('created_at') as $task)
-                                        <div class="card mb-3 shadow-none" style="border: 1px dashed #cbd5e1; border-radius: 8px;">
-                                            <div class="card-body p-3 d-flex align-items-center">
-
-                                                <div class="rounded text-center p-2 me-3 d-flex flex-column justify-content-center"
-                                                    style="background-color: #e6f0ff; color: #006FC9; min-width: 55px; height: 55px;">
-                                                    <span class="fw-bold"
-                                                        style="font-size: 18px; line-height: 1;">{{ \Carbon\Carbon::parse($task->due_date)->format('d') }}</span>
-                                                    <span class="fw-bold text-uppercase"
-                                                        style="font-size: 10px; letter-spacing: 0.5px;">{{ \Carbon\Carbon::parse($task->due_date)->format('M') }}</span>
-                                                </div>
-
-                                                <div class="flex-grow-1">
-                                                    <div class="d-flex align-items-center mb-1 gap-2">
-                                                        <span class="fw-bold text-dark" style="font-size: 14px;">To-Do Task</span>
-                                                        <span class="badge"
-                                                            style="background-color: #e6f0ff; color: #006FC9; font-size: 10px;">{{ $task->status }}</span>
-                                                    </div>
-                                                    <div class="text-muted text-uppercase fw-semibold" style="font-size: 11px;">
-                                                        {{ optional($task->assignee)->name ?? 'Unassigned' }}
-                                                    </div>
-                                                    <div class="text-muted" style="font-size: 11px;">
-                                                        {{ \Carbon\Carbon::parse($task->due_date)->format('h:i A') }}
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <button
-                                                        class="btn btn-light rounded-circle border d-flex align-items-center justify-content-center"
-                                                        style="width: 32px; height: 32px; background-color: #f8fafc;">
-                                                        <i class="fa-solid fa-arrow-right text-muted" style="font-size: 12px;"></i>
-                                                    </button>
-                                                </div>
-
-                                            </div>
-                                        </div>
-                                    @empty
-                                        <div class="text-center py-4">
-                                            <p class="text-muted small">No To-Do tasks found for this lead.</p>
-                                        </div>
-                                    @endforelse
-                                </div>
-
-                            </div>
-                        </div>
-
-                        {{-- LEAD DETAILS --}}
+                        {{-- Dynamic Lazy-Loaded Details Collapse --}}
                         <div class="collapse w-100" id="details-{{ $lead->id }}">
-                            <div class="lead-details-pane border-top p-4 bg-white"
-                                style="border-left: 4px solid #006FC9; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
-
-                                <ul class="nav nav-tabs border-bottom-0 mb-4 gap-3" role="tablist">
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link lead-custom-tab active" id="personal-tab-{{ $lead->id }}"
-                                            data-bs-toggle="tab" data-bs-target="#personal-{{ $lead->id }}" type="button"
-                                            role="tab">Personal Details</button>
-                                    </li>
-
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link lead-custom-tab" id="source-tab-{{ $lead->id }}"
-                                            data-bs-toggle="tab" data-bs-target="#source-{{ $lead->id }}" type="button"
-                                            role="tab">Source Details</button>
-                                    </li>
-
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link lead-custom-tab" id="followup-tab-{{ $lead->id }}"
-                                            data-bs-toggle="tab" data-bs-target="#followup-{{ $lead->id }}" type="button"
-                                            role="tab">Followup Details</button>
-                                    </li>
-
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link lead-custom-tab" id="documents-tab-{{ $lead->id }}"
-                                            data-bs-toggle="tab" data-bs-target="#documents-{{ $lead->id }}" type="button"
-                                            role="tab">Documents</button>
-                                    </li>
-                                </ul>
-
-                                <div class="tab-content">
-
-                                    <div class="tab-pane fade show active" id="personal-{{ $lead->id }}" role="tabpanel">
-                                        <div class="row g-4">
-
-                                            @if(!empty($lead->category))
-                                                <div class="col-md-3 col-sm-6">
-                                                    <small class="text-muted text-uppercase d-block mb-1"
-                                                        style="font-size: 11px; letter-spacing: 0.5px;">
-                                                        Category Name
-                                                    </small>
-
-                                                    <span class="fs-15 text-dark">
-                                                        {{ $lead->category->category_name ?? 'N/A' }}
-                                                    </span>
-                                                </div>
-                                            @endif
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Name</small>
-                                                <span class="fs-15 text-dark">{{ optional($lead->user)->name ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Email</small>
-                                                <span class="fs-15 text-dark">{{ optional($lead->user)->email ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Mobile No.</small>
-                                                <span
-                                                    class="fs-15 text-dark">{{ optional($lead->user)->contact_no ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Country</small>
-                                                <span
-                                                    class="fs-15 text-dark">{{ $lead->applying_country_for_a_visa ?? 'N/A' }}</span>
-                                            </div>
-                                             <div class="col-md-3 col-sm-6">
-                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                     style="font-size: 11px; letter-spacing: 0.5px;">City</small>
-                                                 <span class="fs-15 text-dark">{{ $lead->city ?? optional($lead->user)->city ?? 'N/A' }}</span>
-                                             </div>
-                                             <div class="col-md-3 col-sm-6">
-                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                     style="font-size: 11px; letter-spacing: 0.5px;">State</small>
-                                                 <span class="fs-15 text-dark">{{ $lead->state ?? 'N/A' }}</span>
-                                             </div>
-                                             <div class="col-md-3 col-sm-6">
-                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                     style="font-size: 11px; letter-spacing: 0.5px;">Pincode</small>
-                                                 <span class="fs-15 text-dark">{{ $lead->pincode ?? 'N/A' }}</span>
-                                             </div>
-                                             <div class="col-md-3 col-sm-6">
-                                                 <small class="text-muted text-uppercase d-block mb-1"
-                                                     style="font-size: 11px; letter-spacing: 0.5px;">Address</small>
-                                                 <span class="fs-15 text-dark">{{ $lead->address ?? 'N/A' }}</span>
-                                             </div>
-                                            <!-- <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Course</small>
-                                                <span
-                                                    class="fs-15 text-dark">{{ $lead->what_course_are_you_planning_to_study ?? 'N/A' }}</span>
-                                            </div> -->
-                                             <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Employee Strength</small>
-                                                <span
-                                                    class="fs-15 text-dark">{{ $lead->employee_strength ?? 'N/A' }}</span>
-                                            </div>
-                                             <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Industry</small>
-                                                <span
-                                                    class="fs-15 text-dark">{{ $lead->industry ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px; letter-spacing: 0.5px;">Lead Added On</small>
-                                                <span
-                                                    class="fs-15 text-dark">{{ $lead->created_at ? $lead->created_at->format('M d, Y h:i A') : 'N/A' }}</span>
-                                            </div>
-
-                                            @php
-                                                $clientDetails = [];
-                                                if (!empty($lead->client_details)) {
-                                                    if (is_array($lead->client_details)) {
-                                                        $clientDetails = $lead->client_details;
-                                                    } elseif (is_string($lead->client_details)) {
-                                                        $clientDetails = json_decode($lead->client_details, true) ?? [];
-                                                    }
-                                                }
-                                            @endphp
-
-                                            @if(!empty($clientDetails))
-                                                <div class="col-12 mt-4">
-                                                    <hr class="my-3">
-                                                    <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
-                                                        <i class="fa-solid fa-users"></i> Additional Contacts / Details
-                                                    </h6>
-                                                    <div class="row g-3">
-                                                        @foreach($clientDetails as $contact)
-                                                            @if(!empty($contact['name']) || !empty($contact['designation']) || !empty($contact['email']) || !empty($contact['phone']))
-                                                                <div class="col-xl-4 col-md-6 col-12">
-                                                                    <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px; margin-bottom: 0;">
-                                                                        <div class="card-body p-3">
-                                                                            <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-                                                                                <div class="bg-soft-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                                                    <i class="fa-solid fa-user text-primary" style="font-size: 14px;"></i>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <h6 class="fw-bold text-dark mb-0 fs-14">{{ $contact['name'] ?? 'N/A' }}</h6>
-                                                                                    <small class="text-muted fs-11 text-uppercase">{{ $contact['designation'] ?? 'No Designation' }}</small>
-                                                                                </div>
-                                                                            </div>
-                                                                            
-                                                                            @if(!empty($contact['email']))
-                                                                                <div class="d-flex align-items-center gap-2 mb-2">
-                                                                                    <i class="fa-solid fa-envelope text-muted" style="font-size: 13px; width: 16px;"></i>
-                                                                                    <span class="fs-13 text-dark text-break">{{ $contact['email'] }}</span>
-                                                                                </div>
-                                                                            @endif
-
-                                                                            @if(!empty($contact['phone']))
-                                                                                <div class="d-flex align-items-center gap-2">
-                                                                                    <i class="fa-solid fa-phone text-muted" style="font-size: 13px; width: 16px;"></i>
-                                                                                    <span class="fs-13 text-dark">{{ $contact['phone'] }}</span>
-                                                                                </div>
-                                                                            @endif
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            @endif
-                                                        @endforeach
-                                                    </div>
-                                                </div>
-                                            @endif
+                            <div class="lead-details-pane border-top p-4 bg-white" style="border-left: 4px solid #006FC9; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                                <div class="lead-details-content" id="details-content-{{ $lead->id }}">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border text-primary spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading...</span>
                                         </div>
+                                        <p class="text-muted small mt-2">Loading lead details...</p>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
 
-                                    <div class="tab-pane fade" id="source-{{ $lead->id }}" role="tabpanel">
-                                        <div class="row g-4">
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Source</small>
-                                                <span class="fs-15 text-dark">{{ $lead->platform ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Website</small>
-                                                @if(!empty($lead->website))
-                                                    <a href="{{ str_starts_with($lead->website, 'http') ? $lead->website : 'https://' . $lead->website }}" target="_blank" class="fs-15 text-primary text-decoration-none text-truncate d-block">
-                                                        {{ $lead->website }}
-                                                    </a>
-                                                @else
-                                                    <span class="fs-15 text-dark">N/A</span>
-                                                @endif
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Company Name</small>
-                                                <span class="fs-15 text-dark">{{ $lead->business_name ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">GST NO.</small>
-                                                <span class="fs-15 text-dark">{{ $lead->gst_number ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Page URL</small>
-                                                @if(!empty($lead->page_url))
-                                                    <a href="{{ $lead->page_url }}" target="_blank"
-                                                        class="fs-15 text-primary text-decoration-none d-inline-flex align-items-center">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                                            stroke-linecap="round" stroke-linejoin="round" class="me-1">
-                                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6">
-                                                            </path>
-                                                            <polyline points="15 3 21 3 21 9"></polyline>
-                                                            <line x1="10" y1="14" x2="21" y2="3"></line>
-                                                        </svg>
-                                                        Click Me
-                                                    </a>
-                                                @else
-                                                    <span class="fs-15 text-dark">N/A</span>
-                                                @endif
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Product</small>
-                                                <span class="fs-15 text-dark">{{ $lead->product ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="col-md-3 col-sm-6">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Service</small>
-                                                @php
-                                                    $selectedServiceIds = [];
-                                                    if (!empty($lead->services)) {
-                                                        if (is_array($lead->services)) {
-                                                            $selectedServiceIds = $lead->services;
-                                                        } elseif (is_string($lead->services)) {
-                                                            $decoded = json_decode($lead->services, true);
-                                                            $selectedServiceIds = is_array($decoded) ? $decoded : explode(',', $lead->services);
-                                                        }
-                                                    }
-                                                    $selectedServiceIds = array_map('trim', $selectedServiceIds);
-                                                    $selectedServiceNames = [];
-                                                    foreach ($selectedServiceIds as $id) {
-                                                        $cat = $categorys->firstWhere('id', $id);
-                                                        if ($cat) {
-                                                            $selectedServiceNames[] = $cat->category_name;
-                                                        } else {
-                                                            $selectedServiceNames[] = $id;
-                                                        }
-                                                    }
-                                                @endphp
-                                                @if(!empty($selectedServiceNames))
-                                                    <div class="d-flex flex-wrap gap-1">
-                                                        @foreach($selectedServiceNames as $name)
-                                                            <span class="badge bg-soft-primary text-primary px-2 py-1" style="font-size: 12px; border-radius: 4px;">{{ $name }}</span>
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    <span class="fs-15 text-dark">N/A</span>
-                                                @endif
-                                            </div>
-                                            <div class="col-12">
-                                                <small class="text-muted text-uppercase d-block mb-1"
-                                                    style="font-size: 11px;">Pain Points & Current System</small>
-                                                @if(!empty($lead->pain_points))
-                                                    @php
-                                                        $plainText = strip_tags($lead->pain_points);
-                                                        $hasLongText = strlen($plainText) > 150;
-                                                    @endphp
-                                                    <div class="p-3 bg-light rounded text-dark fs-14" style="min-height: 50px;">
-                                                        @if($hasLongText)
-                                                            @php
-                                                                $truncatedText = mb_substr($plainText, 0, 150);
-                                                            @endphp
-                                                            <span id="pain-points-short-{{ $lead->id }}">
-                                                                {{ $truncatedText }}...
-                                                                <a href="javascript:void(0);" 
-                                                                   class="fw-semibold ms-1" 
-                                                                   style="color: #006FC9; text-decoration: none;"
-                                                                   onclick="toggleInlinePP({{ $lead->id }}, true)">Read More</a>
-                                                            </span>
-                                                            <span id="pain-points-full-{{ $lead->id }}" style="display: none;">
-                                                                {!! $lead->pain_points !!}
-                                                                <a href="javascript:void(0);" 
-                                                                   class="fw-semibold ms-1" 
-                                                                   style="color: #006FC9; text-decoration: none;"
-                                                                   onclick="toggleInlinePP({{ $lead->id }}, false)">Read Less</a>
-                                                            </span>
-                                                        @else
-                                                            {!! $lead->pain_points !!}
-                                                        @endif
-                                                    </div>
-                                                @else
-                                                    <div class="p-3 bg-light rounded text-muted fs-14">N/A</div>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="tab-pane fade" id="followup-{{ $lead->id }}" role="tabpanel">
-                                        @php
-                                            $today = \Carbon\Carbon::today();
-
-                                            $Followups = $lead->messages->filter(function ($item) use ($today) {
-                                                return $item->next_followup_date &&
-                                                    \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->gte($today) &&
-                                                    $item->is_done == 0;
-                                            });
-
-                                            $todayActivities = $lead->messages->filter(function ($item) {
-                                                return (
-                                                    ($item->created_at && \Carbon\Carbon::parse($item->created_at)->isToday())
-                                                    ||
-                                                    ($item->updated_at && \Carbon\Carbon::parse($item->updated_at)->isToday())
-                                                );
-                                            });
-
-                                            $previousActivities = $lead->messages->filter(function ($item) {
-                                                return $item->created_at &&
-                                                    \Carbon\Carbon::parse($item->created_at)->lt(\Carbon\Carbon::today());
-                                            })->sortByDesc('created_at');
-
-                                            $overdueFollowups = $lead->messages->filter(
-                                                fn($item) =>
-                                                $item->next_followup_date &&
-                                                (
-                                                    \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->lt($today)
-                                                    || (
-                                                        \Carbon\Carbon::parse($item->next_followup_date)->startOfDay()->gte($today)
-                                                        && $item->is_done == 1
-                                                    )
-                                                )
-                                            );
-
-                                            $doneFollowups = $lead->messages->filter(function ($item) {
-                                                return $item->is_done == 1;
-                                            });
-                                        @endphp
-
-
-                                        <div class="container-fluid mt-3">
-                                            <div class="followup-main-scroll">
-                                                <div class="row g-3">
-
-                                                    <!-- TODAY -->
-                                                    <div class="col-lg-3 col-md-6 col-12">
-                                                        <div class="p-2 border-end h-100">
-                                                            <h6 class="text-brand fw-semibold mb-3">Planned Activities</h6>
-                                                            @forelse($Followups as $followup)
-                                                                @php
-                                                                    $date = \Carbon\Carbon::parse($followup->next_followup_date)->startOfDay();
-                                                                    $today = \Carbon\Carbon::today();
-                                                                    if ($date->eq($today)) {
-                                                                        $label = 'Today';
-                                                                        $class = 'text-brand';
-                                                                    } else {
-                                                                        $days = $today->diffInDays($date);
-                                                                        $label = 'Due in ' . $days . ' day' . ($days > 1 ? 's' : '');
-                                                                        $class = 'text-success';
-                                                                    }
-                                                                @endphp
-
-                                                                <div class="activity-item mb-3">
-                                                                    <div class="fw-semibold d-flex gap-1 position-relative">
-
-                                                                        <span class="{{ $class }}"> {{ $label }} : </span> for <span
-                                                                            class="text_muted fw-bold">{{ $followup?->user->name ?? 'N/A' }}</span>
-                                                                        <button class="btn p-0 border-0 bg-transparent"
-                                                                            type="button" data-bs-toggle="collapse"
-                                                                            data-bs-target="#info{{ $followup->id }}">
-                                                                            <i class="feather feather-info text-muted"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                    <div class="collapse mt-2" id="info{{ $followup->id }}">
-                                                                        <div class="border rounded p-2 bg-light"
-                                                                            style="font-size: 12px; max-width: 350px;">
-
-                                                                            <div><strong>Message:</strong> <span
-                                                                                    class="text-muted">{{ $followup->message ?? '-' }}</span>
-                                                                            </div>
-                                                                            <div><strong>Date:</strong> <span
-                                                                                    class="text-muted">{{ \Carbon\Carbon::parse($followup->next_followup_date)->format('d M Y h:i A') }}</span>
-                                                                            </div>
-                                                                            <div><strong>Status:</strong> <span
-                                                                                    class="text-muted">{{ $followup->bucket ?? '-' }}</span>
-                                                                            </div>
-                                                                            <div><strong>Sub Status:</strong> <span
-                                                                                    class="text-muted">{{ $followup->status ?? '-' }}</span>
-                                                                            </div>
-                                                                            <div><strong>Created By:</strong> <span
-                                                                                    class="text-muted">{{ $followup?->user->name ?? '-' }}</span>
-                                                                            </div>
-                                                                            <div><strong>Followup Type:</strong> <span
-                                                                                    class="text-muted">{{ $followup->followup_type ?? '-' }}</span>
-                                                                            </div>
-
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="d-flex gap-3 mt-1">
-
-                                                                        @if($followup->is_done == 0)
-                                                                            <button type="button" onclick="openDoneModal(this)"
-                                                                                data-id="{{ $followup->id }}"
-                                                                                class="d-flex align-items-center gap-1 p-0 border-0 bg-transparent">
-
-                                                                                <i
-                                                                                    class="feather feather-check-circle text-success"></i>
-                                                                                <span class="text-muted"
-                                                                                    style="font-size: 12px;">Done</span>
-                                                                            </button>
-                                                                        @endif
-
-                                                                        <button type="button"
-                                                                            class="d-flex align-items-center gap-1 p-0 border-0 bg-transparent"
-                                                                            data-bs-toggle="offcanvas"
-                                                                            data-bs-target="#snoozeOffcanvas-{{ $followup->id }}">
-
-                                                                            <i class="feather feather-clock text-brand"></i>
-                                                                            <span class="text-muted"
-                                                                                style="font-size: 12px;">Reschedule</span>
-                                                                        </button>
-
-                                                                    </div>
-
-                                                                </div>
-                                                                <div class="offcanvas offcanvas-end" tabindex="-1"
-                                                                    id="snoozeOffcanvas-{{ $followup->id }}"
-                                                                    aria-labelledby="snoozeOffcanvasLabel-{{ $followup->id }}"
-                                                                    style="width: 400px;">
-                                                                    <div class="offcanvas-header border-bottom bg-light py-3">
-                                                                        <h6 class="offcanvas-title d-flex align-items-center gap-2 fw-bold text-dark"
-                                                                            id="editStatusOffcanvasLabel-{{ $followup->id }}">
-                                                                            <i
-                                                                                class="fa-solid fa-clipboard-list text-secondary"></i>
-                                                                            Edit Followup for <span
-                                                                                class="text-capitalize">{{ optional($followup->lead->user)->name ?? 'User' }}</span>
-                                                                        </h6>
-                                                                        <button type="button" class="btn-close text-reset"
-                                                                            data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                                                                    </div>
-
-                                                                    <div class="offcanvas-body p-4 bg-white">
-                                                                        <form
-                                                                            action="{{ route('lead.callbackUpdate', $followup->id) }}"
-                                                                            method="POST" enctype="multipart/form-data">
-                                                                            @csrf
-                                                                            <div class="mb-4">
-                                                                                <label class="form-label text-muted small mb-1"
-                                                                                    style="font-size: 12px;">Follow Up Type</label>
-                                                                                <select
-                                                                                    class="form-select bg-light border-0 shadow-sm"
-                                                                                    name="followup_type" style="font-size: 14px;">
-                                                                                    <option value="" disabled selected>WhatsApp
-                                                                                        Follow Up</option>
-                                                                                    <option value="WhatsApp Call" {{ $followup->followup_type == 'WhatsApp Call' ? 'selected' : '' }}>WhatsApp Call</option>
-                                                                                    <option value="Call" {{ $followup->followup_type == 'Call' ? 'selected' : '' }}>Call</option>
-                                                                                    <option value="Whatsapp" {{ $followup->followup_type == 'Whatsapp' ? 'selected' : '' }}>Whatsapp</option>
-                                                                                </select>
-                                                                            </div>
-
-                                                                            <div class="mb-4">
-                                                                                <label class="form-label text-muted small mb-1"
-                                                                                    style="font-size: 12px;">Next Follow-up
-                                                                                    Date</label>
-                                                                                <input type="datetime-local"
-                                                                                    class="form-control bg-light border-0 shadow-sm"
-                                                                                    name="next_followup_date" value=""
-                                                                                    style="font-size: 14px;">
-                                                                            </div>
-
-                                                                            <div class="mb-4">
-                                                                                <label class="form-label text-muted small mb-1"
-                                                                                    style="font-size: 12px;">Add Comment /
-                                                                                    Message</label>
-                                                                                <textarea
-                                                                                    class="form-control bg-light border-0 shadow-sm"
-                                                                                    name="message" rows="3"
-                                                                                    placeholder="Write a comment..."
-                                                                                    style="font-size: 14px; resize: none;"></textarea>
-                                                                            </div>
-
-                                                                            <div
-                                                                                class="d-flex justify-content-end gap-3 pt-3 mt-4 border-top">
-                                                                                <button type="button"
-                                                                                    class="btn btn-white text-secondary fw-bold border px-4"
-                                                                                    data-bs-dismiss="offcanvas"
-                                                                                    style="font-size: 13px;">CLOSE</button>
-                                                                                <button type="submit"
-                                                                                    class="btn text-white fw-bold px-4"
-                                                                                    style="background-color: #006FC9; font-size: 13px; border-radius: 4px;">UPDATE
-                                                                                    DETAILS</button>
-                                                                            </div>
-                                                                        </form>
-                                                                    </div>
-                                                                </div>
-
-                                                            @empty
-                                                                <small class="text-muted">No followups</small>
-                                                            @endforelse
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- Today Activity -->
-                                                    <div class="col-lg-3 col-md-6 col-12">
-                                                        <div class="p-1 border-end h-100">
-                                                            <h6 class="text-success fw-semibold mb-3">Today Activity</h6>
-
-                                                            @forelse($todayActivities as $followup)
-
-                                                                <div class="activity-item mb-3">
-
-                                                                    <!-- HEADER -->
-                                                                    <div
-                                                                        class="fw-semibold d-flex align-items-center gap-1 position-relative">
-                                                                        <span
-                                                                            class="text_muted fw-bold">{{ $followup?->user->name ?? 'N/A' }}
-                                                                        </span>
-                                                                        <span class="text-muted" style="font-size: 11px;">
-                                                                            {{ \Carbon\Carbon::parse($followup->created_at)->format('g:i A') }}
-                                                                        </span>
-
-                                                                    </div>
-
-                                                                    <!-- CONTENT (NEW) -->
-                                                                    <div class="mt-1">
-                                                                        <div class="fw-semibold" style="font-size: 13px;">
-                                                                            <strong>Followup Type :
-                                                                            </strong>{{ $followup->followup_type ?? 'N/A' }}
-                                                                        </div>
-                                                                        <div class="text-muted" style="font-size: 12px;">
-                                                                            {{ $followup->message ?? '-' }}
-                                                                        </div>
-                                                                    </div>
-
-                                                                </div>
-
-                                                            @empty
-                                                                <small class="text-muted">No activity today</small>
-                                                            @endforelse
-
-                                                        </div>
-                                                    </div>
-
-
-                                                    <div class="col-lg-3 col-md-6 col-12">
-                                                        <div class="p-1 border-end h-100">
-                                                            <h6 class="text-primary fw-semibold mb-3">Past Activity</h6>
-
-                                                            @forelse($previousActivities as $followup)
-
-                                                                <div class="activity-item mb-3">
-
-                                                                    <div class="fw-semibold d-flex align-items-center gap-1">
-                                                                        <span
-                                                                            class="fw-bold text_muted">{{ $followup?->user->name ?? 'N/A' }}</span>
-
-                                                                        <span class="text-muted" style="font-size:11px;">
-                                                                            {{ \Carbon\Carbon::parse($followup->created_at)->format('d M Y g:i A') }}
-                                                                        </span>
-                                                                    </div>
-
-                                                                    <div class="mt-1">
-                                                                        <div style="font-size:13px;">
-                                                                            <strong>Followup Type :</strong>
-                                                                            {{ $followup->followup_type ?? 'N/A' }}
-                                                                        </div>
-
-                                                                        <div class="text-muted" style="font-size:12px;">
-                                                                            {{ $followup->message ?? '-' }}
-                                                                        </div>
-                                                                    </div>
-
-                                                                </div>
-
-                                                            @empty
-                                                                <small class="text-muted">No previous activity</small>
-                                                            @endforelse
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- DONE -->
-                                                    <div class="col-lg-3 col-md-6 col-12">
-                                                        <div class="p-1 h-100">
-                                                            <h6 class="text-danger fw-semibold mb-3">Overdue / Done</h6>
-
-                                                            @forelse($overdueFollowups as $followup)
-
-                                                                <div class="activity-item mb-3">
-
-                                                                    @if($followup->is_done == 0)
-
-                                                                        @php
-                                                                            $date = \Carbon\Carbon::parse($followup->next_followup_date)->startOfDay();
-                                                                            $days = $date->diffInDays(\Carbon\Carbon::today());
-                                                                        @endphp
-
-                                                                        <div class="fw-semibold d-flex gap-1">
-                                                                            <span class="text-danger">
-                                                                                Overdue by {{ $days }} day{{ $days > 1 ? 's' : '' }} :
-                                                                            </span>
-                                                                            for <span
-                                                                                class="fw-bold text_muted">{{ $followup?->user->name ?? 'N/A' }}</span>
-
-                                                                            <button class="btn p-0 border-0 bg-transparent"
-                                                                                type="button" data-bs-toggle="collapse"
-                                                                                data-bs-target="#info{{ $followup->id }}">
-                                                                                <i class="feather feather-info text-muted"></i>
-                                                                            </button>
-                                                                        </div>
-                                                                        <div class="collapse mt-2" id="info{{ $followup->id }}">
-                                                                            <div class="border rounded p-2 bg-light"
-                                                                                style="font-size: 12px; max-width: 350px;">
-
-                                                                                <div><strong>Message:</strong> <span
-                                                                                        class="text-muted">{{ $followup->message ?? '-' }}</span>
-                                                                                </div>
-                                                                                <div><strong>Date:</strong> <span
-                                                                                        class="text-muted">{{ \Carbon\Carbon::parse($followup->next_followup_date)->format('d M Y h:i A') }}</span>
-                                                                                </div>
-                                                                                <div><strong>Status:</strong> <span
-                                                                                        class="text-muted">{{ $followup->bucket ?? '-' }}</span>
-                                                                                </div>
-                                                                                <div><strong>Sub Status:</strong> <span
-                                                                                        class="text-muted">{{ $followup->status ?? '-' }}</span>
-                                                                                </div>
-                                                                                <div><strong>Created By:</strong> <span
-                                                                                        class="text-muted">{{ $followup?->user->name ?? '-' }}</span>
-                                                                                </div>
-                                                                                <div><strong>Followup Type:</strong> <span
-                                                                                        class="text-muted">{{ $followup->followup_type ?? '-' }}</span>
-                                                                                </div>
-
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="d-flex gap-3 mt-1">
-
-                                                                            @if($followup->is_done == 0)
-                                                                                <button type="button" onclick="openDoneModal(this)"
-                                                                                    data-id="{{ $followup->id }}"
-                                                                                    class="d-flex align-items-center gap-1 p-0 border-0 bg-transparent">
-
-                                                                                    <i
-                                                                                        class="feather feather-check-circle text-success"></i>
-                                                                                    <span class="text-muted"
-                                                                                        style="font-size: 12px;">Done</span>
-                                                                                </button>
-                                                                            @endif
-
-                                                                            <button type="button"
-                                                                                class="d-flex align-items-center gap-1 p-0 border-0 bg-transparent"
-                                                                                data-bs-toggle="offcanvas"
-                                                                                data-bs-target="#snoozeOffcanvas-{{ $followup->id }}">
-
-                                                                                <i class="feather feather-clock text-brand"></i>
-                                                                                <span class="text-muted"
-                                                                                    style="font-size: 12px;">Reschedule</span>
-                                                                            </button>
-
-                                                                        </div>
-                                                                        <div class="offcanvas offcanvas-end" tabindex="-1"
-                                                                            id="snoozeOffcanvas-{{ $followup->id }}"
-                                                                            aria-labelledby="snoozeOffcanvasLabel-{{ $followup->id }}"
-                                                                            style="width: 400px;">
-                                                                            <div class="offcanvas-header border-bottom bg-light py-3">
-                                                                                <h6 class="offcanvas-title d-flex align-items-center gap-2 fw-bold text-dark"
-                                                                                    id="editStatusOffcanvasLabel-{{ $followup->id }}">
-                                                                                    <i
-                                                                                        class="fa-solid fa-clipboard-list text-secondary"></i>
-                                                                                    Edit Followup for <span
-                                                                                        class="text-capitalize">{{ optional($followup->lead->user)->name ?? 'User' }}</span>
-                                                                                </h6>
-                                                                                <button type="button" class="btn-close text-reset"
-                                                                                    data-bs-dismiss="offcanvas"
-                                                                                    aria-label="Close"></button>
-                                                                            </div>
-
-                                                                            <div class="offcanvas-body p-4 bg-white">
-                                                                                <form
-                                                                                    action="{{ route('lead.callbackUpdate', $followup->id) }}"
-                                                                                    method="POST" enctype="multipart/form-data">
-                                                                                    @csrf
-                                                                                    <div class="mb-4">
-                                                                                        <label class="form-label text-muted small mb-1"
-                                                                                            style="font-size: 12px;">Follow Up
-                                                                                            Type</label>
-                                                                                        <select
-                                                                                            class="form-select bg-light border-0 shadow-sm"
-                                                                                            name="followup_type"
-                                                                                            style="font-size: 14px;">
-                                                                                            <option value="" disabled selected>WhatsApp
-                                                                                                Follow Up</option>
-                                                                                            <option value="WhatsApp Call" {{ $followup->followup_type == 'WhatsApp Call' ? 'selected' : '' }}>WhatsApp Call
-                                                                                            </option>
-                                                                                            <option value="Call" {{ $followup->followup_type == 'Call' ? 'selected' : '' }}>Call</option>
-                                                                                            <option value="Whatsapp" {{ $followup->followup_type == 'Whatsapp' ? 'selected' : '' }}>Whatsapp</option>
-                                                                                        </select>
-                                                                                    </div>
-
-                                                                                    <div class="mb-4">
-                                                                                        <label class="form-label text-muted small mb-1"
-                                                                                            style="font-size: 12px;">Next Follow-up
-                                                                                            Date</label>
-                                                                                        <input type="datetime-local"
-                                                                                            class="form-control bg-light border-0 shadow-sm"
-                                                                                            name="next_followup_date" value=""
-                                                                                            style="font-size: 14px;">
-                                                                                    </div>
-
-                                                                                    <div class="mb-4">
-                                                                                        <label class="form-label text-muted small mb-1"
-                                                                                            style="font-size: 12px;">Add Comment /
-                                                                                            Message</label>
-                                                                                        <textarea
-                                                                                            class="form-control bg-light border-0 shadow-sm"
-                                                                                            name="message" rows="3"
-                                                                                            placeholder="Write a comment..."
-                                                                                            style="font-size: 14px; resize: none;"></textarea>
-                                                                                    </div>
-
-                                                                                    <div
-                                                                                        class="d-flex justify-content-end gap-3 pt-3 mt-4 border-top">
-                                                                                        <button type="button"
-                                                                                            class="btn btn-white text-secondary fw-bold border px-4"
-                                                                                            data-bs-dismiss="offcanvas"
-                                                                                            style="font-size: 13px;">CLOSE</button>
-                                                                                        <button type="submit"
-                                                                                            class="btn text-white fw-bold px-4"
-                                                                                            style="background-color: #006FC9; font-size: 13px; border-radius: 4px;">UPDATE
-                                                                                            DETAILS</button>
-                                                                                    </div>
-                                                                                </form>
-                                                                            </div>
-                                                                        </div>
-
-
-                                                                    @else
-
-                                                                        <!-- ✅ DONE STYLE -->
-                                                                        <div class="fw-semibold d-flex gap-1">
-                                                                            <span class="text-success">
-                                                                                Done :
-                                                                            </span>
-                                                                            by <span
-                                                                                class="fw-bold text_muted">{{ $followup?->user->name ?? 'N/A' }}</span>
-                                                                            <span class="text-muted" style="font-size: 11px;">
-                                                                                {{\Carbon\Carbon::parse($followup->created_at)->format('d M Y')}}
-                                                                                {{ \Carbon\Carbon::parse($followup->created_at)->format('g:i A') }}
-                                                                            </span>
-                                                                        </div>
-                                                                        <small class="text-muted">
-                                                                            {{ $followup->message ?? '-' }}
-                                                                        </small>
-
-                                                                    @endif
-
-                                                                </div>
-
-                                                            @empty
-                                                                <small class="text-muted">No overdue</small>
-                                                            @endforelse
-
-                                                        </div>
-                                                    </div>
-
-                                                </div>
-                                             </div>
-                                         </div>
-                                     </div>
-
-                                     <div class="tab-pane fade" id="documents-{{ $lead->id }}" role="tabpanel">
-                                         <div class="row g-4">
-                                             <!-- Lead Form Documents -->
-                                             <div class="col-md-6">
-                                                 <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px;">
-                                                     <div class="card-body p-3">
-                                                         <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
-                                                             <i class="feather feather-folder text-primary"></i> Lead Form Documents
-                                                         </h6>
-                                                         @if(!empty($lead->documents) && count($lead->documents) > 0)
-                                                             <div class="d-flex flex-column gap-2">
-                                                                 @foreach($lead->documents as $doc)
-                                                                     @php
-                                                                         $docPath = is_array($doc) ? ($doc['path'] ?? '') : $doc;
-                                                                         $docName = is_array($doc) ? ($doc['name'] ?? basename($docPath)) : basename($docPath);
-                                                                     @endphp
-                                                                     <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded">
-                                                                         <div class="d-flex align-items-center gap-2 text-truncate me-2">
-                                                                             <i class="feather feather-file-text text-primary fs-16"></i>
-                                                                             <span class="fs-13 text-dark text-truncate fw-medium">{{ $docName }}</span>
-                                                                         </div>
-                                                                         <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
-                                                                             <a href="{{ route('document.view', ['path' => $docPath]) }}" target="_blank" class="btn btn-xs btn-outline-info d-flex align-items-center gap-1 px-2 py-1" style="font-size: 11px;">
-                                                                                 <i class="feather feather-eye"></i> View
-                                                                             </a>
-                                                                             <a href="{{ route('document.download', ['path' => $docPath, 'name' => $docName]) }}" class="btn btn-xs btn-primary d-flex align-items-center gap-1 text-white px-2 py-1" style="font-size: 11px;">
-                                                                                 <i class="feather feather-download"></i> Download
-                                                                             </a>
-                                                                         </div>
-                                                                     </div>
-                                                                 @endforeach
-                                                             </div>
-                                                         @else
-                                                             <div class="text-muted fs-13 italic p-2 bg-white border rounded text-center">No lead form documents uploaded.</div>
-                                                         @endif
-                                                     </div>
-                                                 </div>
-                                             </div>
-
-                                             <!-- Followup Documents -->
-                                             <div class="col-md-6">
-                                                 <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px;">
-                                                     <div class="card-body p-3">
-                                                         <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
-                                                             <i class="feather feather-paperclip text-primary"></i> Followup Documents
-                                                         </h6>
-                                                         @php
-                                                             $allFollowupDocs = [];
-                                                             if(isset($lead->messages)) {
-                                                                 foreach($lead->messages as $msg) {
-                                                                     if(!empty($msg->followup_documents) && is_array($msg->followup_documents)) {
-                                                                         foreach($msg->followup_documents as $fdoc) {
-                                                                             $allFollowupDocs[] = [
-                                                                                 'doc' => $fdoc,
-                                                                                 'date' => $msg->created_at,
-                                                                                 'user' => optional($msg->user)->name ?? 'User'
-                                                                             ];
-                                                                         }
-                                                                     }
-                                                                 }
-                                                             }
-                                                         @endphp
-
-                                                         @if(count($allFollowupDocs) > 0)
-                                                             <div class="d-flex flex-column gap-2">
-                                                                 @foreach($allFollowupDocs as $item)
-                                                                     @php
-                                                                         $fdoc = $item['doc'];
-                                                                         $docPath = is_array($fdoc) ? ($fdoc['path'] ?? '') : $fdoc;
-                                                                         $docName = is_array($fdoc) ? ($fdoc['name'] ?? basename($docPath)) : basename($docPath);
-                                                                     @endphp
-                                                                     <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded">
-                                                                         <div class="d-flex align-items-center gap-2 text-truncate me-2">
-                                                                             <i class="feather feather-file-text text-success fs-16"></i>
-                                                                             <div class="text-truncate">
-                                                                                 <span class="fs-13 text-dark d-block text-truncate fw-medium">{{ $docName }}</span>
-                                                                                 <small class="text-muted fs-11" style="font-size: 10px;">By {{ $item['user'] }} on {{ \Carbon\Carbon::parse($item['date'])->format('d M Y h:i A') }}</small>
-                                                                             </div>
-                                                                         </div>
-                                                                         <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
-                                                                             <a href="{{ route('document.view', ['path' => $docPath]) }}" target="_blank" class="btn btn-xs btn-outline-info d-flex align-items-center gap-1 px-2 py-1" style="font-size: 11px;">
-                                                                                 <i class="feather feather-eye"></i> View
-                                                                             </a>
-                                                                             <a href="{{ route('document.download', ['path' => $docPath, 'name' => $docName]) }}" class="btn btn-xs btn-primary d-flex align-items-center gap-1 text-white px-2 py-1" style="font-size: 11px;">
-                                                                                 <i class="feather feather-download"></i> Download
-                                                                             </a>
-                                                                         </div>
-                                                                     </div>
-                                                                 @endforeach
-                                                             </div>
-                                                         @else
-                                                             <div class="text-muted fs-13 italic p-2 bg-white border rounded text-center">No followup documents uploaded.</div>
-                                                         @endif
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     </div>
-
-                                 </div>
-                             </div>
-                         </div>
                         <div class="modal fade" id="DoneModal" tabindex="-1" aria-hidden="true">
                             <div class="modal-dialog modal-md modal-dialog-centered">
                                 <div class="modal-content border-0 shadow-lg">
@@ -4499,7 +3299,1120 @@
                     alert('Failed to update engagement status');
                 });
             }
+
+            function openEditModalLazy(leadId) {
+                fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.lead) {
+                            let dummyEl = document.createElement('div');
+                            dummyEl.setAttribute('data-lead', JSON.stringify(data.lead));
+                            dummyEl.setAttribute('data-user', JSON.stringify(data.user || {}));
+                            openEditModal(dummyEl);
+                        }
+                    });
+            }
+
+            function openViewDetailsModalLazy(leadId) {
+                fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.lead) {
+                            let lead = data.lead;
+                            let user = data.user || {};
+                            let owner = lead.owner || {};
+                            let dummyEl = document.createElement('div');
+                            dummyEl.setAttribute('data-lead', JSON.stringify(lead));
+                            dummyEl.setAttribute('data-user', JSON.stringify(user));
+                            dummyEl.setAttribute('data-owner', JSON.stringify(owner));
+                            dummyEl.setAttribute('data-bucket', (lead.bucket && lead.bucket.name) ? lead.bucket.name : 'N/A');
+                            dummyEl.setAttribute('data-status', lead.lead_status || 'N/A');
+                            dummyEl.setAttribute('data-engagement', lead.lead_engagement_status || 'N/A');
+                            openViewDetailsModal(dummyEl);
+                        }
+                    });
+            }
+
+            // Global Lazy Loading & Offcanvas Helpers
+            function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId) {
+                let offcanvasEl = document.getElementById('editStatusOffcanvas');
+                let form = document.getElementById('sharedQuickUpdateForm');
+                form.action = "{{ url('/modern-leads/quick-update') }}/" + leadId;
+                
+                let engSelect = form.querySelector('[name="lead_engagement_status"]');
+                if (engSelect) engSelect.value = engagementStatus || '';
+                
+                let statusSelect = form.querySelector('[name="lead_status"]');
+                if (statusSelect) statusSelect.value = leadStatus || '';
+                
+                let bucketInput = form.querySelector('[name="lead_bucket_id"]');
+                if (bucketInput) bucketInput.value = bucketId || 46;
+
+                let attachContainer = document.getElementById('sharedExistingAttachments');
+                if (attachContainer) attachContainer.innerHTML = '';
+
+                fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            document.getElementById('sharedEditStatusLeadName').textContent = data.user?.name || 'User';
+                            if (data.messages && data.messages.length > 0) {
+                                let lastMsg = data.messages[0];
+                                if (lastMsg.followup_documents && lastMsg.followup_documents.length > 0) {
+                                    let html = '<span class="fs-10 text-muted fw-semibold uppercase">Existing Attachments:</span>';
+                                    lastMsg.followup_documents.forEach(doc => {
+                                        let path = typeof doc === 'object' ? doc.path : doc;
+                                        let name = typeof doc === 'object' ? doc.name : path.split('/').pop();
+                                        let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(path);
+                                        let downloadUrl = "{{ route('document.download') }}?path=" + encodeURIComponent(path) + "&name=" + encodeURIComponent(name);
+                                        html += `<div class="p-2 border rounded-2 bg-light d-flex align-items-center justify-content-between shadow-2xs mt-1" style="font-size: 11px;">
+                                            <span class="text-truncate me-2 fw-medium text-dark"><i class="far fa-file-alt text-primary me-1"></i>${name}</span>
+                                            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                                <a href="${viewUrl}" target="_blank" class="btn btn-xs btn-light text-info p-1 px-2 rounded border text-decoration-none">View</a>
+                                                <a href="${downloadUrl}" class="btn btn-xs btn-light text-primary p-1 px-2 rounded border text-decoration-none">Download</a>
+                                            </div>
+                                        </div>`;
+                                    });
+                                    if (attachContainer) attachContainer.innerHTML = html;
+                                }
+                            }
+                        }
+                    });
+
+                let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+                bsOffcanvas.show();
+            }
+
+            function openHistoryOffcanvas(leadId) {
+                let offcanvasEl = document.getElementById('proposalSentOffcanvas');
+                let titleName = document.getElementById('sharedHistoryLeadName');
+                let body = document.getElementById('sharedHistoryBody');
+                
+                titleName.textContent = 'Loading...';
+                body.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>`;
+                
+                let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+                bsOffcanvas.show();
+
+                fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            titleName.textContent = data.user?.name || 'User';
+                            let lead = data.lead || {};
+                            let currentBucket = (lead.bucket && lead.bucket.name) ? lead.bucket.name : 'N/A';
+                            let currentStatus = lead.lead_status || 'N/A';
+
+                            if (!data.messages || data.messages.length === 0) {
+                                body.innerHTML = `
+                                    <div class="card border-0 shadow-2xs rounded-3 mb-3 bg-white">
+                                        <div class="card-body p-3">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-1">Current Active Stage</span>
+                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                <span class="badge bg-primary-subtle text-primary border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-layer-group me-1"></i> ${currentBucket}</span>
+                                                <span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-flag me-1"></i> ${currentStatus}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-center py-5 bg-white rounded-3 border">
+                                        <i class="fa-regular fa-folder-open text-muted fs-1 mb-2 opacity-50"></i>
+                                        <p class="text-muted fs-13 mb-0">No history activity logged yet.</p>
+                                    </div>`;
+                                return;
+                            }
+
+                            let html = `
+                            <!-- Top Lead Stage Overview Card -->
+                            <div class="card border-0 shadow-2xs rounded-3 mb-3 bg-white">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="fs-11 text-muted text-uppercase fw-bold" style="letter-spacing: 0.5px;">Current Stage Tracking</span>
+                                        <span class="badge bg-light text-secondary border fs-10 px-2 py-0.5">${data.messages.length} Logs</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <span class="badge bg-primary-subtle text-primary border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-layer-group me-1"></i> Bucket: ${currentBucket}</span>
+                                        <span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-flag me-1"></i> Status: ${currentStatus}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- History Stage Tracking Timeline -->
+                            <div class="history-timeline-container position-relative ms-2 ps-3" style="border-left: 2px dashed #cbd5e1;">`;
+
+                            data.messages.forEach(msg => {
+                                let isDone = msg.is_done == 1;
+                                let dotColor = isDone ? '#10b981' : (msg.next_followup_date ? '#006FC9' : '#64748b');
+
+                                html += `
+                                <div class="history-item position-relative mb-3.5">
+                                    <!-- Timeline Dot Node -->
+                                    <div class="position-absolute rounded-circle bg-white shadow-2xs d-flex align-items-center justify-content-center"
+                                         style="left: -22px; top: 12px; width: 18px; height: 18px; border: 3px solid ${dotColor}; z-index: 2;">
+                                        <div class="rounded-circle" style="width: 5px; height: 5px; background-color: ${dotColor};"></div>
+                                    </div>
+
+                                    <!-- Card Box -->
+                                    <div class="card border shadow-2xs rounded-3 bg-white">
+                                        <div class="card-body p-3">
+                                            <!-- Status & Sub Status Stage Tracking Pill Bar -->
+                                            ${(msg.bucket || msg.status) ? `
+                                                <div class="p-2 bg-light rounded-2 border d-flex align-items-center gap-2 mb-2 flex-wrap fs-11">
+                                                    <i class="fas fa-code-branch text-primary fs-12"></i>
+                                                    <span class="fw-bold text-dark">Stage Track:</span>
+                                                    ${msg.bucket ? `<span class="badge bg-white text-dark border fw-medium px-2 py-0.5"><i class="fas fa-layer-group text-primary me-1"></i> ${msg.bucket}</span>` : ''}
+                                                    ${(msg.bucket && msg.status) ? `<i class="fas fa-chevron-right text-muted fs-10"></i>` : ''}
+                                                    ${msg.status ? `<span class="badge bg-white text-dark border fw-medium px-2 py-0.5"><i class="fas fa-flag text-success me-1"></i> ${msg.status}</span>` : ''}
+                                                </div>
+                                            ` : ''}
+
+                                            <!-- Message Remark Body -->
+                                            ${msg.message ? `
+                                                <p class="text-dark mb-2 fs-13" style="line-height: 1.5; word-wrap: break-word;">${msg.message}</p>
+                                            ` : ''}
+
+                                            <!-- Next Followup Scheduled -->
+                                            ${msg.next_followup_date ? `
+                                                <div class="p-2 px-2.5 rounded-2 d-inline-flex align-items-center gap-2 mb-2" style="background-color: #eff6ff; border-left: 3px solid #006FC9; font-size: 12px;">
+                                                    <i class="far fa-calendar-check text-primary"></i>
+                                                    <span class="text-primary fw-semibold">Follow-up: <strong>${msg.next_followup_date}</strong></span>
+                                                </div>
+                                            ` : ''}
+
+                                            <!-- Call Recording Player -->
+                                            ${msg.call_recording ? `
+                                                <div class="p-2 rounded-2 bg-light border d-flex align-items-center gap-2 mt-2 mb-2">
+                                                    <i class="fas fa-volume-high text-success fs-13"></i>
+                                                    <audio controls style="width:100%; height:28px;">
+                                                        <source src="${msg.call_recording}" type="audio/mpeg">
+                                                    </audio>
+                                                </div>
+                                            ` : ''}
+
+                                            <!-- Attached Followup Documents -->
+                                            ${msg.followup_documents && msg.followup_documents.length > 0 ? `
+                                                <div class="d-flex align-items-center gap-1.5 flex-wrap mt-2 pt-2 border-top">
+                                                    <small class="text-muted fw-bold fs-10">FILES:</small>
+                                                    ${msg.followup_documents.map(doc => {
+                                                        let docPath = typeof doc === 'object' ? doc.path : doc;
+                                                        let docName = typeof doc === 'object' ? doc.name : docPath.split('/').pop();
+                                                        let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
+                                                        return `<a href="${viewUrl}" target="_blank" class="badge bg-light text-dark border p-1 rounded d-inline-flex align-items-center gap-1 text-decoration-none fs-10">
+                                                            <i class="fas fa-paperclip text-primary"></i> ${docName}
+                                                        </a>`;
+                                                    }).join('')}
+                                                </div>
+                                            ` : ''}
+
+                                            <!-- Footer: User Avatar, Name & Timestamp -->
+                                            <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top fs-11">
+                                                <div class="d-flex align-items-center gap-1.5 fw-bold text-dark">
+                                                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style="width: 22px; height: 22px; font-size: 10px;">
+                                                        ${(msg.user_name || 'U').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span>${msg.user_name || 'User'}</span>
+                                                </div>
+                                                <div class="text-muted d-flex align-items-center gap-1">
+                                                    <i class="far fa-clock"></i> ${msg.created_at_formatted || 'N/A'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>`;
+                            });
+
+                            html += `</div>`;
+                            body.innerHTML = html;
+                        }
+                    });
+            }
+
+            function openWhatsAppOffcanvas(leadId, name, phone, image) {
+                let offcanvasEl = document.getElementById('whatsappSentOffcanvas');
+                document.getElementById('sharedWhatsAppName').textContent = name;
+                document.getElementById('sharedWhatsAppPhone').textContent = phone;
+                document.getElementById('sharedWhatsAppImg').src = image;
+                let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+                bsOffcanvas.show();
+            }
+
+            function openSMSOffcanvas(leadId, name, phone) {
+                let offcanvasEl = document.getElementById('SMSSentOffcanvas');
+                document.getElementById('sharedSMSName').textContent = name;
+                let numInput = document.getElementById('sharedSMSMobileNum');
+                if (numInput) numInput.value = phone;
+                let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+                bsOffcanvas.show();
+            }
+
+            function openTodoOffcanvas(leadId) {
+                let offcanvasEl = document.getElementById('todoOffcanvas');
+                let form = document.getElementById('sharedTodoForm');
+                form.action = "{{ url('/modern-leads/todo') }}/" + leadId;
+                let tasksContainer = document.getElementById('sharedTodoTasksContainer');
+                tasksContainer.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm" role="status"></div></div>`;
+                
+                let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+                bsOffcanvas.show();
+
+                fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            if (!data.todoTasks || data.todoTasks.length === 0) {
+                                tasksContainer.innerHTML = `<div class="text-center py-4"><p class="text-muted small">No To-Do tasks found for this lead.</p></div>`;
+                                return;
+                            }
+                            let html = '';
+                            data.todoTasks.forEach(task => {
+                                html += `<div class="card mb-3 shadow-none" style="border: 1px dashed #cbd5e1; border-radius: 8px;">
+                                    <div class="card-body p-3 d-flex align-items-center">
+                                        <div class="rounded text-center p-2 me-3 d-flex flex-column justify-content-center" style="background-color: #e6f0ff; color: #006FC9; min-width: 55px; height: 55px;">
+                                            <span class="fw-bold" style="font-size: 18px; line-height: 1;">${task.due_day}</span>
+                                            <span class="fw-bold text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">${task.due_month}</span>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center mb-1 gap-2">
+                                                <span class="fw-bold text-dark" style="font-size: 14px;">${task.summary || 'To-Do Task'}</span>
+                                                <span class="badge" style="background-color: #e6f0ff; color: #006FC9; font-size: 10px;">${task.status}</span>
+                                            </div>
+                                            <div class="text-muted text-uppercase fw-semibold" style="font-size: 11px;">${task.assignee_name}</div>
+                                            <div class="text-muted" style="font-size: 11px;">${task.due_time}</div>
+                                        </div>
+                                    </div>
+                                </div>`;
+                            });
+                            tasksContainer.innerHTML = html;
+                        }
+                    });
+            }
+
+            function loadLeadDetailsCollapse(leadId) {
+                let container = document.getElementById('details-content-' + leadId);
+                if (!container || container.getAttribute('data-loaded') === 'true') return;
+
+                fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            container.setAttribute('data-loaded', 'true');
+                            renderLeadDetailsTabs(container, data.lead, data.user, data.messages);
+                        }
+                    });
+            }
+
+            function renderLeadDetailsTabs(container, lead, user, messages) {
+                let leadId = lead.id;
+                let userName = user ? (user.name || 'N/A') : 'N/A';
+                let userEmail = user ? (user.email || 'N/A') : 'N/A';
+                let userPhone = user ? (user.contact_no || 'N/A') : 'N/A';
+
+                let categoryName = lead.category ? (lead.category.category_name || 'N/A') : 'N/A';
+                let country = lead.applying_country_for_a_visa || 'N/A';
+                let city = lead.city || (user ? user.city : '') || 'N/A';
+                let state = lead.state || 'N/A';
+                let pincode = lead.pincode || 'N/A';
+                let address = lead.address || 'N/A';
+                let empStrength = lead.employee_strength || 'N/A';
+                let industry = lead.industry || 'N/A';
+                let createdDate = lead.created_at || 'N/A';
+
+                let clientDetails = [];
+                if (lead.client_details) {
+                    try {
+                        clientDetails = typeof lead.client_details === 'string' ? JSON.parse(lead.client_details) : lead.client_details;
+                    } catch (e) { clientDetails = []; }
+                }
+
+                let platform = lead.platform || 'N/A';
+                let website = lead.website || '';
+                let businessName = lead.business_name || 'N/A';
+                let gstNumber = lead.gst_number || 'N/A';
+                let pageUrl = lead.page_url || '';
+                let product = lead.product || 'N/A';
+                let painPoints = lead.pain_points || 'N/A';
+
+                let todayStart = new Date();
+                todayStart.setHours(0,0,0,0);
+
+                let todayEnd = new Date();
+                todayEnd.setHours(23,59,59,999);
+
+                let plannedActivities = [];
+                let todayActivities = [];
+                let pastActivities = [];
+                let overdueOrDone = [];
+
+                if (messages && messages.length > 0) {
+                    messages.forEach(msg => {
+                        let msgDate = msg.created_at_raw ? new Date(msg.created_at_raw) : null;
+                        let fdate = msg.next_followup_date_raw ? new Date(msg.next_followup_date_raw) : null;
+
+                        if (fdate && fdate > todayEnd && (msg.is_done == 0 || !msg.is_done)) {
+                            plannedActivities.push(msg);
+                        }
+                        if ((msgDate && msgDate >= todayStart && msgDate <= todayEnd) || (fdate && fdate >= todayStart && fdate <= todayEnd)) {
+                            todayActivities.push(msg);
+                        }
+                        if (msgDate && msgDate < todayStart) {
+                            pastActivities.push(msg);
+                        }
+                        if ((fdate && fdate < todayStart && (msg.is_done == 0 || !msg.is_done)) || msg.is_done == 1) {
+                            overdueOrDone.push(msg);
+                        }
+                    });
+                }
+
+                let leadDocs = [];
+                if (lead.documents) {
+                    try {
+                        leadDocs = typeof lead.documents === 'string' ? JSON.parse(lead.documents) : lead.documents;
+                    } catch(e) { leadDocs = []; }
+                }
+
+                let followupDocs = [];
+                if (messages && messages.length > 0) {
+                    messages.forEach(msg => {
+                        if (msg.followup_documents && msg.followup_documents.length > 0) {
+                            msg.followup_documents.forEach(fdoc => {
+                                followupDocs.push({
+                                    doc: fdoc,
+                                    date: msg.created_at_formatted,
+                                    user: msg.user_name
+                                });
+                            });
+                        }
+                    });
+                }
+
+                let html = `
+                <ul class="nav nav-tabs border-bottom-0 mb-4 gap-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link lead-custom-tab active" id="personal-tab-${leadId}" data-bs-toggle="tab" data-bs-target="#personal-${leadId}" type="button" role="tab">Personal Details</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link lead-custom-tab" id="source-tab-${leadId}" data-bs-toggle="tab" data-bs-target="#source-${leadId}" type="button" role="tab">Source Details</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link lead-custom-tab" id="followup-tab-${leadId}" data-bs-toggle="tab" data-bs-target="#followup-${leadId}" type="button" role="tab">Followup Details</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link lead-custom-tab" id="documents-tab-${leadId}" data-bs-toggle="tab" data-bs-target="#documents-${leadId}" type="button" role="tab">Documents</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- 1. PERSONAL DETAILS TAB (Modern Card Grid) -->
+                    <div class="tab-pane fade show active" id="personal-${leadId}" role="tabpanel">
+                        <div class="p-2">
+                            <div class="row g-3">
+                                <!-- Category Name -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-tags"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Category</span>
+                                            <span class="badge bg-light text-primary border fs-12 fw-semibold px-2 py-0.5">${categoryName}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Full Name -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Full Name</span>
+                                            <span class="fs-13 text-dark fw-bold text-truncate d-block">${userName}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Email -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-envelope"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Email Address</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block" title="${userEmail}">${userEmail}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Mobile No -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-phone"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Mobile Number</span>
+                                            <span class="fs-13 text-dark fw-bold text-truncate d-block">${userPhone}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Country -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-globe-americas"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Country</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block">${country}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- City -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-city"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">City</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block">${city}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- State -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-map"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">State</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block">${state}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Pincode -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-hashtag"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Pincode</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block">${pincode}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Address -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-house"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Address</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block" title="${address}">${address}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Employee Strength -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-users"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Employee Strength</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block">${empStrength}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Industry -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-industry"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Industry</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block">${industry}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Lead Added On -->
+                                <div class="col-md-3 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                            <i class="fas fa-calendar-plus"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Lead Added On</span>
+                                            <span class="fs-13 text-dark fw-medium text-truncate d-block">${createdDate}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                ${Array.isArray(clientDetails) && clientDetails.length > 0 ? `
+                                    <div class="col-12 mt-3">
+                                        <hr class="my-3">
+                                        <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2" style="font-size: 14px;">
+                                            <i class="fas fa-user-gear"></i> Additional Client Contacts / Details
+                                        </h6>
+                                        <div class="row g-3">
+                                            ${clientDetails.map(contact => contact && (contact.name || contact.phone || contact.email) ? `
+                                                <div class="col-xl-4 col-md-6 col-12">
+                                                    <div class="card h-100 border shadow-2xs rounded-3 bg-white">
+                                                        <div class="card-body p-3">
+                                                            <div class="d-flex align-items-center gap-2.5 mb-2 pb-2 border-bottom">
+                                                                <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px; font-size: 13px;">
+                                                                    <i class="fas fa-user"></i>
+                                                                </div>
+                                                                <div class="text-truncate">
+                                                                    <h6 class="fw-bold text-dark mb-0 fs-13 text-truncate">${contact.name || 'N/A'}</h6>
+                                                                    <span class="badge bg-light text-secondary border fs-10 px-2 py-0.5">${contact.designation || 'No Designation'}</span>
+                                                                </div>
+                                                            </div>
+                                                            ${contact.email ? `<div class="d-flex align-items-center gap-2 mb-1.5 fs-12 text-muted"><i class="fas fa-envelope text-primary" style="width: 14px;"></i><span class="text-dark text-break">${contact.email}</span></div>` : ''}
+                                                            ${contact.phone ? `<div class="d-flex align-items-center gap-2 fs-12 text-muted"><i class="fas fa-phone text-success" style="width: 14px;"></i><span class="text-dark fw-medium">${contact.phone}</span></div>` : ''}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ` : '').join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. SOURCE DETAILS TAB (Modern Card Grid & Callout) -->
+                    <div class="tab-pane fade" id="source-${leadId}" role="tabpanel">
+                        <div class="p-2">
+                            <div class="row g-3">
+                                <!-- Source Platform -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-bullhorn"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Source Platform</span>
+                                            <span class="badge bg-light text-primary border fs-12 fw-semibold px-2.5 py-1">${platform}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Company Name -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-building"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Company / Business Name</span>
+                                            <span class="fs-14 text-dark fw-bold text-truncate d-block">${businessName}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GST Number -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-receipt"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">GST Number</span>
+                                            <span class="fs-14 text-dark fw-semibold text-truncate d-block">${gstNumber}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Website URL -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-globe"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Website</span>
+                                            ${website ? `<a href="${website.startsWith('http') ? website : 'https://' + website}" target="_blank" class="fs-13 text-primary fw-semibold text-decoration-none text-truncate d-inline-flex align-items-center gap-1"><i class="fas fa-external-link-alt fs-10"></i> ${website}</a>` : '<span class="fs-13 text-muted">N/A</span>'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Page URL / Landing Page -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-link"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Landing Page URL</span>
+                                            ${pageUrl ? `<a href="${pageUrl}" target="_blank" class="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1 fw-semibold"><i class="fas fa-arrow-up-right-from-square"></i> Visit Landing Page</a>` : '<span class="fs-13 text-muted">N/A</span>'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Product Interested -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-box"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Product</span>
+                                            <span class="badge bg-light text-dark border fs-12 fw-semibold px-2.5 py-1">${product}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Pain Points Callout Container -->
+                                <div class="col-12 mt-2">
+                                    <div class="p-3.5 rounded-3 border shadow-2xs" style="background: linear-gradient(135deg, #f8fafc 0%, #f0f7ff 100%); border-left: 4px solid #006FC9 !important;">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <i class="fas fa-quote-left text-primary fs-14"></i>
+                                            <h6 class="fs-12 text-uppercase fw-bold text-primary mb-0" style="letter-spacing: 0.5px;">Pain Points & Current System Context</h6>
+                                        </div>
+                                        <div class="text-dark fs-13" style="line-height: 1.6; word-wrap: break-word;">
+                                            ${painPoints && painPoints !== 'N/A' ? painPoints : '<span class="text-muted italic">No specific pain points or current system details logged.</span>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. FOLLOWUP DETAILS TAB (Scrollable Vertical Life Timeline Stepper) -->
+                    <div class="tab-pane fade" id="followup-${leadId}" role="tabpanel">
+                        <div class="p-3">
+                            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                                <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2" style="font-size: 15px;">
+                                    <i class="fas fa-timeline text-primary"></i> Follow-up Lifecycle Timeline
+                                </h6>
+                                <span class="badge bg-primary-subtle text-primary px-3 py-1 fs-12 fw-semibold">
+                                    ${messages ? messages.length : 0} Total Activities
+                                </span>
+                            </div>
+
+                            ${messages && messages.length > 0 ? `
+                                <div class="timeline-scroll-wrapper pe-2" style="max-height: 480px; overflow-y: auto;">
+                                    <div class="timeline-stepper-container position-relative ms-3 ps-4 my-2" style="border-left: 2px dashed #cbd5e1;">
+                                        ${messages.map(msg => {
+                                            let isDone = msg.is_done == 1;
+                                            let dotColor = isDone ? '#10b981' : (msg.next_followup_date ? '#006FC9' : '#64748b');
+                                            let statusText = msg.status || 'Followup';
+                                            let statusBg = isDone ? 'bg-success-subtle text-success' : 'bg-primary-subtle text-primary';
+                                            
+                                            let typeIcon = 'fa-comment-dots';
+                                            if (msg.followup_type) {
+                                                let ft = msg.followup_type.toLowerCase();
+                                                if (ft.includes('call')) typeIcon = 'fa-phone-alt';
+                                                else if (ft.includes('whatsapp')) typeIcon = 'fa-brands fa-whatsapp';
+                                                else if (ft.includes('email')) typeIcon = 'fa-envelope';
+                                                else if (ft.includes('meeting')) typeIcon = 'fa-handshake';
+                                            }
+
+                                            return `
+                                            <div class="timeline-item position-relative mb-4">
+                                                <!-- Step Node Dot -->
+                                                <div class="position-absolute rounded-circle bg-white shadow-2xs d-flex align-items-center justify-content-center"
+                                                     style="left: -35px; top: 12px; width: 22px; height: 22px; border: 3px solid ${dotColor}; z-index: 2;">
+                                                    <div class="rounded-circle" style="width: 6px; height: 6px; background-color: ${dotColor};"></div>
+                                                </div>
+
+                                                <!-- Activity Card Box -->
+                                                <div class="card border shadow-2xs rounded-3 bg-white">
+                                                    <div class="card-body p-3.5">
+                                                        <!-- Header Bar: Avatar, User, Status Badge, Timestamp -->
+                                                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2.5">
+                                                            <div class="d-flex align-items-center gap-2.5">
+                                                                <div class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px; font-size: 13px;">
+                                                                    ${(msg.user_name || 'U').charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div>
+                                                                    <div class="d-flex align-items-center gap-2">
+                                                                        <span class="fw-bold text-dark fs-14">${msg.user_name || 'User'}</span>
+                                                                        <span class="badge ${statusBg} border fs-11 px-2.5 py-0.5 fw-semibold">
+                                                                            Status: ${statusText}
+                                                                        </span>
+                                                                    </div>
+                                                                    ${msg.followup_type ? `<span class="badge bg-light text-secondary border fs-10 px-2 py-0.5 mt-0.5"><i class="fas ${typeIcon} me-1 text-primary"></i> ${msg.followup_type}</span>` : ''}
+                                                                </div>
+                                                            </div>
+                                                            <div class="text-muted fs-11 d-flex align-items-center gap-1 bg-light px-2.5 py-1 rounded-2 border">
+                                                                <i class="far fa-clock"></i> ${msg.created_at_formatted || 'N/A'}
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Bucket Badge if present -->
+                                                        ${msg.bucket ? `
+                                                            <div class="mb-2">
+                                                                <span class="badge bg-light text-dark border fs-11 px-2.5 py-1">
+                                                                    <i class="fas fa-layer-group text-primary me-1"></i> Bucket: <strong>${msg.bucket}</strong>
+                                                                </span>
+                                                            </div>
+                                                        ` : ''}
+
+                                                        <!-- Logged Message Body -->
+                                                        ${msg.message ? `
+                                                            <div class="p-3 bg-light rounded-3 text-dark fs-13 mb-2" style="line-height: 1.5; word-wrap: break-word;">
+                                                                ${msg.message}
+                                                            </div>
+                                                        ` : ''}
+
+                                                        <!-- Next Followup Date Callout -->
+                                                        ${msg.next_followup_date ? `
+                                                            <div class="p-2 px-3 rounded-2 d-inline-flex align-items-center gap-2 mt-1" style="background-color: #eff6ff; border-left: 4px solid #006FC9;">
+                                                                <i class="far fa-calendar-check text-primary fs-13"></i>
+                                                                <span class="fs-12 text-primary fw-semibold">Next Scheduled Follow-up: <strong>${msg.next_followup_date}</strong></span>
+                                                            </div>
+                                                        ` : ''}
+
+                                                        <!-- Audio Recording Player -->
+                                                        ${msg.call_recording ? `
+                                                            <div class="p-2.5 rounded-3 bg-light border d-flex align-items-center gap-2 mt-2.5">
+                                                                <i class="fas fa-volume-high text-success fs-14 me-1"></i>
+                                                                <audio controls style="width: 100%; height: 32px;">
+                                                                    <source src="${msg.call_recording}" type="audio/mpeg">
+                                                                </audio>
+                                                            </div>
+                                                        ` : ''}
+
+                                                        <!-- Followup Attached Documents -->
+                                                        ${msg.followup_documents && msg.followup_documents.length > 0 ? `
+                                                            <div class="d-flex align-items-center gap-2 flex-wrap mt-2.5 pt-2 border-top">
+                                                                <small class="text-muted fw-bold fs-11">ATTACHED FILES:</small>
+                                                                ${msg.followup_documents.map(doc => {
+                                                                    let docPath = typeof doc === 'object' ? doc.path : doc;
+                                                                    let docName = typeof doc === 'object' ? doc.name : docPath.split('/').pop();
+                                                                    let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
+                                                                    return `<a href="${viewUrl}" target="_blank" class="badge bg-white text-dark border p-1.5 rounded d-inline-flex align-items-center gap-1 text-decoration-none fs-11">
+                                                                        <i class="fas fa-paperclip text-primary"></i> ${docName}
+                                                                    </a>`;
+                                                                }).join('')}
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+                                            </div>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="text-center py-5 bg-light rounded-3 border">
+                                    <i class="far fa-comments text-muted fs-1 mb-2 opacity-50"></i>
+                                    <h6 class="fw-bold text-dark mb-1 fs-14">No Followup Activity Logged</h6>
+                                    <p class="text-muted fs-12 mb-0">No lifecycle timeline events found for this lead.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+
+                    <!-- 4. DOCUMENTS TAB -->
+                    <div class="tab-pane fade" id="documents-${leadId}" role="tabpanel">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px;">
+                                    <div class="card-body p-3">
+                                        <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
+                                            <i class="feather feather-folder text-primary"></i> Lead Form Documents
+                                        </h6>
+                                        ${leadDocs && leadDocs.length > 0 ? leadDocs.map(doc => {
+                                            let docPath = typeof doc === 'object' ? doc.path : doc;
+                                            let docName = typeof doc === 'object' ? doc.name : docPath.split('/').pop();
+                                            let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
+                                            let downloadUrl = "{{ route('document.download') }}?path=" + encodeURIComponent(docPath) + "&name=" + encodeURIComponent(docName);
+                                            return `
+                                            <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded mb-2">
+                                                <div class="d-flex align-items-center gap-2 text-truncate me-2">
+                                                    <i class="feather feather-file-text text-primary fs-16"></i>
+                                                    <span class="fs-13 text-dark text-truncate fw-medium">${docName}</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
+                                                    <a href="${viewUrl}" target="_blank" class="btn btn-xs btn-outline-info d-flex align-items-center gap-1 px-2 py-1" style="font-size: 11px;">
+                                                        <i class="feather feather-eye"></i> View
+                                                    </a>
+                                                    <a href="${downloadUrl}" class="btn btn-xs btn-primary d-flex align-items-center gap-1 text-white px-2 py-1" style="font-size: 11px;">
+                                                        <i class="feather feather-download"></i> Download
+                                                    </a>
+                                                </div>
+                                            </div>`;
+                                        }).join('') : '<div class="text-muted fs-13 italic p-2 bg-white border rounded text-center">No lead form documents uploaded.</div>'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card h-100 border shadow-none" style="background-color: #f8fafc; border-radius: 8px;">
+                                    <div class="card-body p-3">
+                                        <h6 class="fw-bold mb-3 text-primary d-flex align-items-center gap-2">
+                                            <i class="feather feather-paperclip text-primary"></i> Followup Documents
+                                        </h6>
+                                        ${followupDocs && followupDocs.length > 0 ? followupDocs.map(item => {
+                                            let fdoc = item.doc;
+                                            let docPath = typeof fdoc === 'object' ? fdoc.path : fdoc;
+                                            let docName = typeof fdoc === 'object' ? fdoc.name : docPath.split('/').pop();
+                                            let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
+                                            let downloadUrl = "{{ route('document.download') }}?path=" + encodeURIComponent(docPath) + "&name=" + encodeURIComponent(docName);
+                                            return `
+                                            <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded mb-2">
+                                                <div class="d-flex align-items-center gap-2 text-truncate me-2">
+                                                    <i class="feather feather-file-text text-success fs-16"></i>
+                                                    <div class="text-truncate">
+                                                        <span class="fs-13 text-dark d-block text-truncate fw-medium">${docName}</span>
+                                                        <small class="text-muted fs-11" style="font-size: 10px;">By ${item.user} on ${item.date}</small>
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-1 ms-2 flex-shrink-0">
+                                                    <a href="${viewUrl}" target="_blank" class="btn btn-xs btn-outline-info d-flex align-items-center gap-1 px-2 py-1" style="font-size: 11px;">
+                                                        <i class="feather feather-eye"></i> View
+                                                    </a>
+                                                    <a href="${downloadUrl}" class="btn btn-xs btn-primary d-flex align-items-center gap-1 text-white px-2 py-1" style="font-size: 11px;">
+                                                        <i class="feather feather-download"></i> Download
+                                                    </a>
+                                                </div>
+                                            </div>`;
+                                        }).join('') : '<div class="text-muted fs-13 italic p-2 bg-white border rounded text-center">No followup documents uploaded.</div>'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+
+                container.innerHTML = html;
+
+                container.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabBtn => {
+                    tabBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        let targetId = this.getAttribute('data-bs-target');
+                        container.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
+                        container.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('show', 'active'));
+                        this.classList.add('active');
+                        let targetPane = container.querySelector(targetId);
+                        if (targetPane) targetPane.classList.add('show', 'active');
+                    });
+                });
+            }
         </script>
+
+        {{-- Single Shared Global Offcanvases --}}
+        <!-- Shared History Offcanvas -->
+        <div class="content-area offcanvas offcanvas-end" data-scrollbar-target="#psScrollbarInit" style="width:450px" tabindex="-1" id="proposalSentOffcanvas" aria-labelledby="proposalSentOffcanvasLabel">
+            <div class="content-area-header sticky-top bg-white border-bottom p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <h6 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                        <i class="fas fa-history text-primary"></i> History & Comments (<span id="sharedHistoryLeadName">User</span>)
+                    </h6>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="content-area-body h-100 p-3" id="sharedHistoryBody" style="background-color: #f8fafc; overflow-y: auto;"></div>
+        </div>
+
+        <!-- Shared WhatsApp Offcanvas -->
+        <div class="content-area offcanvas offcanvas-end" style="width:400px" tabindex="-1" id="whatsappSentOffcanvas" aria-labelledby="whatsappOffcanvasLabel">
+            <div class="content-area-header sticky-top bg-white p-3 border-bottom">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar-image">
+                            <img id="sharedWhatsAppImg" src="{{ asset('images/blank.jpeg') }}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark fs-14" id="sharedWhatsAppName">User</div>
+                            <div class="fs-10 text-success fw-semibold" id="sharedWhatsAppPhone">-</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="content-area-body h-100 p-4" style="background-color:#efeae2; overflow-y: auto;">
+                <div class="text-center text-muted fs-12 my-auto">Start typing a message below...</div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between border-top bg-white p-2 sticky-bottom">
+                <input class="form-control border-0" placeholder="Type your message here...">
+                <button class="btn btn-primary btn-sm ms-2"><i class="feather-send"></i></button>
+            </div>
+        </div>
+
+        <!-- Shared SMS Offcanvas -->
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="SMSSentOffcanvas" aria-labelledby="SMSSentOffcanvasLabel" style="width: 400px;">
+            <div class="offcanvas-header border-bottom bg-light py-3">
+                <h6 class="offcanvas-title d-flex align-items-center gap-2 fw-bold text-dark">
+                    <i class="fa-regular fa-comment-dots text-secondary"></i>
+                    Send SMS to <span id="sharedSMSName" class="text-capitalize">User</span>
+                </h6>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-3" style="background-color: #f4f6f8;">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold fs-12">Target Number</label>
+                    <input type="text" class="form-control" id="sharedSMSMobileNum" placeholder="Mobile No.">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold fs-12">Template</label>
+                    <select class="form-control template-dropdown fs-13">
+                        <option selected disabled>Select Template</option>
+                    </select>
+                </div>
+                <div class="mb-3 flex-grow-1 d-flex flex-column">
+                    <label class="form-label fw-semibold fs-12">Message</label>
+                    <textarea class="form-control flex-grow-1" rows="8" placeholder="Type your message..."></textarea>
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-auto">
+                    <button class="btn btn-light border" data-bs-dismiss="offcanvas">Cancel</button>
+                    <button class="btn text-white" style="background-color: #006FC9;">Send SMS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shared Edit Status Offcanvas -->
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="editStatusOffcanvas" aria-labelledby="editStatusOffcanvasLabel" style="width: 420px;">
+            <div class="offcanvas-header border-bottom bg-light py-3">
+                <h6 class="offcanvas-title d-flex align-items-center gap-2 fw-bold text-dark">
+                    <i class="fa-solid fa-clipboard-list text-secondary"></i>
+                    Edit Status for <span id="sharedEditStatusLeadName" class="text-capitalize">User</span>
+                </h6>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-4 bg-white">
+                <form id="sharedQuickUpdateForm" method="POST" action="" enctype="multipart/form-data">
+                    @csrf
+                    <input type="hidden" name="lead_bucket_id" value="46">
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Engagement Status</label>
+                        <select class="form-select bg-light border-0 shadow-sm" name="lead_engagement_status" style="font-size: 14px;">
+                            <option value="" disabled selected>Select Engagement Status</option>
+                            <option value="New Lead">New Lead</option>
+                            <option value="In Conversation">In Conversation</option>
+                            <option value="Meeting Scheduled">Meeting Scheduled</option>
+                            <option value="Proposal Sent">Proposal Sent</option>
+                            <option value="Deal Won">Deal Won</option>
+                            <option value="Deal Lost">Deal Lost</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Lead Status / Sub Status</label>
+                        <select class="form-select bg-light border-0 shadow-sm" name="lead_status" style="font-size: 14px;">
+                            <option value="" disabled selected>Select Lead Status</option>
+                            @if(isset($allBucketsWithChildren) && count($allBucketsWithChildren) > 0)
+                                @foreach($allBucketsWithChildren as $parentBucket)
+                                    @if(!empty($parentBucket->children) && count($parentBucket->children) > 0)
+                                        <optgroup label="{{ $parentBucket->name }}">
+                                            @foreach($parentBucket->children as $child)
+                                                <option value="{{ $child->name }}">{{ $child->name }}</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                @endforeach
+                            @elseif(isset($childBuckets) && count($childBuckets) > 0)
+                                @foreach($childBuckets as $child)
+                                    <option value="{{ $child->name }}">{{ $child->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Followup Type</label>
+                        <select class="form-select bg-light border-0 shadow-sm" name="followup_type" style="font-size: 14px;">
+                            <option value="" disabled selected>Select Followup Type</option>
+                            <option value="Call">Call</option>
+                            <option value="WhatsApp Call">WhatsApp Call</option>
+                            <option value="Whatsapp">Whatsapp</option>
+                            <option value="Email">Email</option>
+                            <option value="Meeting">Meeting</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Followup Status</label>
+                        <select class="form-select bg-light border-0 shadow-sm" name="followup_status" style="font-size: 14px;">
+                            <option value="" disabled selected>Select Followup Status</option>
+                            <option value="Answered">Answered</option>
+                            <option value="Unanswered">Unanswered</option>
+                            <option value="Busy">Busy</option>
+                            <option value="Switched Off">Switched Off</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Next Follow-up Date & Time</label>
+                        <input type="datetime-local" class="form-control bg-light border-0 shadow-sm" name="next_followup_date" style="font-size: 14px;">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Add Comment / Message</label>
+                        <textarea class="form-control bg-light border-0 shadow-sm" name="message" rows="3" placeholder="Write a comment..." style="font-size: 14px; resize: none;"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Attachments (Multiple PDF/Doc/Images)</label>
+                        <input type="file" class="form-control bg-light border-0 shadow-sm" name="followup_documents[]" multiple style="font-size: 13px;">
+                        <div id="sharedExistingAttachments" class="mt-2"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-3 pt-3 border-top">
+                        <button type="button" class="btn btn-white text-secondary fw-bold border px-4" data-bs-dismiss="offcanvas" style="font-size: 13px;">CLOSE</button>
+                        <button type="submit" class="btn text-white fw-bold px-4" style="background-color: #006FC9; font-size: 13px; border-radius: 4px;">UPDATE STATUS</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Shared To-Do Offcanvas -->
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="todoOffcanvas" style="width: 420px;">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title fw-bold text-dark" style="font-size: 18px;">To-Do Task</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-0">
+                <div class="p-4" style="background-color: #f8fafc;">
+                    <h6 class="fw-bold mb-3 text-dark" style="font-size: 15px;">Add New To-Do Task:</h6>
+                    <form id="sharedTodoForm" action="" method="POST">
+                        @csrf
+                        <div class="mb-3">
+                            <label class="form-label text-muted mb-1" style="font-size: 13px;">Summary:</label>
+                            <textarea class="form-control" name="summary" rows="3" placeholder="Write Your Summary" required style="font-size: 14px; border-color: #cbd5e1;"></textarea>
+                        </div>
+                        @if(auth()->check() && auth()->user()->role_id == 1)
+                            <div class="mb-3">
+                                <label class="form-label text-muted mb-1" style="font-size: 13px;">Assign To</label>
+                                <select class="form-select" name="assign_to" required style="font-size: 14px; border-color: #cbd5e1;">
+                                    <option value="" disabled selected>Select User</option>
+                                    @if(isset($owners))
+                                        @foreach($owners as $owner)
+                                            <option value="{{ $owner->id }}">{{ $owner->name }}</option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                            </div>
+                        @endif
+                        <div class="mb-3">
+                            <label class="form-label text-muted mb-1" style="font-size: 13px;">Due Date</label>
+                            <input type="datetime-local" class="form-control" name="due_date" required style="font-size: 14px; border-color: #cbd5e1;">
+                        </div>
+                        <div class="text-end mt-2">
+                            <button type="submit" class="btn btn-warning fw-bold px-4 py-2" style="font-size: 13px;">SAVE TO-DO</button>
+                        </div>
+                    </form>
+                </div>
+                <hr class="m-0" style="border-color: #e2e8f0;">
+                <div class="p-4 bg-white" id="sharedTodoTasksContainer"></div>
+            </div>
+        </div>
 
         @include('crm.lead.custom-import-modal')
     @endpush
