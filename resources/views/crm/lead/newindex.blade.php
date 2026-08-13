@@ -3213,8 +3213,11 @@
                 leadInfoHtml += fieldHtml('fa-fire', 'Engagement', engagement);
                 leadInfoHtml += fieldHtml('fa-box', 'Product', lead.product);
                 leadInfoHtml += fieldHtml('fa-dollar-sign', 'Deal Value', lead.deal_value ? ('₹' + lead.deal_value) : '');
-                leadInfoHtml += fieldHtml('fa-bullhorn', 'Source', lead.lead_source);
+                leadInfoHtml += fieldHtml('fa-bullhorn', 'Source', lead.lead_source || lead.platform);
                 leadInfoHtml += fieldHtml('fa-link', 'Sub Source', lead.lead_sub_source);
+                leadInfoHtml += fieldHtml('fa-bullseye', 'Campaign Name', lead.campaign_name);
+                leadInfoHtml += fieldHtml('fa-layer-group', 'Ad Set Name', lead.adset_name);
+                leadInfoHtml += fieldHtml('fa-ad', 'Ad Name', lead.ad_name);
                 leadInfoHtml += fieldHtml('fa-exclamation-triangle', 'Priority', lead.lead_priority);
                 // Lead Owner
                 var ownerName = (owner && owner.name) ? owner.name : 'Not Assigned';
@@ -3640,6 +3643,9 @@
                 let pageUrl = lead.page_url || '';
                 let product = lead.product || 'N/A';
                 let painPoints = lead.pain_points || 'N/A';
+                let campaignName = lead.campaign_name || 'N/A';
+                let adsetName = lead.adset_name || 'N/A';
+                let adName = lead.ad_name || 'N/A';
 
                 let todayStart = new Date();
                 todayStart.setHours(0,0,0,0);
@@ -3917,6 +3923,45 @@
                                         <div class="text-truncate">
                                             <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Source Platform</span>
                                             <span class="badge bg-light text-primary border fs-12 fw-semibold px-2.5 py-1">${platform}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Campaign Name -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-bullseye"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Campaign Name</span>
+                                            <span class="fs-14 text-dark fw-bold text-truncate d-block" title="${campaignName}">${campaignName}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Ad Set Name -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-layer-group"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Ad Set Name</span>
+                                            <span class="fs-14 text-dark fw-bold text-truncate d-block" title="${adsetName}">${adsetName}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Ad Name -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-ad"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Ad Name</span>
+                                            <span class="fs-14 text-dark fw-bold text-truncate d-block" title="${adName}">${adName}</span>
                                         </div>
                                     </div>
                                 </div>
