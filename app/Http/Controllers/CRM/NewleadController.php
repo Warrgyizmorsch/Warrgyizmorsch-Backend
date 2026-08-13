@@ -32,6 +32,7 @@ class NewleadController extends Controller
             'owner',
             'bucket',
             'category',
+            'messages.user',
         ]);
 
         // 2. Role-based restrictions
@@ -192,8 +193,29 @@ class NewleadController extends Controller
         } else {
             $totalLeadsCount = 0;
         }
-        // Pipeline leads set to lightweight collection (paginated table view is active)
-        $pipelineLeads = collect();
+        // Fetch pipeline leads from cloned query matching current active filters
+        $pipelineLeads = (clone $query)->orderBy('created_at', 'desc')->get();
+
+        // Batch calculation for pipeline duplicate leads & lastMessage
+        $pipelineUids = $pipelineLeads->pluck('uid')->filter()->unique();
+        $pipelineDuplicateGroup = collect();
+        if ($pipelineUids->isNotEmpty()) {
+            $pipelineDuplicateGroup = Leads::whereIn('uid', $pipelineUids)
+                ->select('id', 'uid')
+                ->get()
+                ->groupBy('uid');
+        }
+
+        $pipelineLeads->transform(function ($lead) use ($pipelineDuplicateGroup) {
+            $matching = $pipelineDuplicateGroup->get($lead->uid, collect());
+            $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
+
+            $lead->duplicate_count = $otherIds->count();
+            $lead->duplicate_ids = $otherIds;
+            $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
+
+            return $lead;
+        });
 
         // 5. Pagination (Appends query preserves filters on next pages)
         $perPage = request('per_page', 20);
@@ -233,18 +255,37 @@ class NewleadController extends Controller
             'Lost'
         ];
         $applyLeadFilters = function ($q) use ($request) {
+            $isEloquent = ($q instanceof \Illuminate\Database\Eloquent\Builder || $q instanceof \Illuminate\Database\Eloquent\Relations\Relation);
+
             if ($request->filled('search')) {
                 $search = $request->search;
                 $digitsOnly = preg_replace('/\D+/', '', $search);
-                $q->whereHas('user', function ($uQ) use ($search, $digitsOnly) {
-                    $uQ->where('name', 'like', "%{$search}%")
-                       ->orWhere('email', 'like', "%{$search}%");
-                    if ($digitsOnly !== '') {
-                        $uQ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
-                    } else {
-                        $uQ->orWhere('contact_no', 'like', "%{$search}%");
-                    }
-                });
+                if ($isEloquent) {
+                    $q->whereHas('user', function ($uQ) use ($search, $digitsOnly) {
+                        $uQ->where('name', 'like', "%{$search}%")
+                           ->orWhere('email', 'like', "%{$search}%");
+                        if ($digitsOnly !== '') {
+                            $uQ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                        } else {
+                            $uQ->orWhere('contact_no', 'like', "%{$search}%");
+                        }
+                    });
+                } else {
+                    $q->whereExists(function ($subQ) use ($search, $digitsOnly) {
+                        $subQ->select(\DB::raw(1))
+                            ->from('users')
+                            ->whereColumn('users.id', 'leads.uid')
+                            ->where(function ($uQ) use ($search, $digitsOnly) {
+                                $uQ->where('users.name', 'like', "%{$search}%")
+                                   ->orWhere('users.email', 'like', "%{$search}%");
+                                if ($digitsOnly !== '') {
+                                    $uQ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                                } else {
+                                    $uQ->orWhere('users.contact_no', 'like', "%{$search}%");
+                                }
+                            });
+                    });
+                }
             }
             if ($request->filled('from') && $request->filled('to')) {
                 $from = \Carbon\Carbon::parse($request->from)->startOfDay();
@@ -288,14 +329,29 @@ class NewleadController extends Controller
             if ($request->filled('has_followups')) {
                 $today = \Carbon\Carbon::today();
                 $type = $request->followup_type_filter ?? 'upcoming';
-                $q->whereHas('messages', function ($mQ) use ($today, $type) {
-                    $mQ->whereNotNull('next_followup_date');
-                    if ($type == 'missed') {
-                        $mQ->whereDate('next_followup_date', '<', $today)->where('is_done', 0);
-                    } else {
-                        $mQ->whereDate('next_followup_date', '>=', $today);
-                    }
-                });
+                if ($isEloquent) {
+                    $q->whereHas('messages', function ($mQ) use ($today, $type) {
+                        $mQ->whereNotNull('next_followup_date');
+                        if ($type == 'missed') {
+                            $mQ->whereDate('next_followup_date', '<', $today)->where('is_done', 0);
+                        } else {
+                            $mQ->whereDate('next_followup_date', '>=', $today);
+                        }
+                    });
+                } else {
+                    $q->whereExists(function ($subQ) use ($today, $type) {
+                        $subQ->select(\DB::raw(1))
+                            ->from('callback_messages')
+                            ->whereColumn('callback_messages.lead_id', 'leads.id')
+                            ->whereNotNull('callback_messages.next_followup_date');
+                        if ($type == 'missed') {
+                            $subQ->whereDate('callback_messages.next_followup_date', '<', $today)
+                                 ->where('callback_messages.is_done', 0);
+                        } else {
+                            $subQ->whereDate('callback_messages.next_followup_date', '>=', $today);
+                        }
+                    });
+                }
             }
         };
 
@@ -517,12 +573,20 @@ class NewleadController extends Controller
             $isLeadBucket = str_contains(strtolower($bucketObj->name), 'lead') || $bucketObj->id == 1;
         }
 
-        $lead->update([
-            'lead_engagement_status' => $request->lead_engagement_status,
-            'lead_bucket_id'         => $request->lead_bucket_id,
-            'lead_status'            => $request->lead_status,
-            'is_converted'           => $isLeadBucket ? 0 : 1,
-        ]);
+        $engStatus = strtolower(trim($request->lead_engagement_status ?? ''));
+        $validEngStatuses = ['hot', 'warm', 'cold', 'dead'];
+
+        $updateData = [
+            'lead_bucket_id' => $request->lead_bucket_id,
+            'lead_status'    => $request->lead_status,
+            'is_converted'   => $isLeadBucket ? 0 : 1,
+        ];
+
+        if (in_array($engStatus, $validEngStatuses)) {
+            $updateData['lead_engagement_status'] = $engStatus;
+        }
+
+        $lead->update($updateData);
 
         if (!$isLeadBucket) {
             \App\Models\Order::updateOrCreate(
@@ -532,7 +596,7 @@ class NewleadController extends Controller
                     'uid'                     => $lead->uid,
                     'order_bucket_id'         => $request->lead_bucket_id,
                     'order_status'            => $request->lead_status,
-                    'order_engagement_status' => $request->lead_engagement_status,
+                    'order_engagement_status' => in_array($engStatus, $validEngStatuses) ? $engStatus : $lead->lead_engagement_status,
                     'order_owner'             => $lead->lead_owner,
                     'converted_by'            => auth()->id(),
                     'category_id'             => $lead->category_id,
@@ -554,7 +618,7 @@ class NewleadController extends Controller
             'message' => $request->message,
             'status' => $request->lead_status,
             'bucket' => $bucketName,
-            'lead_engagement_status' => $request->lead_engagement_status,
+            'lead_engagement_status' => in_array($engStatus, $validEngStatuses) ? $engStatus : null,
             'followup_type' => $request->followup_type,
             'followup_status' => $request->followup_status ?? null,
             'created_by' => auth()->user()->id,
@@ -663,7 +727,10 @@ class NewleadController extends Controller
         }
 
         if ($request->has('lead_engagement_status')) {
-            $lead->lead_engagement_status = strtolower(trim($request->lead_engagement_status));
+            $engS = strtolower(trim($request->lead_engagement_status));
+            if (in_array($engS, ['hot', 'warm', 'cold', 'dead'])) {
+                $lead->lead_engagement_status = $engS;
+            }
         }
 
         $lead->save();
@@ -883,7 +950,15 @@ class NewleadController extends Controller
 
             $defaultStatus = \App\Models\Bucket::where('parent_id', $defaultBucketId)
                 ->where('is_deleted', 0)
-                ->value('name') ?? 'Yet to Call';
+                ->where(function($q) {
+                    $q->where('name', 'LIKE', '%Yet to Call%')
+                      ->orWhere('name', 'Yet to Call');
+                })
+                ->value('name')
+                ?? \App\Models\Bucket::where('parent_id', $defaultBucketId)
+                    ->where('is_deleted', 0)
+                    ->value('name')
+                ?? 'Yet to Call';
 
             $importedCount = 0;
 

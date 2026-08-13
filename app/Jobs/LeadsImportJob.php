@@ -213,7 +213,15 @@ class LeadsImportJob implements ShouldQueue
 
         $defaultSubStatus = \App\Models\Bucket::where('parent_id', $defaultBucketId)
             ->where('is_deleted', 0)
-            ->value('name') ?? 'Yet to Call';
+            ->where(function($q) {
+                $q->where('name', 'LIKE', '%Yet to Call%')
+                  ->orWhere('name', 'Yet to Call');
+            })
+            ->value('name')
+            ?? \App\Models\Bucket::where('parent_id', $defaultBucketId)
+                ->where('is_deleted', 0)
+                ->value('name')
+            ?? 'Yet to Call';
 
         DB::beginTransaction();
         try {

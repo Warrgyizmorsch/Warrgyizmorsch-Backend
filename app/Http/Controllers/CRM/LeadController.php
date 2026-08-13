@@ -340,7 +340,15 @@ class LeadController extends Controller
 
         $defaultSubStatus = Bucket::where('parent_id', $defaultBucketId)
             ->where('is_deleted', 0)
-            ->value('name') ?? 'Yet to Call';
+            ->where(function($q) {
+                $q->where('name', 'LIKE', '%Yet to Call%')
+                  ->orWhere('name', 'Yet to Call');
+            })
+            ->value('name')
+            ?? Bucket::where('parent_id', $defaultBucketId)
+                ->where('is_deleted', 0)
+                ->value('name')
+            ?? 'Yet to Call';
 
         $leadData['lead_bucket_id'] = !empty($leadData['lead_bucket_id']) ? $leadData['lead_bucket_id'] : $defaultBucketId;
         $leadData['lead_status'] = !empty($leadData['lead_status']) ? $leadData['lead_status'] : $defaultSubStatus;
@@ -1638,9 +1646,12 @@ class LeadController extends Controller
         ]);
 
         $oldEngagement = $lead->lead_engagement_status;
-        $lead->update([
-            'lead_engagement_status' => $request->lead_engagement_status
-        ]);
+        $engS = strtolower(trim($request->lead_engagement_status ?? ''));
+        if (in_array($engS, ['hot', 'warm', 'cold', 'dead'])) {
+            $lead->update([
+                'lead_engagement_status' => $engS
+            ]);
+        }
 
         try {
             LeadHistory::create([

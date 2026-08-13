@@ -1078,7 +1078,9 @@
         <div class="lead-pipeline-wrapper">
             <div class="lead-pipeline-board">
             @php
-                $pipelineStatuses = $childBuckets->pluck('name')->toArray();
+                $childStatusNames = $childBuckets->pluck('name')->toArray();
+                $existingStatusesInLeads = $pipelineLeads->pluck('lead_status')->map(fn($s) => $s ?: 'Yet to Call')->unique()->toArray();
+                $pipelineStatuses = array_values(array_unique(array_merge($childStatusNames, $existingStatusesInLeads)));
                 if (empty($pipelineStatuses)) {
                     $pipelineStatuses = ['Yet to Call', 'Qualifying', 'Proposal Sent', 'Negotiation', 'Awaiting Confirmation', 'Converted', 'Lost'];
                 }
@@ -2297,8 +2299,16 @@
                             statusSelect.append('<option value="">Select Status</option>');
 
                             let children = Array.isArray(res) ? res : (res.children || res.data || []);
+                            let defaultSelectVal = pendingSubStatus;
+                            if (!defaultSelectVal) {
+                                let foundYetToCall = children.find(c => c.name && c.name.toLowerCase().includes('yet to call'));
+                                if (foundYetToCall) {
+                                    defaultSelectVal = foundYetToCall.name;
+                                }
+                            }
+
                             children.forEach(function (child) {
-                                let isSelected = (pendingSubStatus && (child.name === pendingSubStatus || child.id == pendingSubStatus)) ? 'selected' : '';
+                                let isSelected = (defaultSelectVal && (child.name.toLowerCase() === defaultSelectVal.toLowerCase() || child.id == defaultSelectVal)) ? 'selected' : '';
                                 statusSelect.append(
                                     `<option value="${child.name}" data-bg="${child.color || ''}" ${isSelected}>
                                         ${child.name}
@@ -2306,8 +2316,8 @@
                                 );
                             });
 
-                            if (pendingSubStatus) {
-                                statusSelect.val(pendingSubStatus);
+                            if (defaultSelectVal) {
+                                statusSelect.val(defaultSelectVal);
                                 statusSelect.removeAttr('data-pending-value');
                                 statusSelect.removeData('pending-value');
                             }
@@ -3340,7 +3350,7 @@
                 form.action = "{{ url('/modern-leads/quick-update') }}/" + leadId;
                 
                 let engSelect = form.querySelector('[name="lead_engagement_status"]');
-                if (engSelect) engSelect.value = engagementStatus || '';
+                if (engSelect) engSelect.value = (engagementStatus || '').toLowerCase();
                 
                 let statusSelect = form.querySelector('[name="lead_status"]');
                 if (statusSelect) statusSelect.value = leadStatus || '';
@@ -4277,96 +4287,158 @@
         </div>
 
         <!-- Shared Edit Status Offcanvas -->
-        <div class="offcanvas offcanvas-end" tabindex="-1" id="editStatusOffcanvas" aria-labelledby="editStatusOffcanvasLabel" style="width: 420px;">
-            <div class="offcanvas-header border-bottom bg-light py-3">
-                <h6 class="offcanvas-title d-flex align-items-center gap-2 fw-bold text-dark">
-                    <i class="fa-solid fa-clipboard-list text-secondary"></i>
-                    Edit Status for <span id="sharedEditStatusLeadName" class="text-capitalize">User</span>
-                </h6>
+        <div class="offcanvas offcanvas-end border-0 shadow-lg" tabindex="-1" id="editStatusOffcanvas" aria-labelledby="editStatusOffcanvasLabel" style="width: 420px; background: #f8fafc;">
+            <div class="offcanvas-header border-bottom bg-white py-3 px-4 shadow-2xs">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold fs-13 shadow-2xs" style="width: 36px; height: 36px;">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                    </div>
+                    <div>
+                        <h6 class="offcanvas-title fw-bold text-dark mb-0 fs-14" id="editStatusOffcanvasLabel">
+                            Edit Status
+                        </h6>
+                        <span class="fs-11 text-muted">
+                            Lead: <strong class="text-dark text-capitalize" id="sharedEditStatusLeadName">User</strong>
+                        </span>
+                    </div>
+                </div>
                 <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
-            <div class="offcanvas-body p-4 bg-white">
+            <div class="offcanvas-body p-3.5">
                 <form id="sharedQuickUpdateForm" method="POST" action="" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" name="lead_bucket_id" value="46">
                     
-                    <div class="mb-3">
-                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Engagement Status</label>
-                        <select class="form-select bg-light border-0 shadow-sm" name="lead_engagement_status" style="font-size: 14px;">
-                            <option value="" disabled selected>Select Engagement Status</option>
-                            <option value="New Lead">New Lead</option>
-                            <option value="In Conversation">In Conversation</option>
-                            <option value="Meeting Scheduled">Meeting Scheduled</option>
-                            <option value="Proposal Sent">Proposal Sent</option>
-                            <option value="Deal Won">Deal Won</option>
-                            <option value="Deal Lost">Deal Lost</option>
-                        </select>
-                    </div>
+                    {{-- Card Box 1: Status & Engagement --}}
+                    <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                        <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                            <i class="fas fa-sliders text-primary fs-12"></i>
+                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status & Engagement</h6>
+                        </div>
+                        <div class="card-body p-3">
+                            {{-- Engagement Status --}}
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
+                                </label>
+                                <select class="form-select border-slate shadow-2xs fs-13" name="lead_engagement_status" style="border-color: #cbd5e1; border-radius: 8px;">
+                                    <option value="" disabled selected>Select Engagement Status</option>
+                                    <option value="hot">🔥 Hot</option>
+                                    <option value="warm">⚡ Warm</option>
+                                    <option value="cold">❄️ Cold</option>
+                                    <option value="dead">💀 Dead</option>
+                                </select>
+                            </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Lead Status / Sub Status</label>
-                        <select class="form-select bg-light border-0 shadow-sm" name="lead_status" style="font-size: 14px;">
-                            <option value="" disabled selected>Select Lead Status</option>
-                            @if(isset($allBucketsWithChildren) && count($allBucketsWithChildren) > 0)
-                                @foreach($allBucketsWithChildren as $parentBucket)
-                                    @if(!empty($parentBucket->children) && count($parentBucket->children) > 0)
-                                        <optgroup label="{{ $parentBucket->name }}">
-                                            @foreach($parentBucket->children as $child)
+                            {{-- Lead Status / Sub Status --}}
+                            <div>
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-tag text-primary me-1 fs-10"></i>Lead Status / Sub Status
+                                </label>
+                                <select class="form-select border-slate shadow-2xs fs-13" name="lead_status" style="border-color: #cbd5e1; border-radius: 8px;">
+                                    <option value="" disabled selected>Select Lead Status</option>
+                                    @if(isset($childBuckets) && count($childBuckets) > 0)
+                                        @foreach($childBuckets as $child)
+                                            <option value="{{ $child->name }}">{{ $child->name }}</option>
+                                        @endforeach
+                                    @elseif(isset($allBucketsWithChildren) && count($allBucketsWithChildren) > 0)
+                                        @php
+                                            $leadParent = $allBucketsWithChildren[46] ?? ($allBucketsWithChildren[1] ?? null);
+                                            if (!$leadParent) {
+                                                $leadParent = collect($allBucketsWithChildren)->first(function($b) {
+                                                    return str_contains(strtolower($b->name ?? ''), 'lead');
+                                                });
+                                            }
+                                        @endphp
+                                        @if($leadParent && !empty($leadParent->children) && count($leadParent->children) > 0)
+                                            @foreach($leadParent->children as $child)
                                                 <option value="{{ $child->name }}">{{ $child->name }}</option>
                                             @endforeach
-                                        </optgroup>
+                                        @endif
                                     @endif
-                                @endforeach
-                            @elseif(isset($childBuckets) && count($childBuckets) > 0)
-                                @foreach($childBuckets as $child)
-                                    <option value="{{ $child->name }}">{{ $child->name }}</option>
-                                @endforeach
-                            @endif
-                        </select>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Followup Type</label>
-                        <select class="form-select bg-light border-0 shadow-sm" name="followup_type" style="font-size: 14px;">
-                            <option value="" disabled selected>Select Followup Type</option>
-                            <option value="Call">Call</option>
-                            <option value="WhatsApp Call">WhatsApp Call</option>
-                            <option value="Whatsapp">Whatsapp</option>
-                            <option value="Email">Email</option>
-                            <option value="Meeting">Meeting</option>
-                        </select>
+                    {{-- Card Box 2: Communication --}}
+                    <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                        <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                            <i class="fas fa-comments text-info fs-12"></i>
+                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication</h6>
+                        </div>
+                        <div class="card-body p-3">
+                            {{-- Followup / Communication Type --}}
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-phone text-info me-1 fs-10"></i>Communication Type
+                                </label>
+                                <select class="form-select border-slate shadow-2xs fs-13" name="followup_type" style="border-color: #cbd5e1; border-radius: 8px;">
+                                    <option value="" disabled selected>Select Communication Type</option>
+                                    <option value="Call">Call</option>
+                                    <option value="WhatsApp Call">WhatsApp Call</option>
+                                    <option value="Whatsapp">Whatsapp</option>
+                                    <option value="Email">Email</option>
+                                    <option value="Meeting">Meeting</option>
+                                </select>
+                            </div>
+
+                            {{-- Followup / Communication Status --}}
+                            <div>
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-signal text-info me-1 fs-10"></i>Communication Status
+                                </label>
+                                <select class="form-select border-slate shadow-2xs fs-13" name="followup_status" style="border-color: #cbd5e1; border-radius: 8px;">
+                                    <option value="" disabled selected>Select Communication Status</option>
+                                    <option value="Answered">Answered</option>
+                                    <option value="Unanswered">Unanswered</option>
+                                    <option value="Busy">Busy</option>
+                                    <option value="Switched Off">Switched Off</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Followup Status</label>
-                        <select class="form-select bg-light border-0 shadow-sm" name="followup_status" style="font-size: 14px;">
-                            <option value="" disabled selected>Select Followup Status</option>
-                            <option value="Answered">Answered</option>
-                            <option value="Unanswered">Unanswered</option>
-                            <option value="Busy">Busy</option>
-                            <option value="Switched Off">Switched Off</option>
-                        </select>
+                    {{-- Card Box 3: Remarks & Next Follow-up --}}
+                    <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                        <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                            <i class="fas fa-comment-dots text-warning fs-12"></i>
+                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Remarks & Next Follow-up</h6>
+                        </div>
+                        <div class="card-body p-3">
+                            {{-- Next Follow Up Date --}}
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-calendar-alt text-primary me-1 fs-10"></i>Next Follow-up Date & Time
+                                </label>
+                                <input type="datetime-local" class="form-control border-slate shadow-2xs fs-13" name="next_followup_date" style="border-color: #cbd5e1; border-radius: 8px;">
+                            </div>
+
+                            {{-- Add Message / Remark --}}
+                            <div class="mb-3 comment-message-box">
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    Add Comment / Message
+                                </label>
+                                <textarea class="form-control border-slate shadow-2xs fs-13" name="message" rows="3" placeholder="Write a comment..." style="border-color: #cbd5e1; border-radius: 8px; resize: none;"></textarea>
+                            </div>
+
+                            {{-- Attachments --}}
+                            <div>
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-paperclip text-success me-1 fs-10"></i>Attachments (Multiple PDF/Doc/Images)
+                                </label>
+                                <input type="file" class="form-control border-slate shadow-2xs fs-12" name="followup_documents[]" multiple style="border-color: #cbd5e1; border-radius: 8px;">
+                                <div id="sharedExistingAttachments" class="mt-2"></div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Next Follow-up Date & Time</label>
-                        <input type="datetime-local" class="form-control bg-light border-0 shadow-sm" name="next_followup_date" style="font-size: 14px;">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Add Comment / Message</label>
-                        <textarea class="form-control bg-light border-0 shadow-sm" name="message" rows="3" placeholder="Write a comment..." style="font-size: 14px; resize: none;"></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted small mb-1" style="font-size: 12px;">Attachments (Multiple PDF/Doc/Images)</label>
-                        <input type="file" class="form-control bg-light border-0 shadow-sm" name="followup_documents[]" multiple style="font-size: 13px;">
-                        <div id="sharedExistingAttachments" class="mt-2"></div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-3 pt-3 border-top">
-                        <button type="button" class="btn btn-white text-secondary fw-bold border px-4" data-bs-dismiss="offcanvas" style="font-size: 13px;">CLOSE</button>
-                        <button type="submit" class="btn text-white fw-bold px-4" style="background-color: #006FC9; font-size: 13px; border-radius: 4px;">UPDATE STATUS</button>
+                    {{-- Offcanvas Footer --}}
+                    <div class="d-flex align-items-center justify-content-end gap-2 pt-3 border-top mt-4">
+                        <button type="button" class="btn btn-light text-secondary fw-semibold border px-3 py-1.5 fs-13" data-bs-dismiss="offcanvas">CLOSE</button>
+                        <button type="submit" class="btn text-white fw-bold px-4 py-1.5 fs-13 shadow-sm d-inline-flex align-items-center gap-1.5" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%); border: none; border-radius: 6px;">
+                            <i class="fas fa-check-circle fs-12"></i> UPDATE STATUS
+                        </button>
                     </div>
                 </form>
             </div>

@@ -80,11 +80,11 @@
                 </div>
             </div>
 
-            {{-- Card Box 2: Communication Details --}}
+            {{-- Card Box 2: Communication --}}
             <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
                 <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
                     <i class="fas fa-comments text-info fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication Details</h6>
+                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication</h6>
                 </div>
                 <div class="card-body p-3">
                     {{-- Communication Type --}}
