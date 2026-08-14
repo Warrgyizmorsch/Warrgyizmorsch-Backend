@@ -19,14 +19,34 @@ class LeadQuestionController extends Controller
         $request->validate([
             'field_name' => 'required|string|max:255',
             'label' => 'required|string|max:255',
-            'is_active' => 'required|boolean',
+            'is_active' => 'nullable|boolean',
         ]);
 
-        LeadQuestion::create([
-            'field_name' => $request->field_name,
-            'label' => $request->label,
-            'is_active' => $request->is_active,
-        ]);
+        $rawFieldName = $request->field_name ?: $request->label;
+        $fieldName = \Illuminate\Support\Str::slug($rawFieldName, '_');
+        if (empty($fieldName)) {
+            $fieldName = strtolower(preg_replace('/[^a-z0-9_]+/i', '_', $rawFieldName));
+        }
+
+        $question = LeadQuestion::where('field_name', $fieldName)
+            ->orWhere('label', $request->label)
+            ->first();
+
+        if (!$question) {
+            $question = LeadQuestion::create([
+                'field_name' => $fieldName,
+                'label' => $request->label,
+                'is_active' => $request->is_active ?? 1,
+            ]);
+        }
+
+        if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Attribute created successfully.',
+                'question' => $question
+            ]);
+        }
 
         return redirect()->route('lead_questions.index')->with('success', 'Question added successfully.');
     }

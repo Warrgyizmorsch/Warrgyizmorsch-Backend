@@ -39,484 +39,151 @@
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" id="ci-btn-upload" class="btn btn-primary px-4 fw-bold">
-                            Upload & Map Fields <i class="feather-arrow-right ms-1"></i>
-                        </button>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ asset('samples/Sample_100_Leads_With_Duplicates_And_5_Comments.xlsx') }}" download class="btn btn-outline-success fw-semibold shadow-sm">
+                            <i class="feather-download me-1"></i> Download 100 Test Leads Template (With Duplicates & 5 Comments)
+                        </a>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" id="ci-btn-upload" class="btn btn-primary px-4 fw-bold">
+                                Upload & Map Fields <i class="feather-arrow-right ms-1"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- STEP 2: Column Mapping UI (Hidden initially) -->
+                <!-- STEP 2: 2-Column Excel Header to DB Field / Custom Attribute Mapping UI -->
                 <div id="ci-step-2" class="d-none">
                     
-                    <div class="alert alert-success border-0 shadow-sm mb-3 d-flex align-items-center justify-content-between" style="background: #f0fdf4; color: #166534;">
+                    <div class="alert alert-success border-0 shadow-sm mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: #f0fdf4; color: #166534; border-radius: 10px;">
                         <div class="d-flex align-items-center gap-2">
-                            <i class="feather-check-circle fs-18"></i>
-                            <span class="small fw-semibold" id="ci-file-info">File uploaded successfully. Map your columns below:</span>
+                            <i class="feather-check-circle fs-18 text-success"></i>
+                            <div>
+                                <strong id="ci-file-info" class="d-block" style="font-size: 13.5px;">File uploaded successfully!</strong>
+                                <span style="font-size: 12px; color: #15803d;">Map each Excel column on the left to a Database field or Custom Attribute on the right:</span>
+                            </div>
                         </div>
-                        <span class="badge bg-success" id="ci-header-count">0 Headers Found</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success px-3 py-2 fs-12" id="ci-header-count">0 Sheet Columns</span>
+                            <span class="badge bg-primary px-3 py-2 fs-12" id="ci-mapped-count">0 Mapped to Standard DB</span>
+                            <span class="badge bg-secondary px-3 py-2 fs-12" id="ci-custom-attr-count">0 Custom Attributes</span>
+                        </div>
                     </div>
 
-                    <div class="alert alert-warning border-0 shadow-sm mb-4 d-flex align-items-start gap-2" style="background: #fffbeb; color: #92400e; font-size: 13px;">
-                        <i class="feather-alert-triangle fs-16 mt-0.5"></i>
+                    <div class="alert alert-info border-0 shadow-sm mb-3 d-flex align-items-start gap-2" style="background: #eff6ff; color: #1e40af; font-size: 12.5px; border-radius: 8px;">
+                        <i class="feather-info fs-16 mt-0.5"></i>
                         <div>
-                            <strong>Note:</strong> Any Excel field that is <u>not mapped</u> to a standard database field will automatically be stored inside the <strong>custom_attributes</strong> JSON column for that lead.
+                            <strong>Dynamic Custom Attributes:</strong> Any Excel column mapped as a Custom Attribute (or unmapped) will automatically be saved into the lead's <code>custom_attributes</code> JSON column and displayed in Lead View/Edit!
                         </div>
                     </div>
 
                     <input type="hidden" id="ci-temp-file-id">
+                    <input type="hidden" id="ci-selected-rows">
 
-                    <!-- Mapping Form Grid -->
+                    <!-- Duplicate Lead Inspection & Selection Card -->
+                    <div class="card mb-3 border shadow-sm" style="border-radius: 10px;" id="ci-dup-selection-card">
+                        <div class="card-header bg-light py-2 fw-bold text-dark d-flex align-items-center justify-content-between flex-wrap gap-2" style="font-size: 13px;">
+                            <span><i class="feather-users me-1 text-primary"></i> 1. Select Rows to Import (Fresh Leads vs Checked Duplicate Leads)</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-success px-2 py-1 fs-11" id="ci-badge-new-count">0 Fresh Leads</span>
+                                <span class="badge bg-danger px-2 py-1 fs-11" id="ci-badge-dup-count">0 Duplicate Leads</span>
+                                <span class="badge bg-dark px-2 py-1 fs-11" id="ci-badge-total-selected">0 Rows Selected</span>
+                            </div>
+                        </div>
+                        <div class="card-body p-2">
+                            <!-- Tabs for Fresh Leads vs Duplicate Leads -->
+                            <ul class="nav nav-tabs nav-justified mb-2" id="ciDupTab" role="tablist" style="font-size: 13px;">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active fw-bold text-success py-1.5" id="ci-tab-new-leads" data-bs-toggle="tab" data-bs-target="#ci-pane-new-leads" type="button" role="tab">
+                                        <i class="feather-check-circle me-1"></i> Fresh New Leads (<span id="ci-tab-cnt-new">0</span>)
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link fw-bold text-danger py-1.5" id="ci-tab-dup-leads" data-bs-toggle="tab" data-bs-target="#ci-pane-dup-leads" type="button" role="tab">
+                                        <i class="feather-alert-circle me-1"></i> Duplicate Leads (<span id="ci-tab-cnt-dup">0</span>)
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="ciDupTabContent">
+                                <!-- Fresh New Leads Pane -->
+                                <div class="tab-pane fade show active" id="ci-pane-new-leads" role="tabpanel">
+                                    <div class="table-responsive overflow-auto" style="max-height: 200px;">
+                                        <table class="table table-sm table-striped table-hover mb-0" style="font-size: 12px;">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th width="40" class="text-center">
+                                                        <input type="checkbox" class="form-check-input" id="ci-check-all-new" checked style="cursor: pointer;" title="Select/Deselect All Fresh Leads">
+                                                    </th>
+                                                    <th># Row</th>
+                                                    <th>Name</th>
+                                                    <th>Email Address</th>
+                                                    <th>Phone Number</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ci-new-leads-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Duplicate Leads Pane -->
+                                <div class="tab-pane fade" id="ci-pane-dup-leads" role="tabpanel">
+                                    <div class="table-responsive overflow-auto" style="max-height: 200px;">
+                                        <table class="table table-sm table-striped table-hover mb-0" style="font-size: 12px;">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th width="40" class="text-center">
+                                                        <input type="checkbox" class="form-check-input" id="ci-check-all-dup" style="cursor: pointer;" title="Select/Deselect All Duplicate Leads">
+                                                    </th>
+                                                    <th># Row</th>
+                                                    <th>Sheet Name</th>
+                                                    <th>Sheet Email</th>
+                                                    <th>Sheet Phone</th>
+                                                    <th>Matched DB User</th>
+                                                    <th>Match Reason</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ci-dup-leads-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mapping Form 2-Column Grid -->
                     <form id="ci-mapping-form">
-
-                        <!-- Column Header Title Bar -->
-                        <div class="card mb-3 border-0 bg-primary text-white shadow-sm" style="border-radius: 10px;">
+                        
+                        <!-- Table Header Bar -->
+                        <div class="card mb-2 border-0 bg-primary text-white shadow-sm" style="border-radius: 8px;">
                             <div class="card-body py-2 px-3">
                                 <div class="row align-items-center fw-bold" style="font-size: 13.5px;">
                                     <div class="col-md-6 d-flex align-items-center gap-2">
-                                        <i class="feather-database"></i> 1. CRM Lead / System Field (Left Column)
+                                        <i class="feather-file-text fs-16"></i> 1. Uploaded Sheet Columns (Static Left)
                                     </div>
-                                    <div class="col-md-6 d-flex align-items-center gap-2">
-                                        <i class="feather-file-text"></i> 2. Select Matching Sheet Column (Right Dropdown)
+                                    <div class="col-md-6 d-flex align-items-center">
+                                        <span class="d-flex align-items-center gap-2">
+                                            <i class="feather-database fs-16"></i> 2. Select Database Field / Custom Attribute (Dropdown Right)
+                                        </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Section 1: User / Contact Information -->
-                        <div class="card mb-4 border shadow-sm">
-                            <div class="card-header bg-light py-2 fw-bold text-dark d-flex align-items-center gap-2" style="font-size: 14px;">
-                                <i class="feather-user text-primary"></i> User & Contact Fields (Users Table)
-                            </div>
-                            <div class="card-body p-3">
-                                <div class="row g-3 align-items-center">
-                                    
-                                    <!-- Name -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white d-flex align-items-center justify-content-between">
-                                            <span class="fw-bold text-dark" style="font-size: 13px;"><i class="feather-user me-2 text-primary"></i> Full Name / First Name *</span>
-                                            <span class="badge bg-soft-primary text-primary" style="font-size: 10px;">Required</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="name" id="map-name" data-match="name,full name,first name,client_name,student_name">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
 
-                                    <!-- Mobile No -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white d-flex align-items-center justify-content-between">
-                                            <span class="fw-bold text-dark" style="font-size: 13px;"><i class="feather-phone me-2 text-primary"></i> Mobile No / Phone *</span>
-                                            <span class="badge bg-soft-primary text-primary" style="font-size: 10px;">Required</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="contact_no" id="map-contact_no" data-match="phone,mobile,contact,phone number,contact no,phone_number">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Email -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="feather-mail me-2 text-secondary"></i> Email Address</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="email" id="map-email" data-match="email,mail,e-mail,email address,work_email_address">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Country Code -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="feather-globe me-2 text-secondary"></i> Country Code (e.g. +91)</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="country_code" id="map-country_code" data-match="country code,code,dial code,country_code">
-                                            <option value="">-- Default (+91) --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Company Name -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="feather-briefcase me-2 text-secondary"></i> Company Name</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="company_name" id="map-company_name" data-match="company,company_name,organization">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- City -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="feather-map-pin me-2 text-secondary"></i> City</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="city" id="map-city" data-match="city,location,town">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- State -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="feather-navigation me-2 text-secondary"></i> State</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="state" id="map-state" data-match="state,province">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Pincode -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="feather-hash me-2 text-secondary"></i> Pincode / Zip Code</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="pincode" id="map-pincode" data-match="pincode,zip,zipcode,postal_code">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Address -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="feather-home me-2 text-secondary"></i> Full Address</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="address" id="map-address" data-match="address,full address,street">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Section 2: Campaign, Meta & Source Fields -->
-                        <div class="card mb-4 border shadow-sm">
-                            <div class="card-header bg-light py-2 fw-bold text-dark d-flex align-items-center gap-2" style="font-size: 14px;">
-                                <i class="feather-layers text-info"></i> Campaign, Meta Ads & Lead Source Fields (Leads Table)
-                            </div>
-                            <div class="card-body p-3">
-                                <div class="row g-3 align-items-center">
-                                    
-                                    <!-- Campaign Name -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Campaign Name</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="campaign_name" id="map-campaign" data-match="campaign_name,campaign">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Adset Name -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Adset Name</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="adset_name" id="map-adset" data-match="adset_name,adset">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Ad Name -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Ad Name</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="ad_name" id="map-adname" data-match="ad_name,ad">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Form Name -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Form Name</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="form_name" id="map-formname" data-match="form_name,form">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Platform / Source -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Platform / Lead Source</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="platform" id="map-platform" data-match="platform,source,lead_source,website">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Page URL -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Landing / Page URL</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="page_url" id="map-page_url" data-match="page_url,url,link">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Date -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Lead Date / Created Time</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="date" id="map-date" data-match="created_time,created_at,date,time,lead_date">
-                                            <option value="">-- Auto (Current Date) --</option>
-                                        </select>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                        <!-- Section 4: Business, Product & Corporate Fields -->
-                        <div class="card mb-4 border shadow-sm">
-                            <div class="card-header bg-light py-2 fw-bold text-dark d-flex align-items-center gap-2" style="font-size: 14px;">
-                                <i class="feather-briefcase text-success"></i> Business, Product & Corporate Fields (Leads Table)
-                            </div>
-                            <div class="card-body p-3">
-                                <div class="row g-3 align-items-center">
-                                    
-                                    <!-- Product -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Product / Category</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="product" id="map-product" data-match="product,category,service_category">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Services -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Services</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="services" id="map-services" data-match="services,service">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Business Name -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Business / Organization Name</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="business_name" id="map-business_name" data-match="business_name,company_name,business">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Industry -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Industry / Sector</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="industry" id="map-industry" data-match="industry,sector">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Employee Strength -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Employee Strength</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="employee_strength" id="map-employee_strength" data-match="employee_strength,employees,company_size">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Website -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Website URL</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="website" id="map-website" data-match="website,url,site">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- GST Number -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">GST Number</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="gst_number" id="map-gst_number" data-match="gst_number,gst,gstin">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Lead Status -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Lead Status / Stage</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="lead_status" id="map-lead_status" data-match="lead_status,status,stage">
-                                            <option value="">-- Auto (Default Bucket Status) --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Engagement Status -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Engagement Status (Hot/Warm/Cold)</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="lead_engagement_status" id="map-lead_engagement_status" data-match="engagement,lead_engagement,temperature">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Pain Points -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Pain Points / Requirements</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="pain_points" id="map-pain_points" data-match="pain_points,requirements,needs">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Description / Notes -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Description / Remarks / Notes (Leads Table)</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="description" id="map-description" data-match="description,remark,notes,message,comments">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Section 5: Followup & Comment History Fields -->
-                        <div class="card mb-4 border shadow-sm">
-                            <div class="card-header bg-light py-2 fw-bold text-dark d-flex align-items-center gap-2" style="font-size: 14px;">
-                                <i class="feather-message-square text-warning"></i> Followup & Comment History Fields (callback_messages Table)
-                            </div>
-                            <div class="card-body p-3">
-                                <div class="row g-3 align-items-center">
-                                    
-                                    <!-- Callback Message / Remark -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white d-flex align-items-center justify-content-between">
-                                            <span class="fw-bold text-dark" style="font-size: 13px;"><i class="feather-message-circle me-2 text-warning"></i> Add Message / Remark / Comment *</span>
-                                            <span class="badge bg-soft-warning text-warning" style="font-size: 10px;">Drawer Note</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="callback_message" id="map-callback_message" data-match="message,remark,remarks,comment,comments,notes,callback_message,feedback">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Next Followup Date -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Next Follow Up Date</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="next_followup_date" id="map-next_followup_date" data-match="next_followup_date,followup_date,next_followup,follow_up_date">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Followup Type -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Communication Type (Call / Whatsapp / Note)</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="followup_type" id="map-followup_type" data-match="followup_type,communication_type,type,mode">
-                                            <option value="">-- Default (Imported Note) --</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Followup Status -->
-                                    <div class="col-md-6">
-                                        <div class="p-2 border rounded bg-white">
-                                            <span class="fw-semibold text-dark" style="font-size: 13px;">Communication Status (Connected / No Response)</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <select class="form-select ci-header-select" name="followup_status" id="map-followup_status" data-match="followup_status,communication_status,call_status">
-                                            <option value="">-- Ignore / Not in file --</option>
-                                        </select>
-                                    </div>
-
-                                </div>
-                            </div>
+                        <!-- Dynamic 2-Column Mapping Container -->
+                        <div id="ci-two-column-mapping-container" class="mb-3 overflow-auto pe-1" style="max-height: 480px;">
+                            <!-- Dynamically populated via JavaScript -->
                         </div>
 
                         <!-- Live Data Preview Box -->
-                        <div class="card mb-3 border shadow-sm">
+                        <div class="card mb-3 border shadow-sm" style="border-radius: 10px;">
                             <div class="card-header bg-light py-2 fw-bold text-dark d-flex align-items-center gap-2" style="font-size: 13px;">
                                 <i class="feather-eye text-info"></i> Sample Sheet Data Preview (First 3 Rows)
                             </div>
-                            <div class="card-body p-0 overflow-auto" style="max-height: 180px;">
+                            <div class="card-body p-0 overflow-auto" style="max-height: 170px;">
                                 <table class="table table-sm table-bordered table-striped mb-0 text-nowrap" style="font-size: 12px;" id="ci-preview-table">
-                                    <thead class="table-light">
+                                    <thead class="table-light sticky-top">
                                         <tr id="ci-preview-thead"></tr>
                                     </thead>
                                     <tbody id="ci-preview-tbody"></tbody>
@@ -527,11 +194,11 @@
                     </form>
 
                     <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-                        <button type="button" class="btn btn-outline-secondary" onclick="resetToStep1()">
+                        <button type="button" class="btn btn-outline-secondary px-3" onclick="resetToStep1()">
                             <i class="feather-arrow-left me-1"></i> Back to Upload
                         </button>
                         
-                        <button type="button" id="ci-btn-process" class="btn btn-success px-4 fw-bold">
+                        <button type="button" id="ci-btn-process" class="btn btn-success px-4 fw-bold shadow-sm">
                             <i class="feather-check-circle me-1"></i> Start Import Now
                         </button>
                     </div>
@@ -594,14 +261,12 @@
 </div>
 
 <script>
-    // Global function to open the Custom Import Modal
     function openCustomImportModal() {
         resetToStep1();
         var modal = new bootstrap.Modal(document.getElementById('customImportModal'));
         modal.show();
     }
 
-    // Reset modal state back to Step 1
     function resetToStep1() {
         document.getElementById('ci-step-1').classList.remove('d-none');
         document.getElementById('ci-step-2').classList.add('d-none');
@@ -609,7 +274,6 @@
         document.getElementById('ci-file-input').value = '';
         document.getElementById('ci-temp-file-id').value = '';
         
-        // Reset Progress UI
         document.getElementById('ci-progress-spinner').classList.remove('d-none');
         document.getElementById('ci-progress-success-icon').classList.add('d-none');
         document.getElementById('ci-step-3-done-btn').classList.add('d-none');
@@ -629,7 +293,192 @@
         const btnProcess = document.getElementById('ci-btn-process');
         const fileInput = document.getElementById('ci-file-input');
 
-        // Step 1: Upload File & Read Headers
+        // Master definition of Database fields grouped by categories (Study & Visa removed as requested)
+        const CRM_DB_FIELD_GROUPS = [
+            {
+                groupName: "👤 Customer & Contact Fields",
+                fields: [
+                    { key: "name", label: "Full Name / Client Name *", keywords: ["name", "full name", "first name", "client_name", "student_name", "lead_name", "candidate_name", "customer_name"] },
+                    { key: "contact_no", label: "Mobile / Phone Number *", keywords: ["phone", "mobile", "contact", "phone number", "contact no", "phone_number", "mobile_no", "mobile number", "mobile_number", "tel"] },
+                    { key: "email", label: "Email Address", keywords: ["email", "mail", "e-mail", "email address", "work_email_address", "user_email"] },
+                    { key: "country_code", label: "Country Code (+91)", keywords: ["country code", "code", "dial code", "country_code"] },
+                    { key: "city", label: "City", keywords: ["city", "location", "town"] },
+                    { key: "state", label: "State", keywords: ["state", "province"] },
+                    { key: "pincode", label: "Pincode / Zip Code", keywords: ["pincode", "zip", "zipcode", "postal_code", "pin_code"] },
+                    { key: "address", label: "Full Address", keywords: ["address", "full address", "street"] }
+                ]
+            },
+            {
+                groupName: "🏢 Company & Business Details",
+                fields: [
+                    { key: "company_name", label: "Company Name", keywords: ["company", "company_name", "organization", "org_name"] },
+                    { key: "business_name", label: "Business / Brand Name", keywords: ["business_name", "business"] },
+                    { key: "product", label: "Product / Category", keywords: ["product", "category", "service_category"] },
+                    { key: "services", label: "Services Offered", keywords: ["services", "service"] },
+                    { key: "industry", label: "Industry / Sector", keywords: ["industry", "sector"] },
+                    { key: "employee_strength", label: "Employee Strength", keywords: ["employee_strength", "employees", "company_size"] },
+                    { key: "website", label: "Website URL", keywords: ["website", "site"] },
+                    { key: "gst_number", label: "GST Number", keywords: ["gst_number", "gst", "gstin"] }
+                ]
+            },
+            {
+                groupName: "📢 Ads & Marketing Details",
+                fields: [
+                    { key: "campaign_name", label: "Campaign Name", keywords: ["campaign_name", "campaign"] },
+                    { key: "campaign_id", label: "Campaign ID", keywords: ["campaign_id", "campaign id", "campaign_id"] },
+                    { key: "adset_name", label: "Adset Name", keywords: ["adset_name", "adset"] },
+                    { key: "adset_id", label: "Adset ID", keywords: ["adset_id", "adset id", "adset_id"] },
+                    { key: "ad_name", label: "Ad Name", keywords: ["ad_name", "ad"] },
+                    { key: "ad_id", label: "Ad ID", keywords: ["ad_id", "ad id", "ad_id"] },
+                    { key: "form_name", label: "Form Name", keywords: ["form_name", "form"] },
+                    { key: "form_id", label: "Form ID", keywords: ["form_id", "form id", "form_id"] },
+                    { key: "platform", label: "Platform / Lead Source", keywords: ["platform", "source", "lead_source", "website"] },
+                    { key: "page_url", label: "Landing / Page URL", keywords: ["page_url", "url", "link"] },
+                    { key: "date", label: "Lead Date / Created Time", keywords: ["created_time", "created_at", "date", "time", "lead_date"] }
+                ]
+            },
+            {
+                groupName: "📋 Lead Status & Requirements",
+                fields: [
+                    { key: "budget", label: "Budget", keywords: ["budget", "price", "amount"] },
+                    { key: "lead_status", label: "Lead Stage / Status", keywords: ["lead_status", "status", "stage"] },
+                    { key: "lead_engagement_status", label: "Engagement Status (Hot/Warm/Cold)", keywords: ["engagement", "lead_engagement", "temperature"] },
+                    { key: "pain_points", label: "Pain Points / Requirements", keywords: ["pain_points", "requirements", "needs"] },
+                    { key: "description", label: "Description / Remarks / Notes", keywords: ["description", "remark", "notes", "message", "comments"] },
+                    { key: "callback_message", label: "Followup Comment / Remark", keywords: ["message", "remarks", "comment", "callback_message", "feedback"] }
+                ]
+            },
+            {
+                groupName: "✨ System Custom Attributes (lead_questions)",
+                fields: [
+                    @foreach(\App\Models\LeadQuestion::where('is_active', 1)->get() as $q)
+                    { key: "{{ $q->field_name }}", label: "{{ $q->label }}", keywords: ["{{ strtolower($q->field_name) }}", "{{ strtolower($q->label) }}"] },
+                    @endforeach
+                ]
+            }
+        ];
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Select/Deselect All Fresh Leads in Step 2
+        const chkAllNewStep2 = document.getElementById('ci-check-all-new');
+        if (chkAllNewStep2) {
+            chkAllNewStep2.addEventListener('change', function () {
+                document.querySelectorAll('.ci-new-lead-cb').forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateCiSelectedRowsCount();
+            });
+        }
+
+        // Select/Deselect All Duplicate Leads in Step 2
+        const chkAllDupStep2 = document.getElementById('ci-check-all-dup');
+        if (chkAllDupStep2) {
+            chkAllDupStep2.addEventListener('change', function () {
+                document.querySelectorAll('.ci-dup-lead-cb').forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateCiSelectedRowsCount();
+            });
+        }
+
+        function populateLeadSelectionTables(data) {
+            const newTbody = document.getElementById('ci-new-leads-tbody');
+            const dupTbody = document.getElementById('ci-dup-leads-tbody');
+            if (!newTbody || !dupTbody) return;
+
+            const newList = data.new_list || [];
+            const dupList = data.existing_list || [];
+
+            const cntNewEl = document.getElementById('ci-tab-cnt-new');
+            if (cntNewEl) cntNewEl.innerText = newList.length;
+
+            const badgeNewEl = document.getElementById('ci-badge-new-count');
+            if (badgeNewEl) badgeNewEl.innerText = `${newList.length} Fresh Leads`;
+
+            const cntDupEl = document.getElementById('ci-tab-cnt-dup');
+            if (cntDupEl) cntDupEl.innerText = dupList.length;
+
+            const badgeDupEl = document.getElementById('ci-badge-dup-count');
+            if (badgeDupEl) badgeDupEl.innerText = `${dupList.length} Duplicate Leads`;
+
+            // Render Fresh Leads Table
+            newTbody.innerHTML = '';
+            if (newList.length === 0) {
+                newTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-2">No fresh leads found in Excel file.</td></tr>';
+            } else {
+                newList.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'align-middle';
+                    tr.innerHTML = `
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input ci-lead-select-cb ci-new-lead-cb" value="${item.row}" checked style="cursor: pointer;">
+                        </td>
+                        <td><span class="badge bg-secondary">Row ${item.row}</span></td>
+                        <td class="fw-bold">${escapeHtml(item.name)}</td>
+                        <td>${escapeHtml(item.email)}</td>
+                        <td>${escapeHtml(item.phone)}</td>
+                        <td><span class="badge bg-soft-success text-success"><i class="feather-check me-1"></i>Fresh Entry</span></td>
+                    `;
+                    newTbody.appendChild(tr);
+                });
+            }
+
+            // Render Duplicate Leads Table
+            dupTbody.innerHTML = '';
+            if (dupList.length === 0) {
+                dupTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-2">No duplicate leads found in database! All rows are fresh.</td></tr>';
+            } else {
+                dupList.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'align-middle';
+                    tr.innerHTML = `
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input ci-lead-select-cb ci-dup-lead-cb" value="${item.row}" style="cursor: pointer;">
+                        </td>
+                        <td><span class="badge bg-secondary">Row ${item.row}</span></td>
+                        <td class="fw-bold">${escapeHtml(item.name)}</td>
+                        <td>${escapeHtml(item.email)}</td>
+                        <td>${escapeHtml(item.phone)}</td>
+                        <td class="text-danger fw-semibold"><i class="feather-user me-1"></i>${escapeHtml(item.db_name)}</td>
+                        <td><span class="badge bg-soft-danger text-danger">${escapeHtml(item.match_type)}</span></td>
+                    `;
+                    dupTbody.appendChild(tr);
+                });
+            }
+
+            document.querySelectorAll('.ci-lead-select-cb').forEach(cb => {
+                cb.addEventListener('change', updateCiSelectedRowsCount);
+            });
+
+            updateCiSelectedRowsCount();
+        }
+
+        function updateCiSelectedRowsCount() {
+            const selectedBoxes = document.querySelectorAll('.ci-lead-select-cb:checked');
+            const count = selectedBoxes.length;
+
+            const totalSelectedBadge = document.getElementById('ci-badge-total-selected');
+            if (totalSelectedBadge) totalSelectedBadge.innerText = `${count} Rows Selected`;
+
+            const btnProcess = document.getElementById('ci-btn-process');
+            if (btnProcess) {
+                btnProcess.innerHTML = `<i class="feather-check-circle me-1"></i> Start Import Now (${count} Leads Selected)`;
+            }
+
+            const selectedRowsArr = Array.from(selectedBoxes).map(cb => parseInt(cb.value));
+            const elSelectedRows = document.getElementById('ci-selected-rows');
+            if (elSelectedRows) elSelectedRows.value = JSON.stringify(selectedRowsArr);
+        }
+
         if (btnUpload) {
             btnUpload.addEventListener('click', function () {
                 if (!fileInput.files.length) {
@@ -641,112 +490,319 @@
                 const formData = new FormData();
                 formData.append('file', file);
 
-                // Disable button & show spinner
                 btnUpload.disabled = true;
-                btnUpload.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Reading File...';
+                btnUpload.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Reading File & Checking Duplicates...';
 
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-                fetch("{{ route('modern.leads.import.upload') }}", {
+                fetch("{{ route('modern.leads.compare') }}", {
                     method: "POST",
                     headers: {
-                        'X-CSRF-TOKEN': csrfToken
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
                     },
                     body: formData
                 })
-                .then(res => res.json())
-                .then(data => {
+                .then(async res => {
+                    const data = await res.json().catch(() => ({ status: 'error', message: `Server error (${res.status} ${res.statusText})` }));
+                    return { ok: res.ok, data };
+                })
+                .then(({ ok, data }) => {
                     btnUpload.disabled = false;
                     btnUpload.innerHTML = 'Upload & Map Fields <i class="feather-arrow-right ms-1"></i>';
 
-                    if (data.status === 'success') {
-                        // Save temp file id
-                        document.getElementById('ci-temp-file-id').value = data.temp_file_id;
-                        document.getElementById('ci-file-info').innerText = `File "${file.name}" uploaded. Map fields below:`;
-                        document.getElementById('ci-header-count').innerText = `${data.headers.length} Headers Found`;
+                    if (ok && data.status === 'success') {
+                        const elTempId = document.getElementById('ci-temp-file-id');
+                        if (elTempId) elTempId.value = data.temp_file_id;
 
-                        // Populate Dropdowns in Step 2
-                        populateMappingDropdowns(data.headers);
+                        const elFileInfo = document.getElementById('ci-file-info');
+                        if (elFileInfo) elFileInfo.innerText = `File "${file.name}" uploaded & scanned successfully!`;
 
-                        // Populate Data Preview Table
+                        const elHeaderCount = document.getElementById('ci-header-count');
+                        if (elHeaderCount) elHeaderCount.innerText = `${data.headers.length} Sheet Columns`;
+
+                        populateLeadSelectionTables(data);
+                        populateTwoColumnMapping(data.headers, data.preview);
                         populatePreviewTable(data.headers, data.preview);
 
-                        // Switch view to Step 2
                         document.getElementById('ci-step-1').classList.add('d-none');
                         document.getElementById('ci-step-2').classList.remove('d-none');
                     } else {
-                        Swal.fire('Upload Error', data.message || 'Could not read file.', 'error');
+                        let msg = data.message;
+                        if (data.errors) {
+                            msg = Object.values(data.errors).flat().join('<br>');
+                        }
+                        Swal.fire('Upload Error', msg || 'Could not read file.', 'error');
                     }
                 })
                 .catch(err => {
                     console.error(err);
                     btnUpload.disabled = false;
                     btnUpload.innerHTML = 'Upload & Map Fields <i class="feather-arrow-right ms-1"></i>';
-                    Swal.fire('Error', 'An unexpected error occurred while uploading file.', 'error');
+                    Swal.fire('Error', 'An unexpected error occurred: ' + (err.message || err), 'error');
                 });
             });
         }
 
-        // Helper to populate header dropdown selects with smart auto-selection
-        function populateMappingDropdowns(headers) {
-            const selectElements = document.querySelectorAll('.ci-header-select');
+        // Render 2-Column Excel Header to DB Field Mapping UI
+        function populateTwoColumnMapping(headers, previewRows) {
+            const container = document.getElementById('ci-two-column-mapping-container');
+            if (!container) return;
+            container.innerHTML = '';
 
-            selectElements.forEach(select => {
-                // Clear existing dynamic options (keep option 0 default)
-                select.innerHTML = select.options[0].outerHTML;
+            const firstPreviewRow = (previewRows && previewRows.length > 0) ? previewRows[0] : {};
+            const usedDbFields = new Set();
 
-                const matchKeywords = (select.getAttribute('data-match') || '').toLowerCase().split(',').map(s => s.trim());
-                let bestMatchOption = null;
+            headers.forEach((h, index) => {
+                const headerLower = (h.name || '').toLowerCase().trim();
+                const sampleVal = firstPreviewRow[h.name] !== undefined && firstPreviewRow[h.name] !== null ? String(firstPreviewRow[h.name]) : '';
+
+                // Determine best matching CRM DB Field
+                let bestDbKey = '';
                 let maxScore = 0;
 
-                headers.forEach(h => {
-                    const option = document.createElement('option');
-                    option.value = h.name;
-                    option.text = `${h.name} (Col ${h.col})`;
-                    select.appendChild(option);
+                if (headerLower === 'id' || headerLower === 'row_id') {
+                    // Ignore Excel id header so DB primary key auto-increments
+                    bestDbKey = '';
+                } else {
+                    CRM_DB_FIELD_GROUPS.forEach(group => {
+                        group.fields.forEach(field => {
+                            if ((field.key === 'name' || field.key === 'contact_no') && (headerLower.includes('ad_') || headerLower.includes('campaign_'))) {
+                                return;
+                            }
 
-                    const headerLower = h.name.toLowerCase().trim();
-
-                    // Avoid matching ad_name/campaign_name for Name & Contact
-                    if ((select.name === 'name' || select.name === 'contact_no') && (headerLower.includes('ad_') || headerLower.includes('campaign_'))) {
-                        return;
-                    }
-
-                    let score = 0;
-                    matchKeywords.forEach(kw => {
-                        if (!kw) return;
-                        if (headerLower === kw) {
-                            score += 10; // Exact match
-                        } else if (headerLower.replace(/[^a-z0-9]/g, '_') === kw.replace(/[^a-z0-9]/g, '_')) {
-                            score += 9;
-                        } else if (headerLower.includes(kw)) {
-                            score += 5;
-                        }
+                            field.keywords.forEach(kw => {
+                                if (!kw) return;
+                                if (headerLower === kw) {
+                                    maxScore = 100; bestDbKey = field.key;
+                                } else if (headerLower.replace(/[^a-z0-9]/g, '_') === kw.replace(/[^a-z0-9]/g, '_')) {
+                                    if (maxScore < 90) { maxScore = 90; bestDbKey = field.key; }
+                                } else if (headerLower.includes(kw)) {
+                                    if (maxScore < 50) { maxScore = 50; bestDbKey = field.key; }
+                                }
+                            });
+                        });
                     });
+                }
 
-                    if (score > maxScore) {
-                        maxScore = score;
-                        bestMatchOption = option;
-                    }
+                if (bestDbKey && !usedDbFields.has(bestDbKey)) {
+                    usedDbFields.add(bestDbKey);
+                } else if (bestDbKey && usedDbFields.has(bestDbKey) && maxScore < 90) {
+                    bestDbKey = ''; // Avoid duplicate auto-matching for low score
+                }
+
+                // Build Options HTML (Default is -- Select Database Field / Do Not Import --)
+                let optionsHtml = `<option value="" ${!bestDbKey ? 'selected' : ''}>-- Select Database Field / Do Not Import --</option>`;
+
+                CRM_DB_FIELD_GROUPS.forEach(group => {
+                    optionsHtml += `<optgroup label="${escapeHtml(group.groupName)}">`;
+                    group.fields.forEach(field => {
+                        const isSelected = (field.key === bestDbKey) ? 'selected' : '';
+                        optionsHtml += `<option value="${field.key}" ${isSelected}>${escapeHtml(field.label)} [${field.key}]</option>`;
+                    });
+                    optionsHtml += `</optgroup>`;
                 });
 
-                if (bestMatchOption && maxScore > 0) {
-                    bestMatchOption.selected = true;
+                const rowCard = document.createElement('div');
+                rowCard.className = 'card mb-2 border shadow-sm style-row-card';
+                rowCard.style.borderRadius = '8px';
+
+                rowCard.innerHTML = `
+                    <div class="card-body p-2 px-3">
+                        <div class="row align-items-center g-2">
+                            <!-- Left Column: Fixed Uploaded Excel Header -->
+                            <div class="col-md-6 border-end-md">
+                                <div class="d-flex align-items-center justify-content-between pe-md-2">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                        <span class="badge bg-primary px-2 py-1 fs-11 flex-shrink-0">Col ${index + 1}</span>
+                                        <strong class="text-dark fs-13 text-truncate" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</strong>
+                                    </div>
+                                    ${sampleVal ? `<small class="badge bg-light text-muted fw-normal text-truncate ms-2" style="max-width: 170px;" title="Sample: ${escapeHtml(sampleVal)}">Ex: "${escapeHtml(sampleVal)}"</small>` : ''}
+                                </div>
+                            </div>
+                            <!-- Right Column: Select DB Field Dropdown -->
+                            <div class="col-md-6">
+                                <select class="form-select form-select-sm ci-excel-header-select border-primary fw-medium" data-excel-header="${escapeHtml(h.name)}">
+                                    ${optionsHtml}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(rowCard);
+            });
+
+            updateTwoColumnStats(headers);
+
+            container.querySelectorAll('.ci-excel-header-select').forEach(select => {
+                select.addEventListener('change', function () {
+                    updateTwoColumnStats(headers);
+                });
+            });
+        }
+
+        function promptAddCustomAttributeForRow(btn, headerName) {
+            let selectEl = null;
+            if (btn && btn.closest) {
+                selectEl = btn.closest('.input-group')?.querySelector('.ci-excel-header-select') 
+                        || btn.closest('.row')?.querySelector('.ci-excel-header-select');
+            }
+
+            Swal.fire({
+                title: '✨ Add Custom Attribute',
+                target: document.getElementById('customImportModal') || 'body',
+                html: `
+                    <div class="text-start p-2">
+                        <div class="mb-2">
+                            <label class="form-label text-dark fw-bold fs-13 mb-1">Attribute Name <span class="text-danger">*</span></label>
+                            <input type="text" id="swal_attr_label" class="form-control" placeholder="Enter attribute name (e.g. Passport Expiry, Preferred Location...)" value="${escapeHtml(headerName && headerName !== 'Custom Attribute' ? headerName : '')}" autocomplete="off">
+                        </div>
+                    </div>
+                `,
+                didOpen: () => {
+                    const labelInp = document.getElementById('swal_attr_label');
+                    if (labelInp) {
+                        setTimeout(() => {
+                            labelInp.focus();
+                            labelInp.select();
+                        }, 100);
+                    }
+                },
+                showCancelButton: true,
+                confirmButtonText: '<i class="feather-check-circle me-1"></i> Save & Select Attribute',
+                confirmButtonColor: '#006FC9',
+                cancelButtonText: 'Cancel',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const label = document.getElementById('swal_attr_label')?.value.trim();
+                    if (!label) {
+                        Swal.showValidationMessage('Please enter a valid attribute name!');
+                        return false;
+                    }
+                    return { label };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    const { label } = result.value;
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
+
+                    Swal.fire({
+                        title: 'Saving Attribute...',
+                        text: 'Please wait...',
+                        target: document.getElementById('customImportModal') || 'body',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    fetch("{{ route('lead_questions.store') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            label: label,
+                            field_name: label,
+                            is_active: 1
+                        })
+                    })
+                    .then(async res => {
+                        const data = await res.json().catch(() => ({ status: 'error', message: `Server error (${res.status})` }));
+                        return { ok: res.ok, data };
+                    })
+                    .then(({ ok, data }) => {
+                        if (ok && (data.status === 'success' || data.question)) {
+                            const savedKey = (data.question && data.question.field_name) ? data.question.field_name : label.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                            const savedLabel = (data.question && data.question.label) ? data.question.label : label;
+
+                            // Append option to System Custom Attributes optgroup in all dropdowns
+                            document.querySelectorAll('.ci-excel-header-select').forEach(sel => {
+                                let existingOpt = Array.from(sel.options).find(opt => opt.value === savedKey);
+                                if (!existingOpt) {
+                                    existingOpt = document.createElement('option');
+                                    existingOpt.value = savedKey;
+                                    existingOpt.innerText = `${savedLabel} [${savedKey}]`;
+
+                                    let optGroup = Array.from(sel.querySelectorAll('optgroup')).find(g => g.label.includes('System Custom Attributes'));
+                                    if (optGroup) {
+                                        optGroup.appendChild(existingOpt);
+                                    } else {
+                                        sel.appendChild(existingOpt);
+                                    }
+                                }
+                            });
+
+                            if (selectEl) {
+                                selectEl.value = savedKey;
+                                selectEl.dispatchEvent(new Event('change'));
+                            }
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Attribute Created & Selected!',
+                                text: `"${savedLabel}" saved to database and auto-selected.`,
+                                target: document.getElementById('customImportModal') || 'body',
+                                toast: true,
+                                position: 'top-end',
+                                timer: 2500,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            const errMsg = (data && data.message) ? data.message : 'Could not save attribute.';
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Attribute Save Failed',
+                                text: errMsg,
+                                target: document.getElementById('customImportModal') || 'body'
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Attribute creation error:', err);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Network Error',
+                            text: 'An error occurred while saving custom attribute.',
+                            target: document.getElementById('customImportModal') || 'body'
+                        });
+                    });
                 }
             });
         }
 
-        // Helper to populate sample preview table
+        function updateTwoColumnStats(headers) {
+            const selects = document.querySelectorAll('.ci-excel-header-select');
+            let mappedCount = 0;
+            let customAttrCount = 0;
+
+            selects.forEach(select => {
+                if (select.value) {
+                    mappedCount++;
+                } else {
+                    customAttrCount++;
+                }
+            });
+
+            const mappedBadge = document.getElementById('ci-mapped-count');
+            const customBadge = document.getElementById('ci-custom-attr-count');
+            if (mappedBadge) mappedBadge.innerText = `${mappedCount} Mapped to Standard DB`;
+            if (customBadge) customBadge.innerText = `${customAttrCount} Custom Attributes`;
+        }
+
         function populatePreviewTable(headers, previewRows) {
             const thead = document.getElementById('ci-preview-thead');
             const tbody = document.getElementById('ci-preview-tbody');
+            if (!thead || !tbody) return;
 
             thead.innerHTML = '';
             tbody.innerHTML = '';
 
+            if (!headers || !headers.length) return;
+
             headers.forEach(h => {
                 const th = document.createElement('th');
-                th.innerText = h.name;
+                th.innerText = h.name || '';
                 thead.appendChild(th);
             });
 
@@ -754,14 +810,14 @@
                 const tr = document.createElement('tr');
                 headers.forEach(h => {
                     const td = document.createElement('td');
-                    td.innerText = row[h.name] || '';
+                    td.innerText = row[h.name] !== undefined && row[h.name] !== null ? String(row[h.name]) : '';
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
             });
         }
 
-        // Step 2: Final Import Submission with Live Row-by-Row Progress
+        // Process Import Form Submission
         if (btnProcess) {
             btnProcess.addEventListener('click', function () {
                 const tempFileId = document.getElementById('ci-temp-file-id').value;
@@ -770,13 +826,22 @@
                     return;
                 }
 
-                // Build mapping object
+                // Build mapping object (dbField => excelHeader) AND column_mappings array for multiple comment fields
                 const mapping = {};
-                const selectElements = document.querySelectorAll('.ci-header-select');
+                const columnMappings = [];
+                const selectElements = document.querySelectorAll('.ci-excel-header-select');
 
                 selectElements.forEach(select => {
-                    if (select.value) {
-                        mapping[select.name] = select.value;
+                    const dbField = select.value;
+                    const excelHeader = select.getAttribute('data-excel-header');
+                    if (excelHeader) {
+                        if (dbField) {
+                            mapping[dbField] = excelHeader;
+                        }
+                        columnMappings.push({
+                            excel_header: excelHeader,
+                            db_field: dbField || ''
+                        });
                     }
                 });
 
@@ -815,6 +880,12 @@
                     }
                 }, 300);
 
+                const selectedRowsVal = document.getElementById('ci-selected-rows')?.value;
+                let selectedRowsArr = null;
+                if (selectedRowsVal) {
+                    try { selectedRowsArr = JSON.parse(selectedRowsVal); } catch(e) {}
+                }
+
                 fetch("{{ route('modern.leads.import.process') }}", {
                     method: "POST",
                     headers: {
@@ -824,7 +895,9 @@
                     },
                     body: JSON.stringify({
                         temp_file_id: tempFileId,
-                        mapping: mapping
+                        mapping: mapping,
+                        column_mappings: columnMappings,
+                        selected_rows: selectedRowsArr
                     })
                 })
                 .then(res => res.json())
@@ -974,17 +1047,20 @@
 
                     <div class="tab-content" id="compTabContent">
                         
-                        <!-- Pane 1: Existing Leads List -->
+                        <!-- Pane 1: Existing Leads List (Duplicates) -->
                         <div class="tab-pane fade show active" id="comp-existing-pane" role="tabpanel">
                             <div class="card border shadow-sm">
                                 <div class="card-header bg-light py-2 fw-bold text-danger d-flex align-items-center justify-content-between">
-                                    <span><i class="feather-alert-circle me-1"></i> Leads Already Present in Database (Matched by Email/Phone)</span>
-                                    <span class="badge bg-danger">Duplicate Warning</span>
+                                    <span><i class="feather-alert-circle me-1"></i> Leads Already Present in Database (Check box to force import duplicate)</span>
+                                    <span class="badge bg-danger">Duplicate Leads</span>
                                 </div>
-                                <div class="card-body p-0 overflow-auto" style="max-height: 300px;">
+                                <div class="card-body p-0 overflow-auto" style="max-height: 320px;">
                                     <table class="table table-sm table-striped table-hover mb-0" style="font-size: 12.5px;">
                                         <thead class="table-light sticky-top">
                                             <tr>
+                                                <th width="45" class="text-center">
+                                                    <input type="checkbox" class="form-check-input" id="comp-check-all-existing" style="cursor: pointer;" title="Select/Deselect All Duplicates">
+                                                </th>
                                                 <th># Row</th>
                                                 <th>Sheet Name</th>
                                                 <th>Sheet Email</th>
@@ -1006,10 +1082,13 @@
                                     <span><i class="feather-check-circle me-1"></i> Fresh New Leads (Not Present in DB)</span>
                                     <span class="badge bg-success">Ready to Import</span>
                                 </div>
-                                <div class="card-body p-0 overflow-auto" style="max-height: 300px;">
+                                <div class="card-body p-0 overflow-auto" style="max-height: 320px;">
                                     <table class="table table-sm table-striped table-hover mb-0" style="font-size: 12.5px;">
                                         <thead class="table-light sticky-top">
                                             <tr>
+                                                <th width="45" class="text-center">
+                                                    <input type="checkbox" class="form-check-input" id="comp-check-all-new" checked style="cursor: pointer;" title="Select/Deselect All New Leads">
+                                                </th>
                                                 <th># Row</th>
                                                 <th>Name</th>
                                                 <th>Email Address</th>
@@ -1029,8 +1108,8 @@
                         <button type="button" class="btn btn-outline-secondary" onclick="resetCompareModal()">
                             <i class="feather-arrow-left me-1"></i> Compare Another File
                         </button>
-                        <button type="button" class="btn btn-primary fw-bold" onclick="switchToCustomImport()">
-                            <i class="feather-upload me-1"></i> Proceed to Custom Import
+                        <button type="button" id="comp-btn-import-selected" class="btn btn-success fw-bold px-4 shadow-sm" onclick="proceedFromCompareToImport()">
+                            <i class="feather-upload me-1"></i> Proceed to Import Selected Leads (<span id="comp-selected-count">0</span> Selected)
                         </button>
                     </div>
 
@@ -1042,6 +1121,8 @@
 </div>
 
 <script>
+    let compLastResponseData = null;
+
     function openCompareExcelModal() {
         resetCompareModal();
         var modal = new bootstrap.Modal(document.getElementById('compareExcelModal'));
@@ -1052,21 +1133,95 @@
         document.getElementById('comp-step-1').classList.remove('d-none');
         document.getElementById('comp-step-2').classList.add('d-none');
         document.getElementById('comp-file-input').value = '';
+        compLastResponseData = null;
     }
 
-    function switchToCustomImport() {
+    function updateCompareSelectedCount() {
+        const checkedCount = document.querySelectorAll('.comp-row-cb:checked').length;
+        const countSpan = document.getElementById('comp-selected-count');
+        if (countSpan) countSpan.innerText = checkedCount;
+    }
+
+    function proceedFromCompareToImport() {
+        const checkedBoxes = document.querySelectorAll('.comp-row-cb:checked');
+        if (!checkedBoxes.length) {
+            Swal.fire('No Leads Selected', 'Please check at least one lead (New or Duplicate) to proceed with import.', 'warning');
+            return;
+        }
+
+        const selectedRows = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
         const compModalEl = document.getElementById('compareExcelModal');
         const compModal = bootstrap.Modal.getInstance(compModalEl);
         if (compModal) compModal.hide();
 
         setTimeout(() => {
-            openCustomImportModal();
+            resetToStep1();
+
+            const elTempId = document.getElementById('ci-temp-file-id');
+            if (elTempId && compLastResponseData && compLastResponseData.temp_file_id) {
+                elTempId.value = compLastResponseData.temp_file_id;
+            }
+
+            const elSelectedRows = document.getElementById('ci-selected-rows');
+            if (elSelectedRows) {
+                elSelectedRows.value = JSON.stringify(selectedRows);
+            }
+
+            if (compLastResponseData && compLastResponseData.headers) {
+                const elFileInfo = document.getElementById('ci-file-info');
+                if (elFileInfo) elFileInfo.innerText = `File compared successfully! (${selectedRows.length} rows selected for import)`;
+
+                const elHeaderCount = document.getElementById('ci-header-count');
+                if (elHeaderCount) elHeaderCount.innerText = `${compLastResponseData.headers.length} Sheet Columns`;
+
+                populateTwoColumnMapping(compLastResponseData.headers, compLastResponseData.preview || []);
+                populatePreviewTable(compLastResponseData.headers, compLastResponseData.preview || []);
+
+                document.getElementById('ci-step-1').classList.add('d-none');
+                document.getElementById('ci-step-2').classList.remove('d-none');
+            }
+
+            var customImportModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('customImportModal'));
+            customImportModal.show();
+
+            Swal.fire({
+                icon: 'info',
+                title: 'Selected Rows Ready',
+                text: `${selectedRows.length} selected row(s) (including checked duplicates) loaded into mapping step!`,
+                toast: true,
+                position: 'top-end',
+                timer: 3000,
+                showConfirmButton: false
+            });
         }, 300);
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         const btnCompareStart = document.getElementById('comp-btn-start');
         const compFileInput = document.getElementById('comp-file-input');
+
+        // Select/Deselect All Existing Checkboxes
+        const chkAllExisting = document.getElementById('comp-check-all-existing');
+        if (chkAllExisting) {
+            chkAllExisting.addEventListener('change', function () {
+                document.querySelectorAll('.comp-existing-cb').forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateCompareSelectedCount();
+            });
+        }
+
+        // Select/Deselect All New Checkboxes
+        const chkAllNew = document.getElementById('comp-check-all-new');
+        if (chkAllNew) {
+            chkAllNew.addEventListener('change', function () {
+                document.querySelectorAll('.comp-new-cb').forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateCompareSelectedCount();
+            });
+        }
 
         if (btnCompareStart) {
             btnCompareStart.addEventListener('click', function () {
@@ -1087,7 +1242,8 @@
                 fetch("{{ route('modern.leads.compare') }}", {
                     method: "POST",
                     headers: {
-                        'X-CSRF-TOKEN': csrfToken
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
                     },
                     body: formData
                 })
@@ -1097,27 +1253,33 @@
                     btnCompareStart.innerHTML = '<i class="feather-search me-1"></i> Compare with Database';
 
                     if (data.status === 'success') {
+                        compLastResponseData = data;
+
                         document.getElementById('comp-stat-total').innerText = data.total_scanned;
                         document.getElementById('comp-stat-existing').innerText = data.existing_count;
                         document.getElementById('comp-stat-new').innerText = data.new_count;
                         document.getElementById('comp-badge-existing').innerText = data.existing_count;
                         document.getElementById('comp-badge-new').innerText = data.new_count;
 
-                        // Render Existing Leads Table
+                        // Render Existing Leads Table (Duplicates)
                         const existingTbody = document.getElementById('comp-existing-tbody');
                         existingTbody.innerHTML = '';
                         if (data.existing_list.length === 0) {
-                            existingTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No existing leads found in database. All rows are new!</td></tr>';
+                            existingTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No existing leads found in database. All rows are new!</td></tr>';
                         } else {
                             data.existing_list.forEach(item => {
                                 const tr = document.createElement('tr');
+                                tr.className = 'align-middle';
                                 tr.innerHTML = `
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input comp-row-cb comp-existing-cb" value="${item.row}" style="cursor: pointer;">
+                                    </td>
                                     <td><span class="badge bg-secondary">Row ${item.row}</span></td>
-                                    <td class="fw-bold">${item.name}</td>
-                                    <td>${item.email}</td>
-                                    <td>${item.phone}</td>
-                                    <td class="text-danger fw-semibold"><i class="feather-user me-1"></i>${item.db_name}</td>
-                                    <td><span class="badge bg-soft-danger text-danger">${item.match_type}</span></td>
+                                    <td class="fw-bold">${escapeHtml(item.name)}</td>
+                                    <td>${escapeHtml(item.email)}</td>
+                                    <td>${escapeHtml(item.phone)}</td>
+                                    <td class="text-danger fw-semibold"><i class="feather-user me-1"></i>${escapeHtml(item.db_name)}</td>
+                                    <td><span class="badge bg-soft-danger text-danger">${escapeHtml(item.match_type)}</span></td>
                                 `;
                                 existingTbody.appendChild(tr);
                             });
@@ -1127,20 +1289,31 @@
                         const newTbody = document.getElementById('comp-new-tbody');
                         newTbody.innerHTML = '';
                         if (data.new_list.length === 0) {
-                            newTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No new leads found in Excel file.</td></tr>';
+                            newTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No new leads found in Excel file.</td></tr>';
                         } else {
                             data.new_list.forEach(item => {
                                 const tr = document.createElement('tr');
+                                tr.className = 'align-middle';
                                 tr.innerHTML = `
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input comp-row-cb comp-new-cb" value="${item.row}" checked style="cursor: pointer;">
+                                    </td>
                                     <td><span class="badge bg-secondary">Row ${item.row}</span></td>
-                                    <td class="fw-bold">${item.name}</td>
-                                    <td>${item.email}</td>
-                                    <td>${item.phone}</td>
+                                    <td class="fw-bold">${escapeHtml(item.name)}</td>
+                                    <td>${escapeHtml(item.email)}</td>
+                                    <td>${escapeHtml(item.phone)}</td>
                                     <td><span class="badge bg-soft-success text-success"><i class="feather-check me-1"></i>Fresh Entry</span></td>
                                 `;
                                 newTbody.appendChild(tr);
                             });
                         }
+
+                        // Add change listeners to individual row checkboxes
+                        document.querySelectorAll('.comp-row-cb').forEach(cb => {
+                            cb.addEventListener('change', updateCompareSelectedCount);
+                        });
+
+                        updateCompareSelectedCount();
 
                         // Switch to Step 2
                         document.getElementById('comp-step-1').classList.add('d-none');
@@ -1159,4 +1332,142 @@
             });
         }
     });
+</script>
+
+<!-- ========================================== -->
+<!-- ADD SYSTEM CUSTOM ATTRIBUTE BOOTSTRAP MODAL -->
+<!-- ========================================== -->
+<div class="modal fade" id="addCustomAttributeModal" tabindex="-1" aria-labelledby="addCustomAttributeModalLabel" aria-hidden="true" style="z-index: 1070;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+            <div class="modal-header bg-primary text-white py-3">
+                <h5 class="modal-title fw-bold text-white fs-15 d-flex align-items-center gap-2" id="addCustomAttributeModalLabel">
+                    <i class="feather-plus-circle"></i> Create System Custom Attribute
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-white">
+                <form id="createCustomAttrModalForm" onsubmit="event.preventDefault(); submitCustomAttributeModal();">
+                    <div class="mb-3">
+                        <label class="form-label text-dark fw-bold fs-13 mb-1">Attribute Display Label <span class="text-danger">*</span></label>
+                        <input type="text" id="caa_label" class="form-control" placeholder="e.g. Passport Expiry Date" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-dark fw-bold fs-13 mb-1">System Database Field Key</label>
+                        <input type="text" id="caa_field_name" class="form-control bg-light" placeholder="e.g. passport_expiry_date" readonly>
+                        <small class="text-muted fs-11">This field key will be saved in system <code>lead_questions</code> table.</small>
+                    </div>
+
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="caa_is_active" checked>
+                        <label class="form-check-label fw-semibold text-dark fs-13" for="caa_is_active">Set as Active Attribute</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light py-2.5 px-4 border-top">
+                <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="btn-save-custom-attr-modal" class="btn btn-primary px-4 fw-bold" onclick="submitCustomAttributeModal()">
+                    <i class="feather-check-circle me-1"></i> Save & Select Attribute
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const labelInp = document.getElementById('caa_label');
+        if (labelInp) {
+            labelInp.addEventListener('input', function() {
+                document.getElementById('caa_field_name').value = this.value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+            });
+        }
+    });
+
+    function submitCustomAttributeModal() {
+        const label = document.getElementById('caa_label').value.trim();
+        const fieldName = document.getElementById('caa_field_name').value.trim();
+        const isActive = document.getElementById('caa_is_active').checked ? 1 : 0;
+
+        if (!label || !fieldName) {
+            Swal.fire('Validation Error', 'Please enter a valid attribute display label!', 'warning');
+            return;
+        }
+
+        const saveBtn = document.getElementById('btn-save-custom-attr-modal');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        fetch("{{ route('lead_questions.store') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                label: label,
+                field_name: fieldName,
+                is_active: isActive
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="feather-check-circle me-1"></i> Save & Select Attribute';
+
+            const modalEl = document.getElementById('addCustomAttributeModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+
+            document.querySelectorAll('.ci-excel-header-select').forEach(selectEl => {
+                let existingOpt = Array.from(selectEl.options).find(opt => opt.value === fieldName);
+                if (!existingOpt) {
+                    existingOpt = document.createElement('option');
+                    existingOpt.value = fieldName;
+                    existingOpt.innerText = `✨ ${label} [${fieldName}]`;
+                    selectEl.insertBefore(existingOpt, selectEl.children[1] || null);
+                }
+            });
+
+            if (currentTargetSelectEl) {
+                currentTargetSelectEl.value = fieldName;
+                currentTargetSelectEl.dispatchEvent(new Event('change'));
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Attribute Created!',
+                text: `"${label}" saved to system lead_questions table and selected.`,
+                toast: true,
+                position: 'top-end',
+                timer: 2500,
+                showConfirmButton: false
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="feather-check-circle me-1"></i> Save & Select Attribute';
+
+            const modalEl = document.getElementById('addCustomAttributeModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+
+            if (currentTargetSelectEl) {
+                let existingOpt = Array.from(currentTargetSelectEl.options).find(opt => opt.value === fieldName);
+                if (!existingOpt) {
+                    existingOpt = document.createElement('option');
+                    existingOpt.value = fieldName;
+                    existingOpt.innerText = `✨ ${label} [${fieldName}]`;
+                    currentTargetSelectEl.insertBefore(existingOpt, currentTargetSelectEl.children[1] || null);
+                }
+                currentTargetSelectEl.value = fieldName;
+                currentTargetSelectEl.dispatchEvent(new Event('change'));
+            }
+        });
+    }
 </script>

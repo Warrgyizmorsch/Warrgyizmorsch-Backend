@@ -325,6 +325,24 @@ class LeadController extends Controller
         }
         $leadData['documents'] = $uploadedDocs;
 
+        // Handle Dynamic Custom Attributes
+        if ($request->has('custom_attributes_keys') && $request->has('custom_attributes_values')) {
+            $customAttrsObj = [];
+            $caKeys = (array)$request->input('custom_attributes_keys', []);
+            $caVals = (array)$request->input('custom_attributes_values', []);
+            foreach ($caKeys as $idx => $kName) {
+                $kClean = trim((string)$kName);
+                if ($kClean !== '') {
+                    $customAttrsObj[$kClean] = $caVals[$idx] ?? '';
+                }
+            }
+            if (!empty($customAttrsObj)) {
+                $leadData['custom_attributes'] = $customAttrsObj;
+            }
+        } elseif ($request->has('custom_attributes') && is_array($request->input('custom_attributes'))) {
+            $leadData['custom_attributes'] = $request->input('custom_attributes');
+        }
+
         unset($leadData['name'], $leadData['email'], $leadData['mobile'], $leadData['country_code'], $leadData['city'], $leadData['state'], $leadData['pincode'], $leadData['address']);
 
         $leadData['uid'] = $user->id;

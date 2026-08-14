@@ -9,6 +9,8 @@ use App\Models\Bucket;
 use App\Models\Category;
 use App\Models\User;
 use App\Models\LeadSource;
+use App\Models\LeadQuestion;
+use App\Models\LeadAttribute;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -26,13 +28,14 @@ class NewleadController extends Controller
             return redirect()->route('login');
         }
 
-        // 1. Eager Load Essential Relations
+        // 1. Eager Load Essential Relations with Specific Columns
         $query = Leads::with([
-            'user',
-            'owner',
-            'bucket',
+            'user:id,name,email,contact_no,city,state,pincode,address',
+            'owner:id,name,email',
+            'bucket:id,name,bucket_color,parent_id',
             'category',
-            'messages.user',
+            'latestMessage.user:id,name',
+            'messages.user:id,name',
         ]);
 
         // 2. Role-based restrictions
@@ -193,29 +196,31 @@ class NewleadController extends Controller
         } else {
             $totalLeadsCount = 0;
         }
-        // Fetch pipeline leads from cloned query matching current active filters
-        $pipelineLeads = (clone $query)->orderBy('created_at', 'desc')->get();
+        // Fetch pipeline leads conditionally only when pipeline view is requested
+        $pipelineLeads = collect();
+        if ($request->view === 'pipeline') {
+            $pipelineLeads = (clone $query)->orderBy('created_at', 'desc')->take(200)->get();
 
-        // Batch calculation for pipeline duplicate leads & lastMessage
-        $pipelineUids = $pipelineLeads->pluck('uid')->filter()->unique();
-        $pipelineDuplicateGroup = collect();
-        if ($pipelineUids->isNotEmpty()) {
-            $pipelineDuplicateGroup = Leads::whereIn('uid', $pipelineUids)
-                ->select('id', 'uid')
-                ->get()
-                ->groupBy('uid');
+            $pipelineUids = $pipelineLeads->pluck('uid')->filter()->unique();
+            $pipelineDuplicateGroup = collect();
+            if ($pipelineUids->isNotEmpty()) {
+                $pipelineDuplicateGroup = Leads::whereIn('uid', $pipelineUids)
+                    ->select('id', 'uid')
+                    ->get()
+                    ->groupBy('uid');
+            }
+
+            $pipelineLeads->transform(function ($lead) use ($pipelineDuplicateGroup) {
+                $matching = $pipelineDuplicateGroup->get($lead->uid, collect());
+                $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
+
+                $lead->duplicate_count = $otherIds->count();
+                $lead->duplicate_ids = $otherIds;
+                $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
+
+                return $lead;
+            });
         }
-
-        $pipelineLeads->transform(function ($lead) use ($pipelineDuplicateGroup) {
-            $matching = $pipelineDuplicateGroup->get($lead->uid, collect());
-            $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
-
-            $lead->duplicate_count = $otherIds->count();
-            $lead->duplicate_ids = $otherIds;
-            $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
-
-            return $lead;
-        });
 
         // 5. Pagination (Appends query preserves filters on next pages)
         $perPage = request('per_page', 20);
@@ -480,19 +485,7 @@ class NewleadController extends Controller
             }
         }
 
-        $filterBucket = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->withCount([
-                'leads' => function ($q) use ($applyLeadFilters) {
-                    if (auth()->check() && auth()->user()->role_id == 3) {
-                        $q->where('lead_owner', auth()->id());
-                    }
-                    $applyLeadFilters($q);
-                }
-            ])
-            ->orderByRaw("FIELD(name, '" . implode("','", $mainStatuses) . "')")
-            ->get();
-
+        $filterBucket = $buckets;
         $mainbuckets = $filterBucket;
 
         $mainBucketIds = Bucket::whereNull('parent_id')
@@ -510,7 +503,7 @@ class NewleadController extends Controller
 
         $categorys = Category::where('is_active', 1)->get();
 
-        $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
+        $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->select('id', 'name', 'email')->get();
         $sources = LeadSource::pluck('source_name')->toArray();
         $today = Carbon::today();
         $followupsQuery = Leads::query();
@@ -826,29 +819,52 @@ class NewleadController extends Controller
     public function uploadImportFile(Request $request)
     {
         // 1. Validate that a file is provided and is an excel/csv file
-        $request->validate([
+        $validator = \Validator::make($request->all(), [
             'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:20480',
         ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => implode(' ', $validator->errors()->all()),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         try {
-            // 2. Store the uploaded file in 'temp_imports' directory inside storage/app
             $file = $request->file('file');
-            $tempFilename = 'import_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('temp_imports', $tempFilename);
+            $ext = strtolower($file->getClientOriginalExtension() ?: 'xlsx');
+            $tempFilename = 'import_' . time() . '_' . uniqid() . '.' . $ext;
 
-            $fullPath = storage_path('app/' . $path);
+            // Ensure temp_imports directory exists in storage
+            $storageDir = storage_path('app/temp_imports');
+            if (!file_exists($storageDir)) {
+                mkdir($storageDir, 0777, true);
+            }
 
-            // 3. Load the spreadsheet to read row 1 (the headers)
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($fullPath);
+            $destinationPath = $storageDir . DIRECTORY_SEPARATOR . $tempFilename;
+            copy($file->getRealPath(), $destinationPath);
+
+            // Load spreadsheet using PhpSpreadsheet
+            $filePathToLoad = file_exists($destinationPath) ? $destinationPath : $file->getRealPath();
+
+            if (in_array($ext, ['csv', 'txt'])) {
+                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
+                $reader->setInputEncoding('UTF-8');
+                $spreadsheet = $reader->load($filePathToLoad);
+            } else {
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePathToLoad);
+            }
+
             $sheet = $spreadsheet->getActiveSheet();
 
-            // 4. Get the highest data column (e.g. 'G')
+            // Get highest data column
             $highestColumn = $sheet->getHighestDataColumn();
 
-            // 5. Read row 1 as array
+            // Read row 1 as array
             $headerRow = $sheet->rangeToArray("A1:{$highestColumn}1", null, true, true, true)[1] ?? [];
 
-            // 6. Format headers cleanly
+            // Format headers cleanly
             $headers = [];
             foreach ($headerRow as $colLetter => $headerName) {
                 $trimmed = trim((string)$headerName);
@@ -860,7 +876,14 @@ class NewleadController extends Controller
                 }
             }
 
-            // 7. Get first 3 data rows for live preview in modal
+            if (empty($headers)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Uploaded file has no headers in row 1. Please ensure row 1 contains column titles.',
+                ], 422);
+            }
+
+            // Get first 3 data rows for live preview in modal
             $previewRows = [];
             $highestRow = min($sheet->getHighestDataRow(), 4);
             for ($r = 2; $r <= $highestRow; $r++) {
@@ -872,7 +895,6 @@ class NewleadController extends Controller
                 $previewRows[] = $rowData;
             }
 
-            // 8. Return JSON response with temp_file_id and headers list
             return response()->json([
                 'status' => 'success',
                 'temp_file_id' => $tempFilename,
@@ -898,7 +920,9 @@ class NewleadController extends Controller
         // 1. Validate temp_file_id and mapping inputs
         $request->validate([
             'temp_file_id' => 'required|string',
-            'mapping' => 'required|array',
+            'mapping' => 'nullable|array',
+            'column_mappings' => 'nullable|array',
+            'selected_rows' => 'nullable|array',
         ]);
 
         $tempFilename = $request->temp_file_id;
@@ -912,8 +936,21 @@ class NewleadController extends Controller
             ], 400);
         }
 
-        // 3. Receive field mapping selected by user (db_field => excel_header_name)
-        $mapping = $request->mapping;
+        // 3. Receive field mapping selected by user
+        $mapping = $request->mapping ?? [];
+        $columnMappings = $request->column_mappings ?? [];
+        $selectedRows = $request->selected_rows ?? [];
+
+        if (empty($columnMappings) && !empty($mapping)) {
+            foreach ($mapping as $target => $hdr) {
+                if ($target && $hdr) {
+                    $columnMappings[] = [
+                        'excel_header' => $hdr,
+                        'db_field' => $target
+                    ];
+                }
+            }
+        }
 
         try {
             // 4. Load spreadsheet and get active sheet
@@ -937,6 +974,19 @@ class NewleadController extends Controller
                 $col = $colMap[$headerName];
                 $val = $sheet->getCell("{$col}{$row}")->getValue();
                 return is_null($val) ? null : trim((string)$val);
+            };
+
+            // Helper closure to get value for a target DB field from columnMappings
+            $getValueForField = function (string $targetField) use ($columnMappings, $getVal, &$r) {
+                foreach ($columnMappings as $cm) {
+                    if (($cm['db_field'] ?? '') === $targetField) {
+                        $val = $getVal($r, $cm['excel_header'] ?? '');
+                        if (!is_null($val) && trim((string)$val) !== '') {
+                            return trim((string)$val);
+                        }
+                    }
+                }
+                return null;
             };
 
             $defaultBucketId = \App\Models\Bucket::whereNull('parent_id')
@@ -967,10 +1017,15 @@ class NewleadController extends Controller
 
             for ($r = 2; $r <= $highestRow; $r++) {
 
+                // Filter selected rows if specified
+                if (!empty($selectedRows) && !in_array($r, $selectedRows) && !in_array((string)$r, $selectedRows)) {
+                    continue;
+                }
+
                 // --- A. Extract User / Contact Info ---
-                $name = $getVal($r, $mapping['name'] ?? '');
-                $email = strtolower(trim((string)$getVal($r, $mapping['email'] ?? '')));
-                $phoneRaw = $getVal($r, $mapping['contact_no'] ?? '');
+                $name = $getValueForField('name');
+                $email = strtolower(trim((string)($getValueForField('email') ?? '')));
+                $phoneRaw = $getValueForField('contact_no');
 
                 // Clean phone number (keep digits only)
                 $cleanPhone = preg_replace('/[^\d]/', '', (string)$phoneRaw);
@@ -999,7 +1054,7 @@ class NewleadController extends Controller
                 })->first();
 
                 if (!$user) {
-                    $rawCountryCode = $getVal($r, $mapping['country_code'] ?? '');
+                    $rawCountryCode = $getValueForField('country_code');
                     if ($rawCountryCode) {
                         $countryCode = substr(trim((string)$rawCountryCode), 0, 10);
                     } else {
@@ -1017,26 +1072,26 @@ class NewleadController extends Controller
                     ];
 
                     if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'city')) {
-                        $userData['city'] = $getVal($r, $mapping['user_city'] ?? '') ?: $getVal($r, $mapping['city'] ?? '');
+                        $userData['city'] = $getValueForField('user_city') ?: $getValueForField('city');
                     }
                     if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'address')) {
-                        $userData['address'] = $getVal($r, $mapping['address'] ?? '');
+                        $userData['address'] = $getValueForField('address');
                     }
                     if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'state')) {
-                        $userData['state'] = $getVal($r, $mapping['state'] ?? '');
+                        $userData['state'] = $getValueForField('state');
                     }
                     if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'pincode')) {
-                        $userData['pincode'] = $getVal($r, $mapping['pincode'] ?? '');
+                        $userData['pincode'] = $getValueForField('pincode');
                     }
                     if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'company_name')) {
-                        $userData['company_name'] = $getVal($r, $mapping['company_name'] ?? '');
+                        $userData['company_name'] = $getValueForField('company_name');
                     }
 
                     $user = User::create($userData);
                 }
 
                 // --- C. Extract Lead Specific Fields ---
-                $dateVal = $getVal($r, $mapping['date'] ?? '');
+                $dateVal = $getValueForField('date');
                 if ($dateVal) {
                     try { $leadDate = \Carbon\Carbon::parse($dateVal)->toDateString(); }
                     catch (\Throwable $th) { $leadDate = now()->toDateString(); }
@@ -1044,55 +1099,76 @@ class NewleadController extends Controller
                     $leadDate = now()->toDateString();
                 }
 
-                // --- D. Collect Extra Unmapped Data into custom_attributes JSON ---
+                // --- D. Process Custom Attributes ---
                 $customAttributes = [];
-                
-                // Get list of standard mapped headers
-                $mappedStandardHeaders = array_values(array_filter($mapping, fn($v) => is_string($v) && !empty($v)));
+                $existingLeadColumns = \Illuminate\Support\Facades\Schema::getColumnListing('leads');
+                $reservedFields = [
+                    'name', 'contact_no', 'email', 'country_code', 'user_city', 'city', 'state',
+                    'pincode', 'address', 'company_name', 'date', 'callback_message', 'description',
+                    'comment', 'remarks', 'next_followup_date', 'followup_type', 'followup_status'
+                ];
 
-                foreach ($colMap as $headerName => $colLetter) {
-                    // If header was NOT mapped to any standard DB field
-                    if (!in_array($headerName, $mappedStandardHeaders)) {
-                        $cellVal = $getVal($r, $headerName);
-                        if (!is_null($cellVal) && $cellVal !== '') {
-                            $customAttributes[$headerName] = $cellVal;
+                foreach ($columnMappings as $cm) {
+                    $mappedTarget = $cm['db_field'] ?? '';
+                    $excelHeader = $cm['excel_header'] ?? '';
+                    if (empty($excelHeader)) {
+                        continue;
+                    }
+                    if (empty($mappedTarget)) {
+                        $mappedTarget = \Illuminate\Support\Str::slug($excelHeader, '_');
+                    }
+                    if (in_array($mappedTarget, $reservedFields)) {
+                        continue;
+                    }
+                    // If target field is NOT a standard column in leads table, save to custom_attributes
+                    if (!in_array($mappedTarget, $existingLeadColumns)) {
+                        $cellVal = $getVal($r, $excelHeader);
+                        if (!is_null($cellVal) && trim((string)$cellVal) !== '') {
+                            $customAttributes[$mappedTarget] = trim((string)$cellVal);
                         }
                     }
                 }
+
+                $statusMapped = $getValueForField('lead_status');
+                $leadStatusVal = (!is_null($statusMapped) && trim((string)$statusMapped) !== '') ? trim((string)$statusMapped) : 'Yet to Call';
 
                 // --- E. Create Lead Record in leads table ---
                 $rawLeadData = [
                     'uid' => $user->id, // Link to User ID
                     'date' => $leadDate,
-                    'campaign_name' => $getVal($r, $mapping['campaign_name'] ?? ''),
-                    'adset_name' => $getVal($r, $mapping['adset_name'] ?? ''),
-                    'ad_name' => $getVal($r, $mapping['ad_name'] ?? ''),
-                    'form_name' => $getVal($r, $mapping['form_name'] ?? ''),
-                    'platform' => $getVal($r, $mapping['platform'] ?? ''),
-                    'page_url' => $getVal($r, $mapping['page_url'] ?? ''),
-                    'whats_your_preferred_intake' => $getVal($r, $mapping['whats_your_preferred_intake'] ?? ''),
-                    'budget' => $getVal($r, $mapping['budget'] ?? ''),
-                    'applying_country_for_a_visa' => $getVal($r, $mapping['applying_country_for_a_visa'] ?? ''),
-                    'what_course_are_you_planning_to_study' => $getVal($r, $mapping['what_course_are_you_planning_to_study'] ?? ''),
-                    'highest_completed' => $getVal($r, $mapping['highest_completed'] ?? ''),
-                    'any_academic_gap' => $getVal($r, $mapping['any_academic_gap'] ?? ''),
-                    'english_test_status' => $getVal($r, $mapping['english_test_status'] ?? ''),
-                    'visa_type' => $getVal($r, $mapping['visa_type'] ?? ''),
-                    'product' => $getVal($r, $mapping['product'] ?? ''),
-                    'services' => $getVal($r, $mapping['services'] ?? ''),
-                    'business_name' => $getVal($r, $mapping['business_name'] ?? ''),
-                    'industry' => $getVal($r, $mapping['industry'] ?? ''),
-                    'employee_strength' => $getVal($r, $mapping['employee_strength'] ?? ''),
-                    'website' => $getVal($r, $mapping['website'] ?? ''),
-                    'gst_number' => $getVal($r, $mapping['gst_number'] ?? ''),
-                    'pain_points' => $getVal($r, $mapping['pain_points'] ?? ''),
-                    'description' => $getVal($r, $mapping['description'] ?? ''),
-                    'city' => $getVal($r, $mapping['city'] ?? ''),
-                    'state' => $getVal($r, $mapping['state'] ?? ''),
-                    'pincode' => $getVal($r, $mapping['pincode'] ?? ''),
-                    'address' => $getVal($r, $mapping['address'] ?? ''),
-                    'lead_status' => $getVal($r, $mapping['lead_status'] ?? '') ?: $defaultStatus,
-                    'lead_engagement_status' => $getVal($r, $mapping['lead_engagement_status'] ?? ''),
+                    'campaign_name' => $getValueForField('campaign_name'),
+                    'campaign_id' => $getValueForField('campaign_id'),
+                    'adset_name' => $getValueForField('adset_name'),
+                    'adset_id' => $getValueForField('adset_id'),
+                    'ad_name' => $getValueForField('ad_name'),
+                    'ad_id' => $getValueForField('ad_id'),
+                    'form_name' => $getValueForField('form_name'),
+                    'form_id' => $getValueForField('form_id'),
+                    'platform' => $getValueForField('platform'),
+                    'page_url' => $getValueForField('page_url'),
+                    'whats_your_preferred_intake' => $getValueForField('whats_your_preferred_intake'),
+                    'budget' => $getValueForField('budget'),
+                    'applying_country_for_a_visa' => $getValueForField('applying_country_for_a_visa'),
+                    'what_course_are_you_planning_to_study' => $getValueForField('what_course_are_you_planning_to_study'),
+                    'highest_completed' => $getValueForField('highest_completed'),
+                    'any_academic_gap' => $getValueForField('any_academic_gap'),
+                    'english_test_status' => $getValueForField('english_test_status'),
+                    'visa_type' => $getValueForField('visa_type'),
+                    'product' => $getValueForField('product'),
+                    'services' => $getValueForField('services'),
+                    'business_name' => $getValueForField('business_name'),
+                    'industry' => $getValueForField('industry'),
+                    'employee_strength' => $getValueForField('employee_strength'),
+                    'website' => $getValueForField('website'),
+                    'gst_number' => $getValueForField('gst_number'),
+                    'pain_points' => $getValueForField('pain_points'),
+                    'description' => $getValueForField('description'),
+                    'city' => $getValueForField('city'),
+                    'state' => $getValueForField('state'),
+                    'pincode' => $getValueForField('pincode'),
+                    'address' => $getValueForField('address'),
+                    'lead_status' => $leadStatusVal,
+                    'lead_engagement_status' => $getValueForField('lead_engagement_status'),
                     'lead_bucket_id' => $defaultBucketId,
                     'lead_owner' => auth()->id(),
                     'imported_by' => auth()->id(),
@@ -1109,29 +1185,81 @@ class NewleadController extends Controller
 
                 $lead = Leads::create($leadData);
 
-                // --- F. Create Callback Message / Followup Remark in callback_messages table ---
-                $callbackMessageText = $getVal($r, $mapping['callback_message'] ?? '') ?: $getVal($r, $mapping['description'] ?? '');
-                $nextFollowupVal = $getVal($r, $mapping['next_followup_date'] ?? '');
-
-                if ($callbackMessageText || $nextFollowupVal) {
-                    $parsedNextFollowup = null;
-                    if ($nextFollowupVal) {
+                // --- E2. Persist Custom Attributes in leads.custom_attributes JSON column ---
+                if (!empty($customAttributes)) {
+                    foreach ($customAttributes as $attrKey => $attrVal) {
                         try {
-                            $parsedNextFollowup = \Carbon\Carbon::parse($nextFollowupVal);
-                        } catch (\Throwable $th) {
-                            $parsedNextFollowup = null;
+                            $question = LeadQuestion::where('field_name', $attrKey)
+                                ->orWhere('field_name', str_replace('_', ' ', $attrKey))
+                                ->orWhere('label', $attrKey)
+                                ->first();
+                            if ($question) {
+                                LeadAttribute::updateOrCreate([
+                                    'lead_id' => $lead->id,
+                                    'field_name' => $attrKey,
+                                ], [
+                                    'field_value' => $attrVal,
+                                    'lead_question_id' => $question->id,
+                                ]);
+                            }
+                        } catch (\Throwable $thAttr) {
+                            \Log::warning("LeadAttribute save notice for key {$attrKey}: " . $thAttr->getMessage());
                         }
                     }
+                }
 
+                // --- F. Create Callback Message / Followup Remark in callback_messages table ---
+                // Support MULTIPLE comment fields (if multiple columns mapped to callback_message/description/comment/remarks)
+                $commentColumns = [];
+                foreach ($columnMappings as $cm) {
+                    $dbField = $cm['db_field'] ?? '';
+                    $excelHeader = $cm['excel_header'] ?? '';
+                    if (in_array($dbField, ['callback_message', 'description', 'comment', 'remarks']) && !empty($excelHeader)) {
+                        $commentColumns[] = $excelHeader;
+                    }
+                }
+
+                $nextFollowupVal = $getValueForField('next_followup_date');
+                $parsedNextFollowup = null;
+                if ($nextFollowupVal) {
+                    try {
+                        $parsedNextFollowup = \Carbon\Carbon::parse($nextFollowupVal);
+                    } catch (\Throwable $th) {
+                        $parsedNextFollowup = null;
+                    }
+                }
+
+                $insertedCommentCount = 0;
+                foreach ($commentColumns as $cHeader) {
+                    $commentText = $getVal($r, $cHeader);
+                    if (!is_null($commentText) && trim((string)$commentText) !== '') {
+                        CallBack::create([
+                            'lead_id' => $lead->id,
+                            'created_by' => auth()->id(),
+                            'message' => trim((string)$commentText),
+                            'status' => $lead->lead_status ?? $defaultStatus,
+                            'bucket' => $bucketName,
+                            'lead_engagement_status' => $lead->lead_engagement_status,
+                            'followup_type' => $getValueForField('followup_type') ?: 'Imported Note',
+                            'followup_status' => $getValueForField('followup_status') ?: null,
+                            'next_followup_date' => $parsedNextFollowup,
+                            'is_done' => 0,
+                        ]);
+                        $insertedCommentCount++;
+                    }
+                }
+
+                // Fallback: If no comments were found in mapped columns, but next_followup_date exists
+                if ($insertedCommentCount === 0 && $parsedNextFollowup) {
                     CallBack::create([
                         'lead_id' => $lead->id,
                         'created_by' => auth()->id(),
-                        'message' => $callbackMessageText ?: 'Imported Lead Remark',
+                        'message' => 'Imported Lead Remark',
                         'status' => $lead->lead_status ?? $defaultStatus,
                         'bucket' => $bucketName,
                         'lead_engagement_status' => $lead->lead_engagement_status,
-                        'followup_type' => $getVal($r, $mapping['followup_type'] ?? '') ?: 'Imported Note',
-                        'followup_status' => $getVal($r, $mapping['followup_status'] ?? '') ?: null,
+                        'followup_type' => $getValueForField('followup_type') ?: 'Imported Note',
+                        'followup_status' => null,
                         'next_followup_date' => $parsedNextFollowup,
                         'is_done' => 0,
                     ]);
@@ -1228,17 +1356,23 @@ class NewleadController extends Controller
 
         try {
             $file = $request->file('file');
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $tempFileName = 'temp_' . time() . '_' . \Illuminate\Support\Str::random(10) . '.' . $file->getClientOriginalExtension();
+            $file->storeAs('temp_imports', $tempFileName);
+            $fullPath = storage_path('app/temp_imports/' . $tempFileName);
+
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($fullPath);
             $sheet = $spreadsheet->getActiveSheet();
             $highestRow = $sheet->getHighestDataRow();
             $highestColumn = $sheet->getHighestDataColumn();
 
             $row1 = $sheet->rangeToArray("A1:{$highestColumn}1", null, true, true, true)[1] ?? [];
             $colMap = [];
+            $headersList = [];
             foreach ($row1 as $colLetter => $hdr) {
                 $hdrName = trim((string)$hdr);
                 if ($hdrName !== '') {
                     $colMap[strtolower($hdrName)] = $colLetter;
+                    $headersList[] = ['name' => $hdrName, 'col' => $colLetter];
                 }
             }
 
@@ -1328,8 +1462,23 @@ class NewleadController extends Controller
                 }
             }
 
+            // Generate sample preview rows (first 3 rows) for mapping step
+            $previewRows = [];
+            $maxPreview = min($highestRow, 4);
+            for ($r = 2; $r <= $maxPreview; $r++) {
+                $rowData = [];
+                foreach ($headersList as $hdrObj) {
+                    $cVal = $sheet->getCell("{$hdrObj['col']}{$r}")->getValue();
+                    $rowData[$hdrObj['name']] = is_null($cVal) ? '' : trim((string)$cVal);
+                }
+                $previewRows[] = $rowData;
+            }
+
             return response()->json([
                 'status' => 'success',
+                'temp_file_id' => $tempFileName,
+                'headers' => $headersList,
+                'preview' => $previewRows,
                 'total_scanned' => count($excelRows),
                 'existing_count' => count($existingList),
                 'new_count' => count($newList),

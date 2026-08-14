@@ -3142,7 +3142,7 @@
                     return '<div class="col-md-4 col-sm-6 col-12">' +
                         '<div class="vd-field-item">' +
                         '<span class="vd-field-label"><i class="fas ' + icon + '"></i> ' + label + '</span>' +
-                        '<span class="vd-field-value">' + v + '</span>' +
+                        '<span class="vd-field-value text-break text-wrap" style="word-break: break-word; white-space: normal;">' + v + '</span>' +
                         '</div></div>';
                 }
 
@@ -3260,6 +3260,21 @@
                 additionalHtml += fieldHtml('fa-money-bill-wave', 'Revenue', lead.revenue);
                 additionalHtml += fieldHtml('fa-calendar', 'Followup Date', lead.followup_date ? new Date(lead.followup_date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : '');
                 additionalHtml += fieldHtml('fa-sticky-note', 'Remark', lead.remark);
+
+                // Render Dynamic Custom Attributes
+                var customAttrs = lead.custom_attributes;
+                if (typeof customAttrs === 'string') {
+                    try { customAttrs = JSON.parse(customAttrs); } catch(e) { customAttrs = null; }
+                }
+                if (customAttrs && typeof customAttrs === 'object' && Object.keys(customAttrs).length > 0) {
+                    Object.keys(customAttrs).forEach(function(key) {
+                        if (customAttrs[key] !== null && customAttrs[key] !== undefined && customAttrs[key] !== '') {
+                            var formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, function(l){ return l.toUpperCase(); });
+                            additionalHtml += fieldHtml('fa-sliders-h', formattedKey, customAttrs[key]);
+                        }
+                    });
+                }
+
                 document.getElementById('viewAdditionalInfo').innerHTML = additionalHtml;
 
                 // Pain Points
@@ -3644,8 +3659,13 @@
                 let product = lead.product || 'N/A';
                 let painPoints = lead.pain_points || 'N/A';
                 let campaignName = lead.campaign_name || 'N/A';
+                let campaignId = lead.campaign_id || 'N/A';
                 let adsetName = lead.adset_name || 'N/A';
+                let adsetId = lead.adset_id || 'N/A';
                 let adName = lead.ad_name || 'N/A';
+                let adId = lead.ad_id || 'N/A';
+                let formName = lead.form_name || 'N/A';
+                let formId = lead.form_id || 'N/A';
 
                 let todayStart = new Date();
                 todayStart.setHours(0,0,0,0);
@@ -3864,7 +3884,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Lead Added On -->
+                                 <!-- Lead Added On -->
                                 <div class="col-md-3 col-sm-6">
                                     <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
                                         <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
@@ -3876,6 +3896,28 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                ${(() => {
+                                    let cAttrs = lead.custom_attributes;
+                                    if (typeof cAttrs === 'string') { try { cAttrs = JSON.parse(cAttrs); } catch(e) { cAttrs = null; } }
+                                    if (cAttrs && typeof cAttrs === 'object' && Object.keys(cAttrs).length > 0) {
+                                        let items = Object.entries(cAttrs).map(([k, v]) => `
+                                            <div class="col-md-3 col-sm-6">
+                                                <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                                    <div class="rounded-circle bg-info-subtle text-info d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px; font-size: 14px;">
+                                                        <i class="fas fa-sliders-h"></i>
+                                                    </div>
+                                                    <div class="w-100 overflow-hidden">
+                                                        <span class="fs-10 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">${k.replace(/_/g, ' ').toUpperCase()}</span>
+                                                        <span class="fs-13 text-dark fw-bold text-wrap text-break d-block" style="word-break: break-word; white-space: normal;" title="${v}">${v}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `).join('');
+                                        return `<div class="col-12 mt-3"><hr class="my-2"><h6 class="fw-bold mb-3 text-info d-flex align-items-center gap-2" style="font-size: 14px;"><i class="fas fa-sliders-h"></i> Custom Attributes / Dynamic Fields</h6><div class="row g-3">${items}</div></div>`;
+                                    }
+                                    return '';
+                                })()}
 
                                 ${Array.isArray(clientDetails) && clientDetails.length > 0 ? `
                                     <div class="col-12 mt-3">
@@ -3927,7 +3969,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Campaign Name -->
+                                <!-- Campaign Name & ID -->
                                 <div class="col-md-4 col-sm-6">
                                     <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
                                         <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
@@ -3935,12 +3977,13 @@
                                         </div>
                                         <div class="text-truncate">
                                             <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Campaign Name</span>
-                                            <span class="fs-14 text-dark fw-bold text-truncate d-block" title="${campaignName}">${campaignName}</span>
+                                            <span class="fs-13 text-dark fw-bold text-truncate d-block" title="${campaignName}">${campaignName}</span>
+                                            ${campaignId && campaignId !== 'N/A' ? `<small class="fs-11 text-muted d-block mt-0.5">ID: ${campaignId}</small>` : ''}
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Ad Set Name -->
+                                <!-- Ad Set Name & ID -->
                                 <div class="col-md-4 col-sm-6">
                                     <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
                                         <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
@@ -3948,12 +3991,13 @@
                                         </div>
                                         <div class="text-truncate">
                                             <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Ad Set Name</span>
-                                            <span class="fs-14 text-dark fw-bold text-truncate d-block" title="${adsetName}">${adsetName}</span>
+                                            <span class="fs-13 text-dark fw-bold text-truncate d-block" title="${adsetName}">${adsetName}</span>
+                                            ${adsetId && adsetId !== 'N/A' ? `<small class="fs-11 text-muted d-block mt-0.5">ID: ${adsetId}</small>` : ''}
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Ad Name -->
+                                <!-- Ad Name & ID -->
                                 <div class="col-md-4 col-sm-6">
                                     <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
                                         <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
@@ -3961,7 +4005,22 @@
                                         </div>
                                         <div class="text-truncate">
                                             <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Ad Name</span>
-                                            <span class="fs-14 text-dark fw-bold text-truncate d-block" title="${adName}">${adName}</span>
+                                            <span class="fs-13 text-dark fw-bold text-truncate d-block" title="${adName}">${adName}</span>
+                                            ${adId && adId !== 'N/A' ? `<small class="fs-11 text-muted d-block mt-0.5">ID: ${adId}</small>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Form Name & ID -->
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-3 bg-white border rounded-3 shadow-2xs h-100 d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width: 40px; height: 40px; font-size: 15px;">
+                                            <i class="fas fa-wpforms"></i>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-0.5" style="letter-spacing: 0.5px;">Form Name</span>
+                                            <span class="fs-13 text-dark fw-bold text-truncate d-block" title="${formName}">${formName}</span>
+                                            ${formId && formId !== 'N/A' ? `<small class="fs-11 text-muted d-block mt-0.5">ID: ${formId}</small>` : ''}
                                         </div>
                                     </div>
                                 </div>
