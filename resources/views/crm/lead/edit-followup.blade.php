@@ -80,11 +80,11 @@
                 </div>
             </div>
 
-            {{-- Card Box 2: Communication --}}
+            {{-- Card Box 2: Communication & Comment --}}
             <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
                 <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
                     <i class="fas fa-comments text-info fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication</h6>
+                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication & Comment</h6>
                 </div>
                 <div class="card-body p-3">
                     {{-- Communication Type --}}
@@ -101,7 +101,7 @@
                     </div>
 
                     {{-- Communication Status --}}
-                    <div>
+                    <div class="mb-3">
                         <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
                             <i class="fas fa-signal text-info me-1 fs-10"></i>Communication Status
                         </label>
@@ -113,31 +113,32 @@
                             <option value="No Response">No Response</option>
                         </select>
                     </div>
-                </div>
-            </div>
 
-            {{-- Card Box 3: Remarks & Comments --}}
-            <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
-                    <i class="fas fa-comment-dots text-warning fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Remarks & Comments</h6>
-                </div>
-                <div class="card-body p-3">
-                    {{-- Next Follow Up Date --}}
-                    <div class="comment-message-box mb-3">
+                    {{-- Add Message / Comment --}}
+                    <div class="comment-message-box">
                         <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                            <i class="fas fa-calendar-alt text-primary me-1 fs-10"></i>Next Follow Up Date
-                        </label>
-                        <input type="datetime-local" class="form-control border-slate shadow-2xs fs-13"
-                            name="next_followup_date" value="" style="border-color: #cbd5e1; border-radius: 8px;">
-                    </div>
-
-                    <div>
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                            Add Message / Remark
+                            <i class="fas fa-comment-dots text-primary me-1 fs-10"></i>Add Comment / Message
                         </label>
                         <textarea class="form-control border-slate shadow-2xs fs-13" name="message" rows="3"
                             placeholder="Write followup notes or conversation details..." style="border-color: #cbd5e1; border-radius: 8px; resize: none;"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Card Box 3: Next Follow-up & Schedule --}}
+            <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
+                    <i class="fas fa-calendar-check text-warning fs-12"></i>
+                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Next Follow-up & Schedule</h6>
+                </div>
+                <div class="card-body p-3">
+                    {{-- Next Follow Up Date --}}
+                    <div>
+                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                            <i class="fas fa-calendar-alt text-primary me-1 fs-10"></i>Next Follow Up Date & Time
+                        </label>
+                        <input type="datetime-local" class="form-control border-slate shadow-2xs fs-13"
+                            name="next_followup_date" value="" style="border-color: #cbd5e1; border-radius: 8px;">
                     </div>
                 </div>
             </div>

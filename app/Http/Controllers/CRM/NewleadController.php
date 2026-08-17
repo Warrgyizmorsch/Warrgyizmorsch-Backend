@@ -22,6 +22,62 @@ use Illuminate\Support\Facades\Storage;
 
 class NewleadController extends Controller
 {
+    public function searchSuggestions(Request $request)
+    {
+        try {
+            @session_write_close();
+            $search = trim($request->get('search', ''));
+            if (strlen($search) < 1) {
+                return response()->json([]);
+            }
+
+            $digitsOnly = preg_replace('/\D+/', '', $search);
+
+            // 1. Direct query on User table for Name, Email, Contact No
+            $users = User::where(function ($q) use ($search, $digitsOnly) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('contact_no', 'like', "%{$search}%");
+                    if ($digitsOnly !== '') {
+                        $q->orWhere('contact_no', 'like', "%{$digitsOnly}%")
+                          ->orWhereRaw("REPLACE(REPLACE(contact_no, ' ', ''), '+', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                    }
+                })
+                ->select('id', 'name', 'email', 'contact_no')
+                ->limit(20)
+                ->get();
+
+            $userIds = $users->pluck('id')->toArray();
+
+            // 2. Map associated lead status if exists
+            $leadsByUser = collect();
+            if (!empty($userIds)) {
+                $leadsByUser = Leads::whereIn('uid', $userIds)
+                    ->select('id', 'uid', 'business_name', 'lead_status')
+                    ->get()
+                    ->keyBy('uid');
+            }
+
+            // 3. Return users table data directly
+            $results = $users->map(function ($u) use ($leadsByUser) {
+                $lead = $leadsByUser->get($u->id);
+                return [
+                    'id' => $lead ? $lead->id : 0,
+                    'name' => $u->name ?? 'N/A',
+                    'email' => $u->email ?? '',
+                    'contact_no' => $u->contact_no ?? 'N/A',
+                    'company' => $lead ? ($lead->business_name ?? '') : '',
+                    'status' => $lead ? ($lead->lead_status ?? 'Yet to Call') : 'User',
+                ];
+            });
+
+            return response()->json($results->values());
+        } catch (\Throwable $e) {
+            \Log::error('searchSuggestions error: ' . $e->getMessage());
+            return response()->json([]);
+        }
+    }
+
     public function index(Request $request)
     {
         if (!auth()->check()) {
@@ -35,7 +91,6 @@ class NewleadController extends Controller
             'bucket:id,name,bucket_color,parent_id',
             'category',
             'latestMessage.user:id,name',
-            'messages.user:id,name',
         ]);
 
         // 2. Role-based restrictions
@@ -46,19 +101,27 @@ class NewleadController extends Controller
         // 3. APPLY ALL YOUR FILTERS
         // Global Search
 
+        $searchUserIds = [];
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim($request->search);
             $digitsOnly = preg_replace('/\D+/', '', $search);
 
-            $query->whereHas('user', function ($q) use ($search, $digitsOnly) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+            $searchUserIds = User::where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->when($digitsOnly !== '', function ($uQ) use ($search, $digitsOnly) {
+                    $uQ->orWhere('contact_no', 'like', "%{$search}%")
+                       ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                }, function ($uQ) use ($search) {
+                    $uQ->orWhere('contact_no', 'like', "%{$search}%");
+                })
+                ->pluck('id')
+                ->toArray();
 
-                if ($digitsOnly !== '') {
-                    $q->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
-                } else {
-                    $q->orWhere('contact_no', 'like', "%{$search}%");
+            $query->where(function ($q) use ($searchUserIds, $search) {
+                if (!empty($searchUserIds)) {
+                    $q->whereIn('uid', $searchUserIds);
                 }
+                $q->orWhere('business_name', 'like', "%{$search}%");
             });
         }
         // dd($query->get()->toArray());
@@ -151,7 +214,7 @@ class NewleadController extends Controller
             });
         }
 
-        if ($request->filled('lead_status') && $request->bucket_id !== 'all_orders') {
+        if ($request->filled('lead_status') && $request->bucket_id !== 'all_orders' && !$request->filled('search')) {
             $query->where('lead_status', $request->lead_status);
         }
 
@@ -185,6 +248,17 @@ class NewleadController extends Controller
         if ($request->filled('lead_engagement_status')) {
             $query->where('lead_engagement_status', strtolower($request->lead_engagement_status));
         }
+        $companyUserIds = [];
+        if ($request->filled('company')) {
+            $company = trim($request->company);
+            $companyUserIds = User::where('company_name', 'like', "%{$company}%")->pluck('id')->toArray();
+            $query->where(function ($q) use ($companyUserIds, $company) {
+                $q->where('business_name', 'like', "%{$company}%");
+                if (!empty($companyUserIds)) {
+                    $q->orWhereIn('uid', $companyUserIds);
+                }
+            });
+        }
 
         // 4. Counts
         $user = auth()->user();
@@ -216,7 +290,7 @@ class NewleadController extends Controller
 
                 $lead->duplicate_count = $otherIds->count();
                 $lead->duplicate_ids = $otherIds;
-                $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
+                $lead->lastMessage = $lead->latestMessage;
 
                 return $lead;
             });
@@ -243,7 +317,7 @@ class NewleadController extends Controller
 
             $lead->duplicate_count = $otherIds->count();
             $lead->duplicate_ids = $otherIds;
-            $lead->lastMessage = $lead->messages->sortByDesc('created_at')->first();
+            $lead->lastMessage = $lead->latestMessage;
 
             return $lead;
         });
@@ -259,68 +333,27 @@ class NewleadController extends Controller
             'Converted',
             'Lost'
         ];
-        $applyLeadFilters = function ($q) use ($request) {
+        $applyLeadFilters = function ($q) use ($request, $searchUserIds, $companyUserIds) {
             $isEloquent = ($q instanceof \Illuminate\Database\Eloquent\Builder || $q instanceof \Illuminate\Database\Eloquent\Relations\Relation);
 
             if ($request->filled('search')) {
-                $search = $request->search;
-                $digitsOnly = preg_replace('/\D+/', '', $search);
-                if ($isEloquent) {
-                    $q->whereHas('user', function ($uQ) use ($search, $digitsOnly) {
-                        $uQ->where('name', 'like', "%{$search}%")
-                           ->orWhere('email', 'like', "%{$search}%");
-                        if ($digitsOnly !== '') {
-                            $uQ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
-                        } else {
-                            $uQ->orWhere('contact_no', 'like', "%{$search}%");
-                        }
-                    });
-                } else {
-                    $q->whereExists(function ($subQ) use ($search, $digitsOnly) {
-                        $subQ->select(\DB::raw(1))
-                            ->from('users')
-                            ->whereColumn('users.id', 'leads.uid')
-                            ->where(function ($uQ) use ($search, $digitsOnly) {
-                                $uQ->where('users.name', 'like', "%{$search}%")
-                                   ->orWhere('users.email', 'like', "%{$search}%");
-                                if ($digitsOnly !== '') {
-                                    $uQ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
-                                } else {
-                                    $uQ->orWhere('users.contact_no', 'like', "%{$search}%");
-                                }
-                            });
-                    });
-                }
+                $search = trim($request->search);
+                $q->where(function ($sQ) use ($searchUserIds, $search) {
+                    if (!empty($searchUserIds)) {
+                        $sQ->whereIn('leads.uid', $searchUserIds);
+                    }
+                    $sQ->orWhere('leads.business_name', 'like', "%{$search}%");
+                });
             }
-            if ($request->filled('from') && $request->filled('to')) {
-                $from = \Carbon\Carbon::parse($request->from)->startOfDay();
-                $to = \Carbon\Carbon::parse($request->to)->endOfDay();
-                $q->whereBetween('leads.date', [$from, $to]);
-            } elseif ($request->filled('from')) {
-                $from = \Carbon\Carbon::parse($request->from)->toDateString();
-                $q->whereDate('leads.date', $from);
-            }
-            if ($request->filled('source')) {
-                $q->where('leads.platform', 'like', "%{$request->source}%");
-            }
-            if ($request->filled('owner_id')) {
-                if ($request->owner_id === 'null') {
-                    $q->whereNull('leads.lead_owner');
-                } else {
-                    $q->where('leads.lead_owner', $request->owner_id);
-                }
-            }
-            if ($request->filled('lead_engagement_status')) {
-                $q->where('leads.lead_engagement_status', strtolower($request->lead_engagement_status));
-            }
-            if ($request->filled('category_id')) {
-                $q->where('leads.category_id', $request->category_id);
-            }
-            if ($request->filled('country')) {
-                $q->where('leads.applying_country_for_a_visa', 'like', "%{$request->country}%");
-            }
-            if ($request->filled('course')) {
-                $q->where('leads.what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
+
+            if ($request->filled('company')) {
+                $comp = trim($request->company);
+                $q->where(function ($cQ) use ($companyUserIds, $comp) {
+                    $cQ->where('leads.business_name', 'like', "%{$comp}%");
+                    if (!empty($companyUserIds)) {
+                        $cQ->orWhereIn('leads.uid', $companyUserIds);
+                    }
+                });
             }
             if ($request->filled('campaign_name')) {
                 $q->where('leads.campaign_name', 'like', "%{$request->campaign_name}%");
@@ -438,43 +471,44 @@ class NewleadController extends Controller
         $childBuckets = collect();
         $childtotalLeadsCount = 0;
 
-        $hasActiveFilter = $request->filled('search') || $request->filled('from') || $request->filled('source') || $request->filled('owner_id') || $request->filled('lead_engagement_status') || $request->filled('category_id') || $request->filled('country') || $request->filled('course') || $request->filled('campaign_name') || $request->filled('has_followups');
+        $hasActiveFilter = $request->filled('search') || $request->filled('from') || $request->filled('source') || $request->filled('owner_id') || $request->filled('lead_engagement_status') || $request->filled('category_id') || $request->filled('company') || $request->filled('campaign_name') || $request->filled('has_followups');
 
         if ($targetBucketId) {
             $childBuckets = Bucket::where('parent_id', $targetBucketId)
                 ->where('is_deleted', 0)
-                ->select('buckets.*')
-                ->selectSub(function ($q) use ($allTargetBucketIds, $isLeadBucket, $applyLeadFilters) {
-                    $q->from('leads')
-                        ->selectRaw('COUNT(*)')
-                        ->where(function($bQ) use ($allTargetBucketIds, $isLeadBucket) {
-                            $bQ->whereIn('leads.lead_bucket_id', $allTargetBucketIds);
-                            if ($isLeadBucket) {
-                                $bQ->orWhereNull('leads.lead_bucket_id');
-                            }
-                        })
-                        ->where(function($sQ) {
-                            $sQ->whereColumn('leads.lead_status', 'buckets.name')
-                               ->orWhereColumn('leads.lead_bucket_id', 'buckets.id')
-                               ->orWhere(function($emptyQ) {
-                                   $emptyQ->where('buckets.name', 'Yet to Call')
-                                          ->where(function($nullQ) {
-                                              $nullQ->whereNull('leads.lead_status')
-                                                    ->orWhere('leads.lead_status', '');
-                                          });
-                               });
-                        })
-                        ->where(function($lq) {
-                            $lq->whereNull('leads.is_converted')
-                               ->orWhere('leads.is_converted', 0);
-                        })
-                        ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
-                            $qq->where('leads.lead_owner', auth()->id());
-                        });
-
-                    $applyLeadFilters($q);
-                }, 'leads_count')
                 ->get();
+
+            $statusCountsQuery = (clone $query)
+                ->where(function($bQ) use ($allTargetBucketIds, $isLeadBucket) {
+                    $bQ->whereIn('lead_bucket_id', $allTargetBucketIds);
+                    if ($isLeadBucket) {
+                        $bQ->orWhereNull('lead_bucket_id');
+                    }
+                })
+                ->where(function($lq) {
+                    $lq->whereNull('is_converted')->orWhere('is_converted', 0);
+                });
+
+            $statusCounts = $statusCountsQuery
+                ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
+                ->groupBy('lead_status', 'lead_bucket_id')
+                ->get();
+
+            $childBuckets->each(function ($b) use ($statusCounts) {
+                $bName = strtolower(trim($b->name));
+                $bId = $b->id;
+                $cnt = $statusCounts->filter(function ($item) use ($bName, $bId) {
+                    $itemStatus = strtolower(trim($item->status_name));
+                    if ($itemStatus === $bName || $item->lead_bucket_id == $bId) {
+                        return true;
+                    }
+                    if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) {
+                        return true;
+                    }
+                    return false;
+                })->sum('cnt');
+                $b->leads_count = $cnt;
+            });
 
             $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
 
@@ -506,25 +540,20 @@ class NewleadController extends Controller
         $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->select('id', 'name', 'email')->get();
         $sources = LeadSource::pluck('source_name')->toArray();
         $today = Carbon::today();
-        $followupsQuery = Leads::query();
-        // Role restriction same rakho
+        $followupsQuery = CallBack::query();
         if (auth()->check() && auth()->user()->role_id == 3) {
-            $followupsQuery->where('lead_owner', auth()->id());
+            $followupsQuery->whereHas('lead', function ($lq) {
+                $lq->where('lead_owner', auth()->id());
+            });
         }
-
         $type = $request->followup_type_filter ?? 'upcoming';
-
-        $followupsQuery->whereHas('messages', function ($q) use ($today, $type) {
-
-            $q->whereNotNull('next_followup_date');
-
-            if ($type == 'missed') {
-                $q->whereDate('next_followup_date', '<', $today)
-                    ->where('is_done', 0);
-            } else {
-                $q->whereDate('next_followup_date', '>=', $today);
-            }
-        });
+        $followupsQuery->whereNotNull('next_followup_date');
+        if ($type == 'missed') {
+            $followupsQuery->whereDate('next_followup_date', '<', $today)
+                ->where('is_done', 0);
+        } else {
+            $followupsQuery->whereDate('next_followup_date', '>=', $today);
+        }
         $followupsCount = $followupsQuery->count();
 
 
@@ -1293,6 +1322,7 @@ class NewleadController extends Controller
 
     public function getDetailsData(Leads $lead)
     {
+        @session_write_close();
         $lead->load([
             'user',
             'owner',

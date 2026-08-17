@@ -137,13 +137,11 @@
     </div>
 </div>
 
-{{-- ✅ COLLAPSE --}}
-<!-- @php
-    $actualFilterQueryParams = request()->except('bucket_id', 'lead_status', 'per_page', 'page');
-    $hasActualFilters = !empty($actualFilterQueryParams);
+@php
+    $actualFilterQueryParams = request()->except('bucket_id', 'lead_status', 'per_page', 'page', 'view');
+    $hasActiveFilters = !empty(array_filter($actualFilterQueryParams, fn($val) => $val !== null && $val !== ''));
 @endphp
-<div id="collapseOne" class="collapse mt-3 {{ $hasActualFilters ? 'show' : '' }}"> -->
-<div id="collapseOne" class="collapse mt-3">
+<div id="collapseOne" class="collapse mt-3 {{ $hasActiveFilters ? 'show' : '' }}">
     <div class="card card-body shadow-sm">
 
         <form method="GET" action="{{ route('modern.leads.index') }}">
@@ -161,10 +159,17 @@
 
             <div class="row g-3">
 
-                <div class="col-12 col-md-2 d-block d-md-block">
-                    <input type="text" name="search" class="form-control"
-                        placeholder="Search..."
-                        value="{{ request('search') }}">
+                <div class="col-12 col-md-3 position-relative">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="feather-search text-muted" id="search-icon"></i>
+                            <span class="spinner-border spinner-border-sm text-primary d-none" id="search-spinner" role="status" style="width: 14px; height: 14px;"></span>
+                        </span>
+                        <input type="text" name="search" id="lead-live-search" class="form-control border-start-0"
+                            placeholder="Search Name, Email, Phone..."
+                            value="{{ request('search') }}" autocomplete="off">
+                    </div>
+                    <div id="search-suggestions-box" class="dropdown-menu shadow-lg w-100 mt-1 overflow-auto" style="max-height: 320px; display: none; z-index: 1050; border-radius: 8px;"></div>
                 </div>
 
                 <div class="col-md-2 d-none d-md-block">
@@ -231,16 +236,10 @@
                     </select>
                 </div>
 
-                <div class="col-md-2 d-none d-md-block">
-                    <input type="text" name="country" class="form-control"
-                        placeholder="Country"
-                        value="{{ request('country') }}">
-                </div>
-
-                <div class="col-md-2 d-none d-md-block">
-                    <input type="text" name="course" class="form-control"
-                        placeholder="Course"
-                        value="{{ request('course') }}">
+                <div class="col-md-3 d-none d-md-block">
+                    <input type="text" name="company" class="form-control"
+                        placeholder="Search Company..."
+                        value="{{ request('company') }}">
                 </div>
 
                 <div class="col-md-2 d-none d-md-block">
@@ -394,4 +393,117 @@
         });
 
     });
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const filterCollapse = document.getElementById('collapseOne');
+    if (filterCollapse) {
+        const savedState = localStorage.getItem('lead_filter_collapse_state');
+        if (savedState === 'open') {
+            filterCollapse.classList.add('show');
+        } else if (savedState === 'closed' && !{{ $hasActiveFilters ? 'true' : 'false' }}) {
+            filterCollapse.classList.remove('show');
+        }
+
+        filterCollapse.addEventListener('shown.bs.collapse', function () {
+            localStorage.setItem('lead_filter_collapse_state', 'open');
+        });
+        filterCollapse.addEventListener('hidden.bs.collapse', function () {
+            localStorage.setItem('lead_filter_collapse_state', 'closed');
+        });
+    }
+
+    const searchInput = document.getElementById('lead-live-search');
+    const suggestionsBox = document.getElementById('search-suggestions-box');
+    const searchIcon = document.getElementById('search-icon');
+    const searchSpinner = document.getElementById('search-spinner');
+
+    if (!searchInput || !suggestionsBox) return;
+
+    let debounceTimer;
+
+    function showSpinner() {
+        if (searchIcon) searchIcon.classList.add('d-none');
+        if (searchSpinner) searchSpinner.classList.remove('d-none');
+    }
+
+    function hideSpinner() {
+        if (searchSpinner) searchSpinner.classList.add('d-none');
+        if (searchIcon) searchIcon.classList.remove('d-none');
+    }
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const query = this.value.trim();
+
+        if (query.length < 1) {
+            hideSpinner();
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.style.display = 'none';
+            return;
+        }
+
+        showSpinner();
+        suggestionsBox.innerHTML = `
+            <div class="dropdown-item text-muted small p-2.5 text-center">
+                <span class="spinner-border spinner-border-sm me-2 text-primary" role="status" style="width: 13px; height: 13px;"></span> Searching matching leads...
+            </div>`;
+        suggestionsBox.style.display = 'block';
+
+        debounceTimer = setTimeout(() => {
+            fetch(`{{ route('modern.leads.search.suggestions') }}?search=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    hideSpinner();
+                    if (!data || data.length === 0) {
+                        suggestionsBox.innerHTML = '<div class="dropdown-item text-muted small p-2.5"><i class="feather-info me-1 text-warning"></i> No matching leads found</div>';
+                        suggestionsBox.style.display = 'block';
+                        return;
+                    }
+
+                    let html = '';
+                    data.forEach(item => {
+                        html += `
+                            <a href="javascript:void(0);" class="dropdown-item py-2 px-3 border-bottom search-suggestion-item text-decoration-none" data-value="${item.name}">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong class="text-dark fs-13">${item.name}</strong>
+                                    <span class="badge bg-soft-primary text-primary fs-11">${item.status}</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center text-muted small fs-11">
+                                    <span><i class="feather-phone me-1"></i>${item.contact_no}</span>
+                                    <span>${item.email ? '<i class="feather-mail me-1"></i>' + item.email : ''}</span>
+                                </div>
+                                ${item.company ? `<div class="text-secondary fs-11 mt-1"><i class="feather-briefcase me-1"></i>${item.company}</div>` : ''}
+                            </a>
+                        `;
+                    });
+
+                    suggestionsBox.innerHTML = html;
+                    suggestionsBox.style.display = 'block';
+
+                    suggestionsBox.querySelectorAll('.search-suggestion-item').forEach(el => {
+                        el.addEventListener('click', function() {
+                            searchInput.value = this.getAttribute('data-value');
+                            suggestionsBox.style.display = 'none';
+                            const form = searchInput.closest('form');
+                            if (form) form.submit();
+                        });
+                    });
+                })
+                .catch(err => {
+                    hideSpinner();
+                    suggestionsBox.innerHTML = '<div class="dropdown-item text-muted small p-2.5"><i class="feather-info me-1 text-warning"></i> No matching leads found</div>';
+                    suggestionsBox.style.display = 'block';
+                    console.error('Search error:', err);
+                });
+        }, 250);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+            suggestionsBox.style.display = 'none';
+        }
+    });
+});
 </script>

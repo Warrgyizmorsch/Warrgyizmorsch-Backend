@@ -1149,8 +1149,7 @@
                             @endphp
                             <div class="pipeline-card"
                                 id="pipeline-card-{{ $lead->id }}"
-                                data-lead-id="{{ $lead->id }}"
-                                draggable="true">
+                                data-lead-id="{{ $lead->id }}">
                                 
                                 {{-- Header Row: Avatar + Name & Company + Quick Action Icons --}}
                                 <div class="d-flex align-items-start justify-content-between gap-2">
@@ -1168,12 +1167,12 @@
                                     </div>
                                     <div class="d-flex align-items-center gap-2 flex-shrink-0 text-muted">
                                         {{-- 1. Comment History Button (Message icon) --}}
-                                        <a href="javascript:void(0);" class="text-secondary text-hover-primary open-callback" style="font-size: 10.5px;" title="Comment History" data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $lead->id }}" data-id="{{ $lead->id }}">
+                                        <a href="javascript:void(0);" class="text-secondary text-hover-primary open-callback" style="font-size: 10.5px;" title="Comment History" onclick="openHistoryOffcanvas({{ $lead->id }})">
                                             <i class="far fa-comment-alt"></i>
                                         </a>
 
                                         {{-- 2. Add Comment / Edit Followup Button --}}
-                                        <a href="javascript:void(0);" class="text-secondary text-hover-primary" style="font-size: 10.5px;" title="Add Comment / Edit Followup" data-bs-toggle="offcanvas" data-bs-target="#editStatusOffcanvas-{{ $lead->id }}">
+                                        <a href="javascript:void(0);" class="text-secondary text-hover-primary" style="font-size: 10.5px;" title="Add Comment / Edit Followup" onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})">
                                             <i class="fas fa-plus-circle text-primary"></i>
                                         </a>
 
@@ -1286,10 +1285,6 @@
                                     @endif
                                 </div>
                             </div>
-
-                            @include('crm.lead.call-back')
-
-                            @include('crm.lead.edit-followup')
                         @empty
                             <div class="pipeline-empty empty-column-msg">
                                 <i class="fas fa-layer-group mb-1 fs-5"></i>
@@ -1327,10 +1322,15 @@
             document.querySelectorAll('.pipeline-cards-list').forEach(col => {
                 new Sortable(col, {
                     group: 'lead-pipeline',
-                    animation: 150,
+                    animation: 200,
                     ghostClass: 'bg-soft-primary',
                     chosenClass: 'shadow-lg',
-                    filter: '.empty-column-msg',
+                    dragClass: 'sortable-drag',
+                    fallbackOnBody: true,
+                    swapThreshold: 0.65,
+                    emptyInsertThreshold: 10,
+                    filter: '.empty-column-msg, a, button, input, select, textarea, .dropdown-menu, .open-callback',
+                    preventOnFilter: false,
                     onEnd: function(evt) {
                         const itemEl = evt.item;
                         const sourceCol = evt.from;
@@ -4465,11 +4465,11 @@
                         </div>
                     </div>
 
-                    {{-- Card Box 2: Communication --}}
+                    {{-- Card Box 2: Communication & Comment --}}
                     <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
                         <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
                             <i class="fas fa-comments text-info fs-12"></i>
-                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication</h6>
+                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication & Comment</h6>
                         </div>
                         <div class="card-body p-3">
                             {{-- Followup / Communication Type --}}
@@ -4488,7 +4488,7 @@
                             </div>
 
                             {{-- Followup / Communication Status --}}
-                            <div>
+                            <div class="mb-3">
                                 <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
                                     <i class="fas fa-signal text-info me-1 fs-10"></i>Communication Status
                                 </label>
@@ -4500,14 +4500,22 @@
                                     <option value="Switched Off">Switched Off</option>
                                 </select>
                             </div>
+
+                            {{-- Add Message / Comment --}}
+                            <div class="comment-message-box">
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-comment-dots text-primary me-1 fs-10"></i>Add Comment / Message
+                                </label>
+                                <textarea class="form-control border-slate shadow-2xs fs-13" name="message" rows="3" placeholder="Write a comment or message..." style="border-color: #cbd5e1; border-radius: 8px; resize: none;"></textarea>
+                            </div>
                         </div>
                     </div>
 
-                    {{-- Card Box 3: Remarks & Next Follow-up --}}
+                    {{-- Card Box 3: Next Follow-up & Attachments --}}
                     <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
                         <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
-                            <i class="fas fa-comment-dots text-warning fs-12"></i>
-                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Remarks & Next Follow-up</h6>
+                            <i class="fas fa-calendar-check text-warning fs-12"></i>
+                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Next Follow-up & Attachments</h6>
                         </div>
                         <div class="card-body p-3">
                             {{-- Next Follow Up Date --}}
@@ -4516,14 +4524,6 @@
                                     <i class="fas fa-calendar-alt text-primary me-1 fs-10"></i>Next Follow-up Date & Time
                                 </label>
                                 <input type="datetime-local" class="form-control border-slate shadow-2xs fs-13" name="next_followup_date" style="border-color: #cbd5e1; border-radius: 8px;">
-                            </div>
-
-                            {{-- Add Message / Remark --}}
-                            <div class="mb-3 comment-message-box">
-                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                                    Add Comment / Message
-                                </label>
-                                <textarea class="form-control border-slate shadow-2xs fs-13" name="message" rows="3" placeholder="Write a comment..." style="border-color: #cbd5e1; border-radius: 8px; resize: none;"></textarea>
                             </div>
 
                             {{-- Attachments --}}
