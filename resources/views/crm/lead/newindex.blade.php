@@ -1351,10 +1351,11 @@
                         updatePipelineEmptyStates();
 
                         // AJAX update
-                        fetch(`/modern-leads/drag-update/${leadId}`, {
+                        fetch(`{{ url('/modern-leads/drag-update') }}/${leadId}`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
+                                'Accept': 'application/json',
                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
                             },
                             body: JSON.stringify({
@@ -1362,6 +1363,10 @@
                             })
                         })
                         .then(async res => {
+                            const contentType = res.headers.get('content-type') || '';
+                            if (!contentType.includes('application/json')) {
+                                throw new Error('Server error during drag update. Please try again.');
+                            }
                             const data = await res.json();
                             if (!res.ok) throw new Error(data.message || 'Status update failed');
                             return data;

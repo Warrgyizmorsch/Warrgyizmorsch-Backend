@@ -747,6 +747,12 @@ class NewleadController extends Controller
 
         if ($request->has('lead_status') && !is_null($request->lead_status)) {
             $lead->lead_status = $request->lead_status;
+            if (!$request->filled('lead_bucket_id')) {
+                $matchedBucket = Bucket::where('name', $request->lead_status)->where('is_deleted', 0)->first();
+                if ($matchedBucket) {
+                    $lead->lead_bucket_id = $matchedBucket->id;
+                }
+            }
         }
 
         if ($request->has('lead_engagement_status')) {
@@ -1525,4 +1531,6 @@ class NewleadController extends Controller
             ], 500);
         }
     }
+
+
 }
