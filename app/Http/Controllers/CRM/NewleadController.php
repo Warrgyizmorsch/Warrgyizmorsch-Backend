@@ -490,6 +490,7 @@ class NewleadController extends Controller
                 });
 
             $statusCounts = $statusCountsQuery
+                ->reorder()
                 ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
                 ->groupBy('lead_status', 'lead_bucket_id')
                 ->get();
