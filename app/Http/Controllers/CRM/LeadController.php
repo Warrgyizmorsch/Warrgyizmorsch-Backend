@@ -46,18 +46,23 @@ class LeadController extends Controller
         }
 
         // 🔍 Global Search (name, contact, email)
-        if ($request->filled('search')) {
+        if ($request->filled('search_uid')) {
+            $query->where('uid', $request->search_uid);
+        } elseif ($request->filled('search')) {
             $search = trim($request->search);
             $digitsOnly = preg_replace('/\D+/', '', $search); // keep only numbers
+            $last10 = (strlen($digitsOnly) >= 10) ? substr($digitsOnly, -10) : $digitsOnly;
 
-            $query->whereHas('user', function ($q) use ($search, $digitsOnly) {
+            $query->whereHas('user', function ($q) use ($search, $digitsOnly, $last10) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('contact_no', 'like', "%{$search}%");
 
                 if ($digitsOnly !== '') {
                     $q->orWhere('contact_no', 'like', "%{$digitsOnly}%")
-                        ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                        ->orWhere('contact_no', 'like', "%{$last10}%")
+                        ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%'])
+                        ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $last10 . '%']);
                 }
             });
         }

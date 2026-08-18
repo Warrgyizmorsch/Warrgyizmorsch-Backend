@@ -155,10 +155,10 @@
             <input type="hidden"
                 name="lead_status"
                 value="{{ request('lead_status') }}">
-            @endif
+            {{-- Hidden input for exact selected User ID --}}
+            <input type="hidden" name="search_uid" id="search-uid-input" value="{{ request('search_uid') }}">
 
             <div class="row g-3">
-
                 <div class="col-12 col-md-3 position-relative">
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0">
@@ -481,6 +481,11 @@ document.addEventListener("DOMContentLoaded", function() {
     searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
         selectedIndex = -1;
+
+        // Clear hidden user_id input when user types manually
+        const hiddenUidInput = document.getElementById('search-uid-input');
+        if (hiddenUidInput) hiddenUidInput.value = '';
+
         const query = this.value.trim();
 
         if (query.length < 1) {
@@ -516,7 +521,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             : ((item.email && item.email.trim() !== '') ? item.email : item.name);
 
                         html += `
-                            <a href="javascript:void(0);" class="dropdown-item py-2 px-3 border-bottom search-suggestion-item text-decoration-none" data-value="${selectVal}">
+                            <a href="javascript:void(0);" class="dropdown-item py-2 px-3 border-bottom search-suggestion-item text-decoration-none" data-user-id="${item.user_id || ''}" data-name="${item.name || ''}" data-value="${selectVal}">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <strong class="text-dark fs-13">${item.name}</strong>
                                     <span class="badge bg-soft-primary text-primary fs-11">${item.status}</span>
@@ -535,7 +540,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     suggestionsBox.querySelectorAll('.search-suggestion-item').forEach(el => {
                         el.addEventListener('click', function() {
-                            searchInput.value = this.getAttribute('data-value');
+                            const selectedUid = this.getAttribute('data-user-id');
+                            const selectedName = this.getAttribute('data-name');
+                            const hiddenInput = document.getElementById('search-uid-input');
+                            
+                            if (hiddenInput && selectedUid) {
+                                hiddenInput.value = selectedUid;
+                            }
+                            searchInput.value = selectedName || this.getAttribute('data-value');
                             suggestionsBox.style.display = 'none';
                             selectedIndex = -1;
                             const form = searchInput.closest('form');

@@ -102,18 +102,23 @@ class NewleadController extends Controller
         // Global Search
 
         $searchUserIds = [];
-        if ($request->filled('search')) {
+        if ($request->filled('search_uid')) {
+            $query->where('uid', $request->search_uid);
+        } elseif ($request->filled('search')) {
             $search = trim($request->search);
             $digitsOnly = preg_replace('/\D+/', '', $search);
+            $last10 = (strlen($digitsOnly) >= 10) ? substr($digitsOnly, -10) : $digitsOnly;
 
-            $searchUserIds = User::where(function ($uQ) use ($search, $digitsOnly) {
+            $searchUserIds = User::where(function ($uQ) use ($search, $digitsOnly, $last10) {
                 $uQ->where('name', 'like', "%{$search}%")
                    ->orWhere('email', 'like', "%{$search}%")
                    ->orWhere('contact_no', 'like', "%{$search}%");
 
                 if ($digitsOnly !== '') {
                     $uQ->orWhere('contact_no', 'like', "%{$digitsOnly}%")
-                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                       ->orWhere('contact_no', 'like', "%{$last10}%")
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%'])
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $last10 . '%']);
                 }
             })
             ->pluck('id')

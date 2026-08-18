@@ -167,9 +167,12 @@
         <div class="accordion-body pb-2">
             <form method="GET" action="{{ route('lead.index') }}" class="row g-3 mb-4">
             
-                <!-- 👇 Preserve bucket_id -->
+                <!-- 👇 Preserve bucket_id & search_uid -->
                 @if(request('bucket_id'))
                     <input type="hidden" name="bucket_id" value="{{ request('bucket_id') }}">
+                @endif
+                @if(request('search_uid'))
+                    <input type="hidden" name="search_uid" value="{{ request('search_uid') }}">
                 @endif
 
                 <!-- Search -->
@@ -297,7 +300,7 @@
                     </a>
                     @php
 // Check if any filter is active
-$filtersApplied = request('search') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('owner_id') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name');
+$filtersApplied = request('search') || request('search_uid') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('owner_id') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name');
                     @endphp
                     <!-- Export Toggle Button (only show if filter applied) -->
                     @if($filtersApplied)
