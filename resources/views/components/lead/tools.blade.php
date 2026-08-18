@@ -155,6 +155,8 @@
             <input type="hidden"
                 name="lead_status"
                 value="{{ request('lead_status') }}">
+            @endif
+
             {{-- Hidden input for exact selected User ID --}}
             <input type="hidden" name="search_uid" id="search-uid-input" value="{{ request('search_uid') }}">
 
