@@ -216,13 +216,17 @@ class NewleadController extends Controller
             $query->where(function ($q) {
                 $q->whereNull('is_converted')
                   ->orWhere('is_converted', 0);
-            })->where(function ($q) use ($orderBucketIds) {
-                $q->whereNull('lead_bucket_id')
-                  ->orWhereNotIn('lead_bucket_id', $orderBucketIds);
             });
+
+            if (!$request->filled('search') && !$request->filled('search_uid') && !$request->filled('deleted_leads')) {
+                $query->where(function ($q) use ($orderBucketIds) {
+                    $q->whereNull('lead_bucket_id')
+                      ->orWhereNotIn('lead_bucket_id', $orderBucketIds);
+                });
+            }
         }
 
-        if ($request->filled('lead_status') && $request->bucket_id !== 'all_orders' && !$request->filled('search')) {
+        if ($request->filled('lead_status') && $request->bucket_id !== 'all_orders' && !$request->filled('search') && !$request->filled('search_uid')) {
             $query->where('lead_status', $request->lead_status);
         }
 
@@ -479,7 +483,7 @@ class NewleadController extends Controller
         $childBuckets = collect();
         $childtotalLeadsCount = 0;
 
-        $hasActiveFilter = $request->filled('search') || $request->filled('from') || $request->filled('source') || $request->filled('owner_id') || $request->filled('lead_engagement_status') || $request->filled('category_id') || $request->filled('company') || $request->filled('campaign_name') || $request->filled('has_followups');
+        $hasActiveFilter = $request->filled('search') || $request->filled('search_uid') || $request->filled('from') || $request->filled('source') || $request->filled('owner_id') || $request->filled('lead_engagement_status') || $request->filled('category_id') || $request->filled('company') || $request->filled('campaign_name') || $request->filled('has_followups');
 
         if ($targetBucketId) {
             $childBuckets = Bucket::where('parent_id', $targetBucketId)
