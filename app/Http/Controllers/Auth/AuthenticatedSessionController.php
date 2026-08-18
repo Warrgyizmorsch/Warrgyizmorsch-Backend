@@ -41,34 +41,14 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        // If Admin (role_id == 1), authenticate directly without OTP
-        if ($user && $user->role_id == 1) {
-            $request->authenticate();
-            $request->session()->regenerate();
-
-            if ($request->has('remember')) {
-                return redirect()->intended(route('dashboard', absolute: false))
-                    ->withCookies([
-                        cookie()->make('remember_email', $request->email, 60 * 24 * 30),
-                        cookie()->make('remember_password', Crypt::encryptString($request->password), 60 * 24 * 30),
-                    ]);
-            }
-
-            return redirect()->intended(route('dashboard', absolute: false))
-                ->withCookies([
-                    Cookie::forget('remember_email'),
-                    Cookie::forget('remember_password'),
-                ]);
-        }
-
-        // Non-Admin: Validate password first
+        // Validate password first
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
         }
 
-        // Generate OTP for non-admin user
+        // Generate OTP for all users (including Admin and other roles)
         $otp = sprintf("%06d", mt_rand(100000, 999999));
 
         session([
