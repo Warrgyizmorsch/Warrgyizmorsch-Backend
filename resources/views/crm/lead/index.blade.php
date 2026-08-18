@@ -163,7 +163,7 @@
         @endif
 
     {{-- Collapsible Lead Stats --}}
-    <div id="collapseOne" class="accordion-collapse collapsed page-header-collapse {{ request('search') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name') ? 'show' : '' }}">
+    <div id="collapseOne" class="accordion-collapse collapsed page-header-collapse {{ request('search') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('owner_id') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name') ? 'show' : '' }}">
         <div class="accordion-body pb-2">
             <form method="GET" action="{{ route('lead.index') }}" class="row g-3 mb-4">
             
@@ -228,7 +228,7 @@
                     <select name="owner_id" class="form-select" data-select2-selector="tag">
                         <option value="">All Owners</option>
                         @foreach($owners as $owner)
-                            <option value="{{ $owner->id }}" {{ request('lead_owner') == $owner->id ? 'selected' : '' }}>
+                            <option value="{{ $owner->id }}" {{ (request('owner_id') == $owner->id || request('lead_owner') == $owner->id) ? 'selected' : '' }}>
                                 {{ $owner->name }}
                             </option>
                         @endforeach
@@ -297,7 +297,7 @@
                     </a>
                     @php
 // Check if any filter is active
-$filtersApplied = request('search') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name');
+$filtersApplied = request('search') || request('from') || request('to') || request('source') || request('status') || request('lead_owner') || request('owner_id') || request('country') || request('course') || request('campaign_name') || request('adset_name') || request('ad_name');
                     @endphp
                     <!-- Export Toggle Button (only show if filter applied) -->
                     @if($filtersApplied)

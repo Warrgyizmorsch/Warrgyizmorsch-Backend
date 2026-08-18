@@ -422,6 +422,7 @@ document.addEventListener("DOMContentLoaded", function() {
     if (!searchInput || !suggestionsBox) return;
 
     let debounceTimer;
+    let selectedIndex = -1;
 
     function showSpinner() {
         if (searchIcon) searchIcon.classList.add('d-none');
@@ -433,8 +434,53 @@ document.addEventListener("DOMContentLoaded", function() {
         if (searchIcon) searchIcon.classList.remove('d-none');
     }
 
+    function getItems() {
+        return suggestionsBox.querySelectorAll('.search-suggestion-item');
+    }
+
+    function updateActiveItem() {
+        const items = getItems();
+        items.forEach((item, idx) => {
+            if (idx === selectedIndex) {
+                item.classList.add('active');
+                item.style.backgroundColor = '#f1f5f9';
+                item.style.borderLeft = '4px solid #006FC9';
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('active');
+                item.style.backgroundColor = '';
+                item.style.borderLeft = '';
+            }
+        });
+    }
+
+    searchInput.addEventListener('keydown', function(e) {
+        if (suggestionsBox.style.display === 'none') return;
+        const items = getItems();
+        if (!items || items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = (selectedIndex + 1) < items.length ? selectedIndex + 1 : 0;
+            updateActiveItem();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = (selectedIndex - 1) >= 0 ? selectedIndex - 1 : items.length - 1;
+            updateActiveItem();
+        } else if (e.key === 'Enter') {
+            if (selectedIndex >= 0 && items[selectedIndex]) {
+                e.preventDefault();
+                items[selectedIndex].click();
+            }
+        } else if (e.key === 'Escape') {
+            suggestionsBox.style.display = 'none';
+            selectedIndex = -1;
+        }
+    });
+
     searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
+        selectedIndex = -1;
         const query = this.value.trim();
 
         if (query.length < 1) {
@@ -456,6 +502,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 .then(res => res.json())
                 .then(data => {
                     hideSpinner();
+                    selectedIndex = -1;
                     if (!data || data.length === 0) {
                         suggestionsBox.innerHTML = '<div class="dropdown-item text-muted small p-2.5"><i class="feather-info me-1 text-warning"></i> No matching leads found</div>';
                         suggestionsBox.style.display = 'block';
@@ -464,8 +511,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
                     let html = '';
                     data.forEach(item => {
+                        const selectVal = (item.contact_no && item.contact_no !== 'N/A' && item.contact_no.trim() !== '') 
+                            ? item.contact_no 
+                            : ((item.email && item.email.trim() !== '') ? item.email : item.name);
+
                         html += `
-                            <a href="javascript:void(0);" class="dropdown-item py-2 px-3 border-bottom search-suggestion-item text-decoration-none" data-value="${item.name}">
+                            <a href="javascript:void(0);" class="dropdown-item py-2 px-3 border-bottom search-suggestion-item text-decoration-none" data-value="${selectVal}">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <strong class="text-dark fs-13">${item.name}</strong>
                                     <span class="badge bg-soft-primary text-primary fs-11">${item.status}</span>
@@ -486,6 +537,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         el.addEventListener('click', function() {
                             searchInput.value = this.getAttribute('data-value');
                             suggestionsBox.style.display = 'none';
+                            selectedIndex = -1;
                             const form = searchInput.closest('form');
                             if (form) form.submit();
                         });
@@ -493,6 +545,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 })
                 .catch(err => {
                     hideSpinner();
+                    selectedIndex = -1;
                     suggestionsBox.innerHTML = '<div class="dropdown-item text-muted small p-2.5"><i class="feather-info me-1 text-warning"></i> No matching leads found</div>';
                     suggestionsBox.style.display = 'block';
                     console.error('Search error:', err);
@@ -503,6 +556,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener('click', function(e) {
         if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
             suggestionsBox.style.display = 'none';
+            selectedIndex = -1;
         }
     });
 });

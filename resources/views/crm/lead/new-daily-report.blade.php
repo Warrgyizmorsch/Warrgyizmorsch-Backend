@@ -1110,7 +1110,7 @@
                 backend se lead_bucket ke basis pr leads lao
                 */
 
-                fetch(`{{ route('get.leads.by.type') }}?bucket_id=${bucketId}&ower_id=${userId}&from=${from}&to=${to}`)
+                fetch(`{{ route('get.leads.by.type') }}?bucket_id=${bucketId}&owner_id=${userId}&from=${from}&to=${to}`)
 
                     .then(response => response.json())
 
@@ -1381,7 +1381,7 @@
         </tr>
     `;
 
-        fetch(`{{ route('get.leads.by.type') }}?bucket_id=${bucketId}&ower_id=${userId}&range=${range}`)
+        fetch(`{{ route('get.leads.by.type') }}?bucket_id=${bucketId}&owner_id=${userId}&range=${range}`)
 
             .then(response => response.json())
 

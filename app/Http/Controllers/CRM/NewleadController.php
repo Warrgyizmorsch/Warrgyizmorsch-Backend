@@ -106,22 +106,25 @@ class NewleadController extends Controller
             $search = trim($request->search);
             $digitsOnly = preg_replace('/\D+/', '', $search);
 
-            $searchUserIds = User::where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->when($digitsOnly !== '', function ($uQ) use ($search, $digitsOnly) {
-                    $uQ->orWhere('contact_no', 'like', "%{$search}%")
-                       ->orWhereRaw("REPLACE(contact_no, ' ', '') LIKE ?", ['%' . $digitsOnly . '%']);
-                }, function ($uQ) use ($search) {
-                    $uQ->orWhere('contact_no', 'like', "%{$search}%");
-                })
-                ->pluck('id')
-                ->toArray();
+            $searchUserIds = User::where(function ($uQ) use ($search, $digitsOnly) {
+                $uQ->where('name', 'like', "%{$search}%")
+                   ->orWhere('email', 'like', "%{$search}%")
+                   ->orWhere('contact_no', 'like', "%{$search}%");
+
+                if ($digitsOnly !== '') {
+                    $uQ->orWhere('contact_no', 'like', "%{$digitsOnly}%")
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%']);
+                }
+            })
+            ->pluck('id')
+            ->toArray();
 
             $query->where(function ($q) use ($searchUserIds, $search) {
                 if (!empty($searchUserIds)) {
                     $q->whereIn('uid', $searchUserIds);
+                } else {
+                    $q->where('business_name', 'like', "%{$search}%");
                 }
-                $q->orWhere('business_name', 'like', "%{$search}%");
             });
         }
         // dd($query->get()->toArray());

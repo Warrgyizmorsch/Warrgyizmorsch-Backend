@@ -47,23 +47,17 @@ class LeadController extends Controller
 
         // 🔍 Global Search (name, contact, email)
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim($request->search);
             $digitsOnly = preg_replace('/\D+/', '', $search); // keep only numbers
 
             $query->whereHas('user', function ($q) use ($search, $digitsOnly) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('contact_no', 'like', "%{$search}%");
 
-                // If user typed something that looks like a phone number
                 if ($digitsOnly !== '') {
-                    // Compare against contact_no with spaces removed
-                    $q->orWhereRaw(
-                        "REPLACE(contact_no, ' ', '') LIKE ?",
-                        ['%' . $digitsOnly . '%']
-                    );
-                } else {
-                    // Fallback: plain like on contact_no
-                    $q->orWhere('contact_no', 'like', "%{$search}%");
+                    $q->orWhere('contact_no', 'like', "%{$digitsOnly}%")
+                        ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%']);
                 }
             });
         }
@@ -90,8 +84,13 @@ class LeadController extends Controller
         }
 
         // 👨 Lead Owner filter
-        if ($request->filled('owner_id')) {
-            $query->where('lead_owner', $request->owner_id);
+        if ($request->filled('owner_id') || $request->filled('lead_owner')) {
+            $ownerId = $request->owner_id ?? $request->lead_owner;
+            if ($ownerId === 'null') {
+                $query->whereNull('lead_owner');
+            } else {
+                $query->where('lead_owner', $ownerId);
+            }
         }
 
         // 🌍 Applied Country filter
@@ -2312,7 +2311,7 @@ class LeadController extends Controller
         try {
 
             $bucketId = $request->bucket_id;
-            $userId = $request->ower_id;
+            $userId = $request->owner_id ?? $request->ower_id ?? $request->lead_owner;
 
             $from = $request->from;
             $to = $request->to;
@@ -2355,8 +2354,12 @@ class LeadController extends Controller
             }
 
             // USER FILTER
-            if (!empty($userId)) {
-                $query->where('lead_owner', $userId);
+            if (!is_null($userId) && $userId !== '') {
+                if ($userId === 'null') {
+                    $query->whereNull('lead_owner');
+                } else {
+                    $query->where('lead_owner', $userId);
+                }
             }
 
             // DATE FILTER

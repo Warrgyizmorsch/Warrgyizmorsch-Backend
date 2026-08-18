@@ -48,7 +48,31 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        // Generate OTP for all users (including Admin and other roles)
+        // 🟢 Bypass OTP for local testing account: admin@gmail.com
+        if ($user->email === 'admin@gmail.com') {
+            $hasActiveSession = DB::table('sessions')->where('user_id', $user->id)->exists();
+
+            if ($hasActiveSession) {
+                session(['otp_verified_user_id' => $user->id]);
+                return redirect()->route('login.force_logout_prompt');
+            }
+
+            Auth::login($user, $request->boolean('remember'));
+            $request->session()->regenerate();
+
+            $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
+
+            if ($request->boolean('remember')) {
+                $cookieResponse->withCookies([
+                    cookie()->make('remember_email', $request->email, 60 * 24 * 30),
+                    cookie()->make('remember_password', Crypt::encryptString($request->password), 60 * 24 * 30),
+                ]);
+            }
+
+            return $cookieResponse;
+        }
+
+        // Generate OTP for all other users
         $otp = sprintf("%06d", mt_rand(100000, 999999));
 
         session([
