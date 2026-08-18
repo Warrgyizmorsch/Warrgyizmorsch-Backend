@@ -569,7 +569,7 @@ class NewleadController extends Controller
     {
         $request->validate([
             'lead_engagement_status' => 'nullable|string',
-            'lead_bucket_id' => 'required|integer|exists:buckets,id',
+            'lead_bucket_id' => 'nullable|integer',
             'lead_status' => 'required|string',
             'followup_type' => 'nullable|string',
             'next_followup_date' => 'nullable|date',
@@ -590,7 +590,25 @@ class NewleadController extends Controller
             }
         }
 
-        $bucketObj = Bucket::find($request->lead_bucket_id);
+        $bucketId = $request->lead_bucket_id;
+        $bucketObj = null;
+        if (!empty($bucketId)) {
+            $bucketObj = Bucket::find($bucketId);
+        }
+
+        if (!$bucketObj) {
+            if (!empty($lead->lead_bucket_id)) {
+                $bucketObj = Bucket::find($lead->lead_bucket_id);
+            }
+            if (!$bucketObj && !empty($request->lead_status)) {
+                $bucketObj = Bucket::whereRaw('LOWER(name) = ?', [strtolower(trim($request->lead_status))])->first();
+            }
+            if (!$bucketObj) {
+                $bucketObj = Bucket::where('is_deleted', 0)->first() ?? Bucket::first();
+            }
+            $bucketId = $bucketObj ? $bucketObj->id : 1;
+        }
+
         $isLeadBucket = false;
         if ($bucketObj) {
             $isLeadBucket = str_contains(strtolower($bucketObj->name), 'lead') || $bucketObj->id == 1;
@@ -600,7 +618,7 @@ class NewleadController extends Controller
         $validEngStatuses = ['hot', 'warm', 'cold', 'dead'];
 
         $updateData = [
-            'lead_bucket_id' => $request->lead_bucket_id,
+            'lead_bucket_id' => $bucketId,
             'lead_status'    => $request->lead_status,
             'is_converted'   => $isLeadBucket ? 0 : 1,
         ];
@@ -617,7 +635,7 @@ class NewleadController extends Controller
                 [
                     'order_number'            => 'ORD-' . (10000 + $lead->id),
                     'uid'                     => $lead->uid,
-                    'order_bucket_id'         => $request->lead_bucket_id,
+                    'order_bucket_id'         => $bucketId,
                     'order_status'            => $request->lead_status,
                     'order_engagement_status' => in_array($engStatus, $validEngStatuses) ? $engStatus : $lead->lead_engagement_status,
                     'order_owner'             => $lead->lead_owner,
@@ -635,7 +653,7 @@ class NewleadController extends Controller
         if ($request->hasFile('call_recording')) {
             $audioPath = $request->file('call_recording')->store('call_recordings', 'public');
         }
-        $bucketName = Bucket::find($request->lead_bucket_id)->name ?? '';
+        $bucketName = $bucketObj ? $bucketObj->name : '';
         CallBack::create([
             'lead_id' => $lead->id,
             'message' => $request->message,
