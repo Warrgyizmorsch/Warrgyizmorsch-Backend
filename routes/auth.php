@@ -33,6 +33,21 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    Route::get('login/otp', [AuthenticatedSessionController::class, 'showOtpForm'])
+        ->name('login.otp');
+
+    Route::post('login/otp', [AuthenticatedSessionController::class, 'verifyOtp'])
+        ->name('login.otp.verify');
+
+    Route::post('login/otp/resend', [AuthenticatedSessionController::class, 'resendOtp'])
+        ->name('login.otp.resend');
+
+    Route::get('login/force-logout', [AuthenticatedSessionController::class, 'showForceLogoutPrompt'])
+        ->name('login.force_logout_prompt');
+
+    Route::post('login/force-logout', [AuthenticatedSessionController::class, 'forceLogoutAndLogin'])
+        ->name('login.force_logout');
 });
 
 Route::middleware('auth')->group(function () {
