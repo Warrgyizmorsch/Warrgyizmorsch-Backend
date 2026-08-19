@@ -118,4 +118,9 @@ class Leads extends Model
     {
         return $this->belongsTo(Category::class, 'category_id');
     }
+
+    public function emailLogs()
+    {
+        return $this->hasMany(EmailLog::class, 'lead_id')->latest();
+    }
 }

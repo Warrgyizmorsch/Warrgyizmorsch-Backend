@@ -129,6 +129,27 @@ class AppServiceProvider extends ServiceProvider
                         $orderMasterMenu->setRelation('children', $children);
                     }
                 }
+
+                // Dynamic Email Templates menu item
+                $hasEmailTemplates = $menus->contains(fn($m) => str_contains(strtolower($m->title ?? ''), 'email template'));
+                if (!$hasEmailTemplates) {
+                    $tplMenu = new \App\Models\Menu([
+                        'title' => 'Email Templates',
+                        'icon' => 'feather-mail',
+                    ]);
+                    $tRoute = new \stdClass();
+                    $tRoute->route_name = 'email-templates.index';
+                    $tplMenu->route = $tRoute;
+
+                    $mgmtMenu = $menus->first(fn($m) => str_contains(strtolower($m->title ?? ''), 'management') || str_contains(strtolower($m->title ?? ''), 'master'));
+                    if ($mgmtMenu) {
+                        $children = $mgmtMenu->children ? collect($mgmtMenu->children) : collect();
+                        $children->push($tplMenu);
+                        $mgmtMenu->setRelation('children', $children);
+                    } else {
+                        $menus->push($tplMenu);
+                    }
+                }
             } else {
                 $menus = collect(); // empty collection if not logged in
             }
