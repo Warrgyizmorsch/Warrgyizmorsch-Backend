@@ -926,16 +926,25 @@
                                             <i class="fas fa-chevron-down fs-10"></i>
                                         </a>
                                     </div>
-                                    {{-- Row 2: Convert Button & Dropdown --}}
+                                    {{-- Row 2: Convert Button, Send Email & Dropdown --}}
                                     <div class="d-flex align-items-center gap-1">
                                         <button type="button" class="btn btn-xs btn-icon rounded-2 border shadow-2xs d-flex align-items-center justify-content-center" style="width: 25px; height: 25px; background-color: #dcfce7; color: #16a34a; border-color: #86efac !important;" onclick="convertLeads([{{ $lead->id }}]); return false;" title="Convert Lead to Order">
                                             <i class="fas fa-arrows-rotate fs-10"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" onclick="openSendEmailModal({{ $lead->id }}, '{{ e(optional($lead->user)->name ?? '') }}', '{{ e(optional($lead->user)->email ?? '') }}')" title="Send Email">
+                                            <i class="fas fa-paper-plane fs-10"></i>
                                         </button>
                                         <div class="dropdown">
                                             <a class="btn btn-xs btn-icon btn-light text-dark border shadow-2xs rounded-2 d-flex align-items-center justify-content-center dropdown-toggle" style="width: 25px; height: 25px;" href="#" role="button" id="moreOptions{{ $lead->id }}" data-bs-toggle="dropdown" aria-expanded="false" title="More Options">
                                                 <i class="fas fa-ellipsis-v fs-10"></i>
                                             </a>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" aria-labelledby="moreOptions{{ $lead->id }}">
+                                                <li>
+                                                    <a class="dropdown-item d-flex align-items-center text-primary fw-bold" href="javascript:void(0);" onclick="openSendEmailModal({{ $lead->id }}, '{{ e(optional($lead->user)->name ?? '') }}', '{{ e(optional($lead->user)->email ?? '') }}')">
+                                                        <i class="fas fa-paper-plane me-2 text-primary" style="width: 20px;"></i>
+                                                        Send Email
+                                                    </a>
+                                                </li>
                                                 <li>
                                                     <a class="dropdown-item d-flex align-items-center text-success fw-bold" href="javascript:void(0);" onclick="convertLeads([{{ $lead->id }}]); return false;">
                                                         <i class="fas fa-arrows-rotate me-2 text-success" style="width: 20px;"></i>
@@ -1556,11 +1565,142 @@
                         </div>
                     </div>
 
+                    <!-- Section: Email History -->
+                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3 d-flex align-items-center justify-content-between" style="color: #006FC9; font-size: 14px;">
+                                <span><i class="fas fa-history me-2"></i> Email History</span>
+                                <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2 py-1" id="triggerSendEmailFromViewBtn">
+                                    <i class="fas fa-paper-plane me-1"></i> Send Email
+                                </button>
+                            </h6>
+                            <div id="viewEmailHistoryContent" class="table-responsive">
+                                <div class="text-center text-muted py-3 fs-12"><i class="fas fa-spinner fa-spin me-2"></i> Loading email history...</div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Footer -->
                 <div class="modal-footer border-0 bg-white px-4 py-3">
                     <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DYNAMIC SEND EMAIL MODAL -->
+    <div class="modal fade" id="dynamicSendEmailModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                <div class="modal-header border-0 px-4 py-3" style="background: linear-gradient(135deg, #006FC9, #0056a3);">
+                    <div class="d-flex align-items-center gap-3 text-white">
+                        <div class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25" style="width: 40px; height: 40px;">
+                            <i class="fas fa-paper-plane" style="font-size: 16px;"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-white mb-0" id="sendEmailModalTitle">Send Email to Lead</h5>
+                            <small class="text-white opacity-75" id="sendEmailRecipientText">Recipient Email</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <div class="modal-body p-4" style="background: #f8fafc; max-height: 75vh; overflow-y: auto;">
+                    <input type="hidden" id="sendEmailLeadId" value="">
+                    
+                    <div id="sendEmailAlert" class="alert d-none mb-3" role="alert"></div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark fs-13">Select Email Template <span class="text-danger">*</span></label>
+                        <select id="sendEmailTemplateSelect" class="form-select border-primary-subtle shadow-2xs" onchange="onTemplateSelected()">
+                            <option value="">-- Choose Active Template --</option>
+                        </select>
+                    </div>
+
+                    <!-- Preview Container -->
+                    <div id="sendEmailPreviewCard" class="card border shadow-2xs d-none" style="border-radius: 12px; background: #ffffff;">
+                        <div class="card-header bg-light border-bottom px-3 py-2">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="fw-bold text-primary fs-12"><i class="fas fa-eye me-1"></i> Generated Email Preview</span>
+                                <span class="badge bg-soft-success text-success fs-11" id="previewToBadge"></span>
+                            </div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="mb-3">
+                                <label class="fw-semibold text-muted fs-11 text-uppercase mb-1">To Email (Editable):</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light text-muted"><i class="fas fa-envelope fs-11"></i></span>
+                                    <input type="email" id="customToEmailInput" class="form-control border-primary-subtle fw-bold text-dark fs-13" placeholder="Enter recipient email address..." oninput="updatePreviewToBadge(this.value)">
+                                </div>
+                                <small class="text-muted fs-11 mt-1 d-block"><i class="fas fa-info-circle me-1 text-primary"></i> You can edit this email address if the lead's email was incorrect.</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="fw-semibold text-muted fs-11 text-uppercase mb-1">Subject Line:</label>
+                                <div class="fw-bold text-dark fs-14 p-2 bg-light rounded border" id="previewSubjectText"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="fw-semibold text-muted fs-11 text-uppercase mb-1">Email Body:</label>
+                                <div class="p-3 bg-white rounded border shadow-2xs overflow-auto fs-13" style="min-height: 180px; max-height: 350px; line-height: 1.6;" id="previewBodyText"></div>
+                            </div>
+                            <div class="pt-2 border-top">
+                                <label class="fw-semibold text-dark fs-12 mb-1 d-flex align-items-center gap-1">
+                                    <i class="fas fa-paperclip text-primary"></i> Attach File / Image (Optional, Max 10MB)
+                                </label>
+                                <input type="file" id="emailAttachmentInput" class="form-control form-control-sm border-primary-subtle fs-12" accept="image/*,.pdf,.doc,.docx" onchange="onAttachmentFileSelected(this)">
+                                <div id="attachmentFilePreview" class="d-none mt-2 p-2 bg-light rounded border d-flex align-items-center justify-content-between">
+                                    <span class="fs-12 text-dark fw-semibold" id="attachmentFileName"></span>
+                                    <button type="button" class="btn btn-xs text-danger p-0 border-0 ms-2" onclick="removeAttachmentFile()"><i class="fas fa-times-circle me-1"></i> Remove File</button>
+                                </div>
+                                <small class="text-muted fs-11 mt-1 d-block"><i class="fas fa-info-circle me-1 text-primary"></i> Attached files (PDF/Image) will be sent directly with email without being saved to database.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top bg-white px-4 py-3">
+                    <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary px-4 d-flex align-items-center gap-2" id="confirmSendEmailBtn" onclick="submitSendEmail()" disabled>
+                        <i class="fas fa-paper-plane"></i>
+                        <span>Send Email</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW SENT EMAIL LOG MODAL -->
+    <div class="modal fade" id="viewSentEmailLogModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                <div class="modal-header bg-dark text-white border-0 px-4 py-3">
+                    <h5 class="modal-title fw-bold text-white mb-0" id="viewLogModalTitle">Sent Email Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="fw-bold text-muted fs-11 text-uppercase">Recipient & Date</label>
+                            <span id="viewLogStatusBadge" class="badge"></span>
+                        </div>
+                        <div class="fw-semibold text-dark fs-13" id="viewLogRecipient"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold text-muted fs-11 text-uppercase">Subject</label>
+                        <div class="fw-bold text-dark p-2 bg-light rounded border fs-14" id="viewLogSubject"></div>
+                    </div>
+                    <div>
+                        <label class="fw-bold text-muted fs-11 text-uppercase">Email Content Sent</label>
+                        <div class="p-3 bg-white rounded border shadow-2xs overflow-auto" style="min-height: 180px; max-height: 350px;" id="viewLogBody"></div>
+                    </div>
+                    <div id="viewLogErrorSection" class="mt-3 d-none">
+                        <label class="fw-bold text-danger fs-11 text-uppercase">Error Details</label>
+                        <div class="p-2 bg-soft-danger text-danger rounded border border-danger fs-12 font-monospace" id="viewLogErrorMessage"></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light px-4 py-3">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -3292,6 +3432,17 @@
                     painSection.style.display = 'none';
                 }
 
+                // Bind Email Send Trigger & Load Email History
+                var triggerBtn = document.getElementById('triggerSendEmailFromViewBtn');
+                if (triggerBtn) {
+                    triggerBtn.onclick = function() {
+                        openSendEmailModal(lead.id, user.name, user.email);
+                    };
+                }
+                if (lead.id) {
+                    loadLeadEmailHistory(lead.id);
+                }
+
                 // Show modal
                 var modal = new bootstrap.Modal(document.getElementById('viewLeadDetailsModal'));
                 modal.show();
@@ -4594,6 +4745,280 @@
                 <div class="p-4 bg-white" id="sharedTodoTasksContainer"></div>
             </div>
         </div>
+
+        <script>
+            // ========== DYNAMIC SEND EMAIL & EMAIL HISTORY JS ==========
+            function updatePreviewToBadge(val) {
+                const badge = document.getElementById('previewToBadge');
+                if (badge) badge.textContent = 'To: ' + (val || '');
+                const text = document.getElementById('sendEmailRecipientText');
+                if (text) text.textContent = 'Recipient: ' + (val || 'No Email Address');
+            }
+
+            function onAttachmentFileSelected(input) {
+                const previewContainer = document.getElementById('attachmentFilePreview');
+                const nameSpan = document.getElementById('attachmentFileName');
+                
+                if (input.files && input.files[0]) {
+                    const file = input.files[0];
+                    const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+                    let iconClass = 'fas fa-paperclip text-primary';
+                    if (file.type.includes('pdf')) iconClass = 'fas fa-file-pdf text-danger';
+                    else if (file.type.includes('image')) iconClass = 'fas fa-file-image text-success';
+                    
+                    nameSpan.innerHTML = `<i class="${iconClass} me-1"></i> ${file.name} <span class="text-muted fs-11">(${sizeMb} MB)</span>`;
+                    previewContainer.classList.remove('d-none');
+                } else {
+                    removeAttachmentFile();
+                }
+            }
+
+            function removeAttachmentFile() {
+                const input = document.getElementById('emailAttachmentInput');
+                if (input) input.value = '';
+                const previewContainer = document.getElementById('attachmentFilePreview');
+                if (previewContainer) previewContainer.classList.add('d-none');
+            }
+
+            function openSendEmailModal(leadId, leadName, leadEmail) {
+                document.getElementById('sendEmailLeadId').value = leadId;
+                document.getElementById('sendEmailModalTitle').textContent = 'Send Email to ' + (leadName || 'Lead');
+                document.getElementById('sendEmailRecipientText').textContent = 'Recipient: ' + (leadEmail || 'No Email Address');
+                
+                const emailInput = document.getElementById('customToEmailInput');
+                if (emailInput) emailInput.value = leadEmail || '';
+
+                removeAttachmentFile();
+
+                const alertDiv = document.getElementById('sendEmailAlert');
+                alertDiv.className = 'alert d-none';
+                
+                const previewCard = document.getElementById('sendEmailPreviewCard');
+                previewCard.classList.add('d-none');
+                
+                const confirmBtn = document.getElementById('confirmSendEmailBtn');
+                confirmBtn.disabled = true;
+
+                // Load active templates
+                const select = document.getElementById('sendEmailTemplateSelect');
+                select.innerHTML = '<option value="">-- Loading Active Templates... --</option>';
+
+                fetch("{{ route('lead-email.active-templates') }}")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.templates.length > 0) {
+                            let options = '<option value="">-- Select Email Template --</option>';
+                            data.templates.forEach(t => {
+                                options += `<option value="${t.id}">[ ${t.type} ] ${t.name}</option>`;
+                            });
+                            select.innerHTML = options;
+                        } else {
+                            select.innerHTML = '<option value="">-- No active templates found --</option>';
+                        }
+                    })
+                    .catch(err => {
+                        select.innerHTML = '<option value="">-- Error loading templates --</option>';
+                    });
+
+                const modal = new bootstrap.Modal(document.getElementById('dynamicSendEmailModal'));
+                modal.show();
+            }
+
+            function onTemplateSelected() {
+                const leadId = document.getElementById('sendEmailLeadId').value;
+                const templateId = document.getElementById('sendEmailTemplateSelect').value;
+                const previewCard = document.getElementById('sendEmailPreviewCard');
+                const confirmBtn = document.getElementById('confirmSendEmailBtn');
+                const alertDiv = document.getElementById('sendEmailAlert');
+
+                alertDiv.className = 'alert d-none';
+
+                if (!templateId) {
+                    previewCard.classList.add('d-none');
+                    confirmBtn.disabled = true;
+                    return;
+                }
+
+                fetch("{{ route('lead-email.preview') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ lead_id: leadId, template_id: templateId })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const emailInput = document.getElementById('customToEmailInput');
+                        if (emailInput && (!emailInput.value || !emailInput.value.trim())) {
+                            emailInput.value = data.to_email || '';
+                        }
+                        updatePreviewToBadge(emailInput ? emailInput.value : data.to_email);
+                        
+                        document.getElementById('previewSubjectText').textContent = data.subject;
+                        document.getElementById('previewBodyText').innerHTML = data.body;
+                        
+                        previewCard.classList.remove('d-none');
+                        confirmBtn.disabled = false;
+                    } else {
+                        alertDiv.className = 'alert alert-danger';
+                        alertDiv.textContent = data.message || 'Could not generate template preview.';
+                        previewCard.classList.add('d-none');
+                        confirmBtn.disabled = true;
+                    }
+                })
+                .catch(err => {
+                    alertDiv.className = 'alert alert-danger';
+                    alertDiv.textContent = 'Error connecting to server.';
+                    previewCard.classList.add('d-none');
+                    confirmBtn.disabled = true;
+                });
+            }
+
+            function submitSendEmail() {
+                const leadId = document.getElementById('sendEmailLeadId').value;
+                const templateId = document.getElementById('sendEmailTemplateSelect').value;
+                const customToEmail = document.getElementById('customToEmailInput') ? document.getElementById('customToEmailInput').value : '';
+                const confirmBtn = document.getElementById('confirmSendEmailBtn');
+                const alertDiv = document.getElementById('sendEmailAlert');
+
+                if (!customToEmail || !customToEmail.trim()) {
+                    alertDiv.className = 'alert alert-danger';
+                    alertDiv.textContent = 'Please enter a valid recipient email address.';
+                    return;
+                }
+
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sending...';
+
+                const formData = new FormData();
+                formData.append('lead_id', leadId);
+                formData.append('template_id', templateId);
+                formData.append('custom_to_email', customToEmail.trim());
+
+                const fileInput = document.getElementById('emailAttachmentInput');
+                if (fileInput && fileInput.files && fileInput.files[0]) {
+                    formData.append('attachment', fileInput.files[0]);
+                }
+
+                fetch("{{ route('lead-email.send') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Send Email';
+
+                    if (data.status === 'success') {
+                        const sendModalEl = document.getElementById('dynamicSendEmailModal');
+                        const sendModal = bootstrap.Modal.getInstance(sendModalEl);
+                        if (sendModal) sendModal.hide();
+
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Email Sent!',
+                                text: data.message || 'Email sent successfully.',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            alert(data.message || 'Email sent successfully.');
+                        }
+
+                        // Refresh Email History if open
+                        if (leadId) loadLeadEmailHistory(leadId);
+                    } else {
+                        alertDiv.className = 'alert alert-danger';
+                        alertDiv.textContent = data.message || 'Unable to send email. Please try again.';
+                    }
+                })
+                .catch(err => {
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Send Email';
+                    alertDiv.className = 'alert alert-danger';
+                    alertDiv.textContent = 'An unexpected error occurred while sending email.';
+                });
+            }
+
+            function loadLeadEmailHistory(leadId) {
+                const container = document.getElementById('viewEmailHistoryContent');
+                if (!container) return;
+
+                container.innerHTML = '<div class="text-center text-muted py-3 fs-12"><i class="fas fa-spinner fa-spin me-2"></i> Loading email history...</div>';
+
+                fetch("{{ url('/lead-email/history') }}/" + leadId)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.logs.length > 0) {
+                            let html = '<table class="table table-sm table-hover align-middle mb-0 fs-12">';
+                            html += '<thead class="bg-light"><tr><th>Template</th><th>Recipient</th><th>Sent By</th><th>Sent Date</th><th>Status</th><th class="text-end">Action</th></tr></thead><tbody>';
+                            
+                            data.logs.forEach(log => {
+                                let statusBadge = '<span class="badge bg-secondary">Pending</span>';
+                                if (log.status === 'Sent') statusBadge = '<span class="badge bg-success">Sent</span>';
+                                else if (log.status === 'Failed') statusBadge = '<span class="badge bg-danger" title="' + (log.error_message || '') + '">Failed</span>';
+
+                                html += `<tr>
+                                    <td class="fw-semibold text-dark">${log.template_name}</td>
+                                    <td>${log.to_email}</td>
+                                    <td class="text-muted">${log.sent_by}</td>
+                                    <td class="text-muted">${log.sent_date}</td>
+                                    <td>${statusBadge}</td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-xs btn-light text-primary border" onclick="openSentEmailLogModal(${log.id})">
+                                            <i class="fas fa-eye me-1"></i> View
+                                        </button>
+                                    </td>
+                                </tr>`;
+                            });
+                            html += '</tbody></table>';
+                            container.innerHTML = html;
+
+                            // Cache logs globally for view modal lookup
+                            window.currentEmailLogs = data.logs;
+                        } else {
+                            container.innerHTML = '<div class="text-center text-muted py-3 fs-12"><i class="far fa-envelope-open me-2"></i> No email history found for this lead.</div>';
+                        }
+                    })
+                    .catch(err => {
+                        container.innerHTML = '<div class="text-center text-danger py-3 fs-12">Failed to load email history.</div>';
+                    });
+            }
+
+            function openSentEmailLogModal(logId) {
+                if (!window.currentEmailLogs) return;
+                const log = window.currentEmailLogs.find(l => l.id == logId);
+                if (!log) return;
+
+                document.getElementById('viewLogModalTitle').textContent = 'Email Log: ' + log.template_name;
+                document.getElementById('viewLogRecipient').textContent = 'To: ' + log.to_email + ' • Sent By: ' + log.sent_by + ' • ' + log.sent_date;
+                document.getElementById('viewLogSubject').textContent = log.subject;
+                document.getElementById('viewLogBody').innerHTML = log.body.replace(/\n/g, '<br>');
+
+                const badge = document.getElementById('viewLogStatusBadge');
+                badge.className = 'badge ' + (log.status === 'Sent' ? 'bg-success' : 'bg-danger');
+                badge.textContent = log.status;
+
+                const errSec = document.getElementById('viewLogErrorSection');
+                if (log.status === 'Failed' && log.error_message) {
+                    document.getElementById('viewLogErrorMessage').textContent = log.error_message;
+                    errSec.classList.remove('d-none');
+                } else {
+                    errSec.classList.add('d-none');
+                }
+
+                const modal = new bootstrap.Modal(document.getElementById('viewSentEmailLogModal'));
+                modal.show();
+            }
+        </script>
 
         @include('crm.lead.custom-import-modal')
     @endpush

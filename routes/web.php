@@ -22,6 +22,8 @@ use App\Http\Controllers\CRM\NewleadController;
 use App\Http\Controllers\CRM\OrderController;
 use App\Http\Controllers\CRM\UniversityDetailController;
 use App\Http\Controllers\WhatsAppController;
+use App\Http\Controllers\CRM\EmailTemplateController;
+use App\Http\Controllers\CRM\LeadEmailController;
 
 Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
     ->name('send.whatsapp.all');
@@ -252,6 +254,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
     Route::put('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.passwprdUpdate');
+
+    // Email Template Master
+    Route::prefix('email-templates')->name('email-templates.')->group(function () {
+        Route::get('/', [EmailTemplateController::class, 'index'])->name('index');
+        Route::post('/store', [EmailTemplateController::class, 'store'])->name('store');
+        Route::get('/{emailTemplate}/edit', [EmailTemplateController::class, 'edit'])->name('edit');
+        Route::put('/{emailTemplate}', [EmailTemplateController::class, 'update'])->name('update');
+        Route::delete('/{emailTemplate}', [EmailTemplateController::class, 'destroy'])->name('destroy');
+        Route::patch('/{emailTemplate}/toggle-status', [EmailTemplateController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    // Lead Email Sending & History
+    Route::prefix('lead-email')->name('lead-email.')->group(function () {
+        Route::get('/active-templates', [LeadEmailController::class, 'getTemplates'])->name('active-templates');
+        Route::post('/preview', [LeadEmailController::class, 'generatePreview'])->name('preview');
+        Route::post('/send', [LeadEmailController::class, 'sendEmail'])->name('send');
+        Route::get('/history/{lead}', [LeadEmailController::class, 'getHistory'])->name('history');
+    });
 });
 
 Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
