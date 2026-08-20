@@ -57,17 +57,15 @@ class AuthenticatedSessionController extends Controller
                 return redirect()->route('login.force_logout_prompt');
             }
 
-            Auth::login($user, $request->boolean('remember'));
+            Auth::login($user, true);
             $request->session()->regenerate();
 
             $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
-            if ($request->boolean('remember')) {
-                $cookieResponse->withCookies([
-                    cookie()->make('remember_email', $request->email, 60 * 24 * 30),
-                    cookie()->make('remember_password', Crypt::encryptString($request->password), 60 * 24 * 30),
-                ]);
-            }
+            $cookieResponse->withCookies([
+                cookie()->make('remember_email', $request->email, 60 * 24 * 365),
+                cookie()->make('remember_password', Crypt::encryptString($request->password), 60 * 24 * 365),
+            ]);
 
             return $cookieResponse;
         }
@@ -141,22 +139,17 @@ class AuthenticatedSessionController extends Controller
         }
 
         // Complete Login
-        Auth::loginUsingId($userId, $remember);
+        Auth::loginUsingId($userId, true);
         $request->session()->regenerate();
 
         $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
-        if ($remember) {
-            $email = session('remember_email');
-            $password = session('remember_password');
+        $email = session('remember_email');
+        $password = session('remember_password');
+        if ($email && $password) {
             $cookieResponse->withCookies([
-                cookie()->make('remember_email', $email, 60 * 24 * 30),
-                cookie()->make('remember_password', Crypt::encryptString($password), 60 * 24 * 30),
-            ]);
-        } else {
-            $cookieResponse->withCookies([
-                Cookie::forget('remember_email'),
-                Cookie::forget('remember_password'),
+                cookie()->make('remember_email', $email, 60 * 24 * 365),
+                cookie()->make('remember_password', Crypt::encryptString($password), 60 * 24 * 365),
             ]);
         }
 
@@ -232,22 +225,17 @@ class AuthenticatedSessionController extends Controller
         DB::table('sessions')->where('user_id', $userId)->delete();
 
         // Perform login
-        Auth::loginUsingId($userId, $remember);
+        Auth::loginUsingId($userId, true);
         $request->session()->regenerate();
 
         $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
-        if ($remember) {
-            $email = session('remember_email');
-            $password = session('remember_password');
+        $email = session('remember_email');
+        $password = session('remember_password');
+        if ($email && $password) {
             $cookieResponse->withCookies([
-                cookie()->make('remember_email', $email, 60 * 24 * 30),
-                cookie()->make('remember_password', Crypt::encryptString($password), 60 * 24 * 30),
-            ]);
-        } else {
-            $cookieResponse->withCookies([
-                Cookie::forget('remember_email'),
-                Cookie::forget('remember_password'),
+                cookie()->make('remember_email', $email, 60 * 24 * 365),
+                cookie()->make('remember_password', Crypt::encryptString($password), 60 * 24 * 365),
             ]);
         }
 
