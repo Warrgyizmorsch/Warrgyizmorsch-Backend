@@ -63,6 +63,8 @@ class NewleadController extends Controller
                 $lead = $leadsByUser->get($u->id);
                 return [
                     'id' => $lead ? $lead->id : 0,
+                    'user_id' => $u->id,
+                    'uid' => $u->id,
                     'name' => $u->name ?? 'N/A',
                     'email' => $u->email ?? '',
                     'contact_no' => $u->contact_no ?? 'N/A',
@@ -167,15 +169,27 @@ class NewleadController extends Controller
         }
 
         if ($request->filled('deleted_leads')) {
-
             $mainBucketIds = Bucket::whereNull('parent_id')
                 ->where('is_deleted', 0)
                 ->pluck('id')
                 ->toArray();
 
-            $query->whereNotNull('lead_bucket_id')
-                ->where('lead_bucket_id', '!=', '')
-                ->whereNotIn('lead_bucket_id', $mainBucketIds);
+            $targetBucketIdForFilter = $request->bucket_id ?? 46;
+            $childNames = Bucket::where('parent_id', $targetBucketIdForFilter)
+                ->where('is_deleted', 0)
+                ->pluck('name')
+                ->map(fn($n) => strtolower(trim($n)))
+                ->toArray();
+
+            $query->where(function($q) use ($mainBucketIds, $childNames) {
+                $q->whereNotIn('lead_bucket_id', $mainBucketIds)
+                  ->orWhere(function($subQ) use ($childNames) {
+                      $subQ->whereNotIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames)
+                           ->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), '!=', 'yet to call')
+                           ->whereNotNull('lead_status')
+                           ->where('lead_status', '!=', '');
+                  });
+            });
         }
 
         if ($request->filled('country'))
@@ -525,11 +539,14 @@ class NewleadController extends Controller
 
             $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
 
-            if ($hasActiveFilter && empty($request->lead_status)) {
+            if (empty($request->lead_status) && empty($request->deleted_leads)) {
                 $childtotalLeadsCount = $leads->total();
             } else {
-                $childtotalLeadsCount = $childBuckets->sum('leads_count');
+                $childtotalLeadsCount = (clone $statusCountsQuery)->count();
             }
+
+            $mappedCount = $childBuckets->sum('leads_count');
+            $otherLeadsCount = max(0, $childtotalLeadsCount - $mappedCount);
         }
 
         $filterBucket = $buckets;

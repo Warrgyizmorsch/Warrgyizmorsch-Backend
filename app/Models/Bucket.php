@@ -19,6 +19,16 @@ class Bucket extends Model
         'bucket_color'
     ];
 
+    protected static function booted()
+    {
+        static::saved(function () {
+            Menu::bumpMenuVersion();
+        });
+        static::deleted(function () {
+            Menu::bumpMenuVersion();
+        });
+    }
+
     // Override delete() to mark is_deleted = 1
     public function delete()
     {

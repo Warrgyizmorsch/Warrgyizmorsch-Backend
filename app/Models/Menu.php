@@ -18,69 +18,134 @@ class Menu extends Model
         'is_deleted',
     ];
 
+    protected static $memoizedMenus = [];
+
     /**
-     * Get allowed menus for a specific user (role + user override)
+     * Get global cache version for menus
+     */
+    public static function getMenuVersion(): int
+    {
+        return (int) \Illuminate\Support\Facades\Cache::get('crm_menu_global_version', 1);
+    }
+
+    /**
+     * Invalidate and bump global menu cache version
+     */
+    public static function bumpMenuVersion(): void
+    {
+        self::$memoizedMenus = [];
+        try {
+            if (\Illuminate\Support\Facades\Cache::has('crm_menu_global_version')) {
+                \Illuminate\Support\Facades\Cache::increment('crm_menu_global_version');
+            } else {
+                \Illuminate\Support\Facades\Cache::put('crm_menu_global_version', 2, 86400 * 30);
+            }
+        } catch (\Exception $e) {
+            // Ignore cache failure
+        }
+    }
+
+    protected static function booted()
+    {
+        static::saved(function () {
+            self::bumpMenuVersion();
+        });
+        static::deleted(function () {
+            self::bumpMenuVersion();
+        });
+    }
+
+    /**
+     * Get allowed menus for a specific user (role + user override) with caching
      *
      * @param \App\Models\User $user
      * @return \Illuminate\Support\Collection
      */
     public static function getMenusForUser($user)
     {
+        if (!$user) {
+            return collect();
+        }
+
         $roleId = $user->role_id;
+        $userId = $user->id;
 
-        // Load top-level menus with children + route
-        $menus = self::with(['childrenRecursive', 'route'])
-            ->whereNull('parent_id')
-            ->where('is_deleted', false)
-            ->orderBy('sort_order')
-            ->get();
+        // Memoization within the current request
+        $memoKey = $userId . '_' . ($roleId ?? 0);
+        if (isset(self::$memoizedMenus[$memoKey])) {
+            return self::$memoizedMenus[$memoKey];
+        }
 
-        // Recursive filter (declare type as Closure)
-        $filterMenu = function ($menu) use ($user, $roleId, &$filterMenu) {
-            // 🔹 Check role permission
-            $rolePermission = $menu->rolePermissions()
-                ->where('role_id', $roleId)
+        $version = self::getMenuVersion();
+        $cacheKey = "crm_user_menu_{$userId}_{$roleId}_v{$version}";
+
+        $result = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($userId, $roleId) {
+            // 🔹 1. Fetch allowed menu IDs for role in ONE single query (O(1) lookup)
+            $allowedRoleMenuIds = $roleId ? RolePermission::where('role_id', $roleId)
                 ->where('is_allowed', 1)
-                ->exists();
+                ->whereNotNull('menu_id')
+                ->pluck('menu_id')
+                ->flip()
+                ->toArray() : [];
 
-            // 🔹 Check user override
-            $userPermission = $menu->userPermissions()
-                ->where('user_id', $user->id)
-                ->first();
+            // 🔹 2. Fetch user override permissions in ONE single query (O(1) lookup)
+            $userPermissions = UserPermission::where('user_id', $userId)
+                ->whereNotNull('menu_id')
+                ->pluck('is_allowed', 'menu_id')
+                ->toArray();
 
-            $isAllowed = $userPermission
-                ? (bool) $userPermission->is_allowed
-                : $rolePermission;
+            // 🔹 3. Load top-level menus with recursive children + route eager-loaded
+            $menus = self::with(['childrenRecursive.route', 'route'])
+                ->whereNull('parent_id')
+                ->where('is_deleted', false)
+                ->orderBy('sort_order')
+                ->get();
 
-            // 🔹 Recurse into children
-            $filteredChildren = collect();
-            foreach ($menu->childrenRecursive as $child) {
-                $keep = $filterMenu($child); // ✅ now always callable
-                if ($keep) {
-                    $filteredChildren->push($keep);
+            // 🔹 4. Recursive filter in memory without ANY extra database queries
+            $filterMenu = function ($menu) use ($userPermissions, $allowedRoleMenuIds, &$filterMenu) {
+                $menuId = $menu->id;
+
+                // Check user override, fallback to role permission
+                $isAllowed = isset($userPermissions[$menuId])
+                    ? (bool) $userPermissions[$menuId]
+                    : isset($allowedRoleMenuIds[$menuId]);
+
+                // Recurse into children
+                $filteredChildren = collect();
+                if ($menu->childrenRecursive) {
+                    foreach ($menu->childrenRecursive as $child) {
+                        $keep = $filterMenu($child);
+                        if ($keep) {
+                            $filteredChildren->push($keep);
+                        }
+                    }
                 }
-            }
 
-            // Attach filtered children
-            $menu->setRelation('children', $filteredChildren);
-            $menu->setRelation('childrenRecursive', $filteredChildren);
+                // Attach filtered children
+                $menu->setRelation('children', $filteredChildren);
+                $menu->setRelation('childrenRecursive', $filteredChildren);
 
-            // 🔹 Keep this menu if allowed OR has allowed children
-            if ($isAllowed || $filteredChildren->isNotEmpty()) {
-                if (!$isAllowed) {
-                    $menu->setRelation('route', null);
+                // Keep this menu if allowed OR has allowed children
+                if ($isAllowed || $filteredChildren->isNotEmpty()) {
+                    if (!$isAllowed) {
+                        $menu->setRelation('route', null);
+                    }
+                    return $menu;
                 }
-                return $menu;
-            }
 
-            return null;
-        };
+                return null;
+            };
 
-        // Apply to roots
-        return $menus
-            ->map(fn($m) => $filterMenu($m))
-            ->filter()
-            ->values();
+            // Apply to roots
+            return $menus
+                ->map(fn($m) => $filterMenu($m))
+                ->filter()
+                ->values();
+        });
+
+        self::$memoizedMenus[$memoKey] = $result;
+
+        return $result;
     }
 
 

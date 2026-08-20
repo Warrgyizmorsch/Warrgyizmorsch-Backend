@@ -23,45 +23,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('leads') && !\Illuminate\Support\Facades\Schema::hasColumn('leads', 'is_converted')) {
-                \Illuminate\Support\Facades\Schema::table('leads', function ($table) {
-                    $table->tinyInteger('is_converted')->default(0)->after('lead_bucket_id');
-                });
-            }
-            if (!\Illuminate\Support\Facades\Schema::hasTable('orders')) {
-                \Illuminate\Support\Facades\Schema::create('orders', function ($table) {
-                    $table->id();
-                    $table->string('order_number')->unique();
-                    $table->unsignedBigInteger('lead_id')->nullable();
-                    $table->unsignedBigInteger('uid')->nullable();
-                    $table->unsignedBigInteger('order_bucket_id')->nullable();
-                    $table->string('order_status')->nullable();
-                    $table->string('order_engagement_status')->nullable();
-                    $table->unsignedBigInteger('order_owner')->nullable();
-                    $table->unsignedBigInteger('category_id')->nullable();
-                    $table->string('product')->nullable();
-                    $table->json('services')->nullable();
-                    $table->text('pain_points')->nullable();
-                    $table->json('client_details')->nullable();
-                    $table->json('documents')->nullable();
-                    $table->decimal('amount', 12, 2)->default(0);
-                    $table->text('notes')->nullable();
-                    $table->timestamp('converted_at')->nullable();
-                    $table->tinyInteger('is_active')->default(1);
-                    $table->timestamps();
-                });
-            }
-        } catch (\Exception $e) {
-            // Ignore schema error
-        }
-        View::composer('*', function ($view) {
+        // 1. Meta data view composer (for main app layout)
+        View::composer('layouts.app', function ($view) {
             $viewData = $view->getData();
-        
-            // Safely check if 'meta' is already passed
             if (!array_key_exists('meta', $viewData)) {
                 $routeName = Route::currentRouteName();
-
                 $meta = config("meta.pages.$routeName");
 
                 if (!$meta) {
@@ -72,103 +38,117 @@ class AppServiceProvider extends ServiceProvider
                 }
                 $view->with('meta', $meta);
             }
+        });
 
-            // Load menus for logged-in user
+        // 2. Navigation / Sidebar view composer (scoped to layouts.aside only)
+        View::composer('layouts.aside', function ($view) {
+            $viewData = $view->getData();
+            if (array_key_exists('menus', $viewData)) {
+                return;
+            }
+
             if (Auth::check()) {
                 $user = Auth::user();
-                $menus = Menu::getMenusForUser($user);
+                $version = Menu::getMenuVersion();
+                $cacheKey = "crm_full_aside_menu_{$user->id}_{$user->role_id}_v{$version}";
 
-                // Add "Converted" sub-menu to Leads menu dynamically
-                $leadsMenu = $menus->first(fn($m) => str_contains(strtolower($m->title ?? ''), 'lead'));
-                if ($leadsMenu) {
-                    $children = $leadsMenu->children ? collect($leadsMenu->children) : collect();
+                $menus = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($user) {
+                    $menus = Menu::getMenusForUser($user);
 
-                    $hasConverted = $children->contains(fn($c) => str_contains(strtolower($c->title ?? ''), 'converted'));
+                    // Add "Converted" sub-menu to Leads menu dynamically
+                    $leadsMenu = $menus->first(fn($m) => str_contains(strtolower($m->title ?? ''), 'lead'));
+                    if ($leadsMenu) {
+                        $children = $leadsMenu->children ? collect($leadsMenu->children) : collect();
+                        $hasConverted = $children->contains(fn($c) => str_contains(strtolower($c->title ?? ''), 'converted'));
 
-                    if (!$hasConverted) {
-                        $convertedMenu = new \App\Models\Menu(['title' => 'Converted']);
-                        $cRoute = new \stdClass();
-                        $cRoute->route_name = 'modern.leads.index';
-                        $convertedMenu->route = $cRoute;
-                        $convertedMenu->custom_params = ['converted' => 1];
-
-                        $children->push($convertedMenu);
-                        $leadsMenu->setRelation('children', $children);
-                    }
-                }
-
-                // Dynamic Order Master sub-menus (only if user has permission for Order Master)
-                $orderMasterMenu = $menus->first(fn($m) => strtolower($m->title ?? '') === 'order master');
-                if ($orderMasterMenu) {
-                    $orderBuckets = \App\Models\Bucket::whereNull('parent_id')
-                        ->where('is_deleted', 0)
-                        ->where('name', 'NOT LIKE', '%lead%')
-                        ->orderBy('id', 'asc')
-                        ->get();
-
-                    if ($orderBuckets->count() > 0) {
-                        $children = collect();
-
-                        // 1. My Orders (All Orders)
-                        $myOrdersChild = new \App\Models\Menu(['title' => 'My Orders']);
-                        $myOrdersRoute = new \stdClass();
-                        $myOrdersRoute->route_name = 'orders.index';
-                        $myOrdersChild->route = $myOrdersRoute;
-                        $children->push($myOrdersChild);
-
-                        // 2. Individual Status Sub-menus
-                        foreach ($orderBuckets as $b) {
-                            $childMenu = new \App\Models\Menu(['title' => $b->name]);
+                        if (!$hasConverted) {
+                            $convertedMenu = new \App\Models\Menu(['title' => 'Converted']);
                             $cRoute = new \stdClass();
-                            $cRoute->route_name = 'orders.index';
-                            $childMenu->route = $cRoute;
-                            $childMenu->custom_params = ['bucket_id' => $b->id];
-                            $children->push($childMenu);
+                            $cRoute->route_name = 'modern.leads.index';
+                            $convertedMenu->route = $cRoute;
+                            $convertedMenu->custom_params = ['converted' => 1];
+
+                            $children->push($convertedMenu);
+                            $leadsMenu->setRelation('children', $children);
                         }
-
-                        $orderMasterMenu->setRelation('children', $children);
                     }
-                }
 
-                // Dynamic Email Templates menu item
-                $hasEmailTemplates = $menus->contains(fn($m) => str_contains(strtolower($m->title ?? ''), 'email template'));
-                if (!$hasEmailTemplates) {
-                    $tplMenu = new \App\Models\Menu([
-                        'title' => 'Email Templates',
-                        'icon' => 'feather-mail',
-                    ]);
-                    $tRoute = new \stdClass();
-                    $tRoute->route_name = 'email-templates.index';
-                    $tplMenu->route = $tRoute;
+                    // Dynamic Order Master sub-menus (only if user has permission for Order Master)
+                    $orderMasterMenu = $menus->first(fn($m) => strtolower($m->title ?? '') === 'order master');
+                    if ($orderMasterMenu) {
+                        $orderBuckets = \App\Models\Bucket::whereNull('parent_id')
+                            ->where('is_deleted', 0)
+                            ->where('name', 'NOT LIKE', '%lead%')
+                            ->orderBy('id', 'asc')
+                            ->get();
 
-                    $mgmtMenu = $menus->first(fn($m) => str_contains(strtolower($m->title ?? ''), 'management') || str_contains(strtolower($m->title ?? ''), 'master'));
-                    if ($mgmtMenu) {
-                        $children = $mgmtMenu->children ? collect($mgmtMenu->children) : collect();
-                        $children->push($tplMenu);
-                        $mgmtMenu->setRelation('children', $children);
-                    } else {
-                        $menus->push($tplMenu);
+                        if ($orderBuckets->count() > 0) {
+                            $children = collect();
+
+                            // 1. My Orders (All Orders)
+                            $myOrdersChild = new \App\Models\Menu(['title' => 'My Orders']);
+                            $myOrdersRoute = new \stdClass();
+                            $myOrdersRoute->route_name = 'orders.index';
+                            $myOrdersChild->route = $myOrdersRoute;
+                            $children->push($myOrdersChild);
+
+                            // 2. Individual Status Sub-menus
+                            foreach ($orderBuckets as $b) {
+                                $childMenu = new \App\Models\Menu(['title' => $b->name]);
+                                $cRoute = new \stdClass();
+                                $cRoute->route_name = 'orders.index';
+                                $childMenu->route = $cRoute;
+                                $childMenu->custom_params = ['bucket_id' => $b->id];
+                                $children->push($childMenu);
+                            }
+
+                            $orderMasterMenu->setRelation('children', $children);
+                        }
                     }
-                }
+
+                    // Dynamic Email Templates menu item
+                    $hasEmailTemplates = $menus->contains(fn($m) => str_contains(strtolower($m->title ?? ''), 'email template'));
+                    if (!$hasEmailTemplates) {
+                        $tplMenu = new \App\Models\Menu([
+                            'title' => 'Email Templates',
+                            'icon' => 'feather-mail',
+                        ]);
+                        $tRoute = new \stdClass();
+                        $tRoute->route_name = 'email-templates.index';
+                        $tplMenu->route = $tRoute;
+
+                        $mgmtMenu = $menus->first(fn($m) => str_contains(strtolower($m->title ?? ''), 'management') || str_contains(strtolower($m->title ?? ''), 'master'));
+                        if ($mgmtMenu) {
+                            $children = $mgmtMenu->children ? collect($mgmtMenu->children) : collect();
+                            $children->push($tplMenu);
+                            $mgmtMenu->setRelation('children', $children);
+                        } else {
+                            $menus->push($tplMenu);
+                        }
+                    }
+
+                    // Rename 'Lead Questions' / 'Question' / 'Questions' menu title to 'Attribute' (including child menus)
+                    $renameMenuToAttribute = function ($menuList) use (&$renameMenuToAttribute) {
+                        foreach ($menuList as $m) {
+                            $titleLower = strtolower(trim($m->title ?? ''));
+                            if (in_array($titleLower, ['lead question', 'lead questions', 'question', 'questions'])) {
+                                $m->title = 'Attribute';
+                            }
+                            if ($m->children && count($m->children)) {
+                                $renameMenuToAttribute($m->children);
+                            }
+                        }
+                    };
+                    $renameMenuToAttribute($menus);
+
+                    return $menus;
+                });
             } else {
                 $menus = collect(); // empty collection if not logged in
             }
 
-                // Rename 'Lead Questions' / 'Question' / 'Questions' menu title to 'Attribute' (including child menus)
-                $renameMenuToAttribute = function ($menuList) use (&$renameMenuToAttribute) {
-                    foreach ($menuList as $m) {
-                        $titleLower = strtolower(trim($m->title ?? ''));
-                        if (in_array($titleLower, ['lead question', 'lead questions', 'question', 'questions'])) {
-                            $m->title = 'Attribute';
-                        }
-                        if ($m->children && count($m->children)) {
-                            $renameMenuToAttribute($m->children);
-                        }
-                    }
-                };
-                $renameMenuToAttribute($menus);
-
-                $view->with('menus', $menus);
+            $view->with('menus', $menus);
         });
     }
 }
+

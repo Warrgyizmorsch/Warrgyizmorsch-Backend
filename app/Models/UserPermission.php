@@ -8,6 +8,16 @@ class UserPermission extends Model
 {
     protected $fillable = ['user_id', 'route_id', 'menu_id'];
 
+    protected static function booted()
+    {
+        static::saved(function () {
+            Menu::bumpMenuVersion();
+        });
+        static::deleted(function () {
+            Menu::bumpMenuVersion();
+        });
+    }
+
     // UserPermission belongs to User
     public function user()
     {
