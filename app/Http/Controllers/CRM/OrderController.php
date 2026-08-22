@@ -81,10 +81,17 @@ class OrderController extends Controller
 
         // Order Buckets filter
         $orderBucketIds = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->where('name', 'NOT LIKE', '%lead%')
+            ->order()
             ->pluck('id')
             ->toArray();
+
+        if (empty($orderBucketIds)) {
+            $orderBucketIds = Bucket::whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->where('name', 'NOT LIKE', '%lead%')
+                ->pluck('id')
+                ->toArray();
+        }
 
         if ($request->filled('bucket_id') && $request->bucket_id !== 'all' && $request->bucket_id !== 'all_orders') {
             $query->where('order_bucket_id', $request->bucket_id);
@@ -103,9 +110,14 @@ class OrderController extends Controller
         $orders = $query->orderBy('updated_at', 'desc')->paginate($perPage);
 
         // Fetch Order Buckets with count from orders table
-        $orderBuckets = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->where('name', 'NOT LIKE', '%lead%')
+        $orderBucketsQuery = Bucket::whereNull('parent_id')->where('is_deleted', 0);
+        if (Bucket::where('type', 'order')->exists()) {
+            $orderBucketsQuery->where('type', 'order');
+        } else {
+            $orderBucketsQuery->where('name', 'NOT LIKE', '%lead%');
+        }
+
+        $orderBuckets = $orderBucketsQuery
             ->select('buckets.*')
             ->selectSub(function ($q) {
                 $q->from('orders')
@@ -121,11 +133,14 @@ class OrderController extends Controller
         $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
         $sources = LeadSource::pluck('source_name')->toArray();
         $categories = Category::where('is_active', 1)->get();
-        $allBuckets = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->where('name', 'NOT LIKE', '%lead%')
-            ->with('children')
-            ->get();
+        
+        $allBucketsQuery = Bucket::whereNull('parent_id')->where('is_deleted', 0);
+        if (Bucket::where('type', 'order')->exists()) {
+            $allBucketsQuery->where('type', 'order');
+        } else {
+            $allBucketsQuery->where('name', 'NOT LIKE', '%lead%');
+        }
+        $allBuckets = $allBucketsQuery->with('children')->get();
 
         return view('crm.orders.index', compact(
             'orders',
@@ -144,11 +159,14 @@ class OrderController extends Controller
      */
     private function syncConvertedLeadsToOrders()
     {
-        $orderBucketIds = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->where('name', 'NOT LIKE', '%lead%')
-            ->pluck('id')
-            ->toArray();
+        $orderBucketIds = Bucket::whereNull('parent_id')->order()->pluck('id')->toArray();
+        if (empty($orderBucketIds)) {
+            $orderBucketIds = Bucket::whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->where('name', 'NOT LIKE', '%lead%')
+                ->pluck('id')
+                ->toArray();
+        }
 
         $convertedLeads = Leads::where(function($q) use ($orderBucketIds) {
             $q->where('is_converted', 1)

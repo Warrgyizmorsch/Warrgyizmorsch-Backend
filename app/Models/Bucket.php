@@ -14,6 +14,7 @@ class Bucket extends Model
 
     protected $fillable = [
         'name',
+        'type',
         'parent_id',
         'is_deleted',
         'bucket_color'
@@ -40,6 +41,20 @@ class Bucket extends Model
     public function scopeActive($query)
     {
         return $query->where('is_deleted', 0);
+    }
+
+    // Scope for Lead Statuses
+    public function scopeLead($query)
+    {
+        return $query->where('is_deleted', 0)->where(function($q) {
+            $q->where('type', 'lead')->orWhereNull('type');
+        });
+    }
+
+    // Scope for Order Statuses
+    public function scopeOrder($query)
+    {
+        return $query->where('is_deleted', 0)->where('type', 'order');
     }
 
     /**
