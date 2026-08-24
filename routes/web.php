@@ -64,6 +64,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('category.recover');
     });
 
+    Route::get('/lead-statuses', [BucketController::class, 'leadStatuses'])->name('lead-status.index');
+    Route::get('/order-statuses', [BucketController::class, 'orderStatuses'])->name('order-status.index');
+
     Route::middleware(['check.permission'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');

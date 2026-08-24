@@ -85,6 +85,7 @@ class NewleadController extends Controller
         if (!auth()->check()) {
             return redirect()->route('login');
         }
+        @session_write_close();
 
         // 1. Eager Load Essential Relations with Specific Columns
         $query = Leads::with([
@@ -196,11 +197,14 @@ class NewleadController extends Controller
             $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
         if ($request->filled('course'))
             $query->where('what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
-        $orderBucketIds = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->where('name', 'NOT LIKE', '%lead%')
-            ->pluck('id')
-            ->toArray();
+        $orderBucketIds = Bucket::whereNull('parent_id')->order()->pluck('id')->toArray();
+        if (empty($orderBucketIds)) {
+            $orderBucketIds = Bucket::whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->where('name', 'NOT LIKE', '%lead%')
+                ->pluck('id')
+                ->toArray();
+        }
 
         if (($request->filled('converted') && $request->converted == 1) || ($request->filled('is_converted') && $request->is_converted == 1)) {
             $query->where('is_converted', 1);
@@ -288,7 +292,8 @@ class NewleadController extends Controller
 
         // 4. Counts
         $user = auth()->user();
-        $filteredLeadCount = $query->count();
+        // $filteredLeadCount = $query->count();
+        $filteredLeadCount = 0; // Calculated via pagination $leads->total() below
         if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
             $totalLeadsCount = Leads::count();
         } elseif ($user) {
@@ -499,54 +504,82 @@ class NewleadController extends Controller
 
         $hasActiveFilter = $request->filled('search') || $request->filled('search_uid') || $request->filled('from') || $request->filled('source') || $request->filled('owner_id') || $request->filled('lead_engagement_status') || $request->filled('category_id') || $request->filled('company') || $request->filled('campaign_name') || $request->filled('has_followups');
 
-        if ($targetBucketId) {
-            $childBuckets = Bucket::where('parent_id', $targetBucketId)
-                ->where('is_deleted', 0)
-                ->get();
+        // Auto-promote any sub-statuses under container 'Lead' (e.g. id=46 or name='Lead') to Root Main Statuses
+        $leadContainerIds = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where(function($q) {
+                $q->where('name', 'LIKE', 'Lead')->orWhere('name', 'LIKE', 'lead');
+            })
+            ->pluck('id')
+            ->toArray();
 
-            $statusCountsQuery = (clone $query)
-                ->where(function($bQ) use ($allTargetBucketIds, $isLeadBucket) {
-                    $bQ->whereIn('lead_bucket_id', $allTargetBucketIds);
-                    if ($isLeadBucket) {
-                        $bQ->orWhereNull('lead_bucket_id');
-                    }
-                })
-                ->where(function($lq) {
-                    $lq->whereNull('is_converted')->orWhere('is_converted', 0);
-                });
+        if (!empty($leadContainerIds)) {
+            Bucket::whereIn('parent_id', $leadContainerIds)->update(['parent_id' => null]);
+            Bucket::whereIn('id', $leadContainerIds)->update(['is_deleted' => 1]);
+        }
 
-            $statusCounts = $statusCountsQuery
-                ->reorder()
-                ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
-                ->groupBy('lead_status', 'lead_bucket_id')
-                ->get();
+        $childBuckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where(function($q) {
+                $q->where('type', 'lead')->orWhereNull('type');
+            })
+            ->with(['children' => function($cq) {
+                $cq->where('is_deleted', 0);
+            }])
+            ->orderBy('id', 'asc')
+            ->get();
 
-            $childBuckets->each(function ($b) use ($statusCounts) {
-                $bName = strtolower(trim($b->name));
-                $bId = $b->id;
-                $cnt = $statusCounts->filter(function ($item) use ($bName, $bId) {
-                    $itemStatus = strtolower(trim($item->status_name));
-                    if ($itemStatus === $bName || $item->lead_bucket_id == $bId) {
-                        return true;
-                    }
-                    if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) {
-                        return true;
-                    }
-                    return false;
-                })->sum('cnt');
-                $b->leads_count = $cnt;
+        $statusCountsQuery = (clone $query)
+            ->where(function($lq) {
+                $lq->whereNull('is_converted')->orWhere('is_converted', 0);
             });
 
-            $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
+        $statusCounts = $statusCountsQuery
+            ->reorder()
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_id')
+            ->get();
 
-            if (empty($request->lead_status) && empty($request->deleted_leads)) {
-                $childtotalLeadsCount = $leads->total();
-            } else {
-                $childtotalLeadsCount = (clone $statusCountsQuery)->count();
+        $childBuckets->each(function ($b) use ($statusCounts) {
+            if ($b->children->isNotEmpty()) {
+                $b->children->each(function ($child) use ($statusCounts) {
+                    $cName = strtolower(trim($child->name));
+                    $cId = $child->id;
+                    $childCnt = $statusCounts->filter(function ($item) use ($cName, $cId) {
+                        $itemStatus = strtolower(trim($item->status_name));
+                        return ($itemStatus === $cName || $item->lead_bucket_id == $cId);
+                    })->sum('cnt');
+                    $child->leads_count = $childCnt;
+                });
             }
 
-            $mappedCount = $childBuckets->sum('leads_count');
-            $otherLeadsCount = max(0, $childtotalLeadsCount - $mappedCount);
+            $bName = strtolower(trim($b->name));
+            $bId = $b->id;
+            $childIds = $b->children->pluck('id')->toArray();
+            $childNames = $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
+
+            $cnt = $statusCounts->filter(function ($item) use ($bName, $bId, $childNames, $childIds) {
+                $itemStatus = strtolower(trim($item->status_name));
+                if ($itemStatus === $bName || $item->lead_bucket_id == $bId) {
+                    return true;
+                }
+                if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) {
+                    return true;
+                }
+                if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) {
+                    return true;
+                }
+                return false;
+            })->sum('cnt');
+            $b->leads_count = $cnt;
+        });
+
+        $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
+
+        if ($hasActiveFilter && empty($request->lead_status)) {
+            $childtotalLeadsCount = $leads->total();
+        } else {
+            $childtotalLeadsCount = $childBuckets->sum('leads_count');
         }
 
         $filterBucket = $buckets;

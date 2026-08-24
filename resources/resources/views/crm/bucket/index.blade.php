@@ -207,14 +207,14 @@
                                         Parent Status (Hierarchy)
                                     </label>
                                     <select name="parent_id" class="form-select">
-                                         <option value="">None (Root Main Status)</option>
-                                         @foreach($allBuckets as $bucketOption)
-                                             @if(!$editBucket || $editBucket->id != $bucketOption->id)
-                                                 <option value="{{ $bucketOption->id }}" @if(($editBucket && $editBucket->parent_id == $bucketOption->id) || request('parent_id') == $bucketOption->id) selected @endif>
-                                                     📁 {{ $bucketOption->name }} {{ $bucketOption->parent ? '('.$bucketOption->parent->name.')' : '' }}
-                                                 </option>
-                                             @endif
-                                         @endforeach
+                                        <option value="">None (Root Main Status)</option>
+                                        @foreach($allBuckets as $bucketOption)
+                                            @if(is_null($bucketOption->parent_id) && (!$editBucket || $editBucket->id != $bucketOption->id))
+                                                <option value="{{ $bucketOption->id }}" @if(($editBucket && $editBucket->parent_id == $bucketOption->id) || request('parent_id') == $bucketOption->id) selected @endif>
+                                                    📁 {{ $bucketOption->name }}
+                                                </option>
+                                            @endif
+                                        @endforeach
                                     </select>
                                     <small class="text-muted d-block mt-1">Select parent if this is a sub-status (child status).</small>
                                 </div>

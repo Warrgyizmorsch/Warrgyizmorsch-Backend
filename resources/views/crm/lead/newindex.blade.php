@@ -438,32 +438,32 @@
             @endif -->
 
             <!-- @if($childBuckets->count())
-                                        @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
+                @foreach($childBuckets as $bucket) {{-- ✅ FIXED HERE --}}
 
-                                        @php
-                                        $isActive = request('lead_status') == $bucket->name;
-                                        @endphp
+                @php
+                $isActive = request('lead_status') == $bucket->name;
+                @endphp
 
-                                        <a href="?bucket_id={{ request('bucket_id') }}&lead_status={{ urlencode($bucket->name) }}"
-                                            class="{{ $isActive ? 'btn text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap" style="background-color: #006FC9;">
+                <a href="?bucket_id={{ request('bucket_id') }}&lead_status={{ urlencode($bucket->name) }}"
+                    class="{{ $isActive ? 'btn text-white fw-bold px-4 py-2' : 'text-muted fw-semibold px-2 text-decoration-none text-hover-primary' }} text-nowrap" style="background-color: #006FC9;">
 
-                                            {{ $bucket->name }} ({{ $bucket->leads_count }})
+                    {{ $bucket->name }} ({{ $bucket->leads_count }})
 
-                                        </a>
+                </a>
 
-                                        @endforeach
-                                        @endif -->
-            <!-- @php
-                $isDeletedActive = request('deleted_leads') == 1;
-            @endphp
+                @endforeach
+                @endif -->
+                <!-- @php
+                    $isDeletedActive = request('deleted_leads') == 1;
+                @endphp
 
-            <a href="?deleted_leads=1"
-                class="d-none {{ $isDeletedActive ? 'btn btn-dark text-white fw-bold px-4 py-2' : 'btn btn-soft-dark text-dark fw-semibold px-3 py-1' }} text-nowrap align-items-center gap-2 text-decoration-none">
+                <a href="?deleted_leads=1"
+                    class="d-none {{ $isDeletedActive ? 'btn btn-dark text-white fw-bold px-4 py-2' : 'btn btn-soft-dark text-dark fw-semibold px-3 py-1' }} text-nowrap align-items-center gap-2 text-decoration-none">
 
-                Old Leads ({{ $deletedLeadsCount }})
-            </a>
+                    Old Leads ({{ $deletedLeadsCount }})
+                </a>
 
-        </div> -->
+            </div> -->
 
         @if(request('view') !== 'pipeline')
         {{-- Status Sub-Tabs --}}
@@ -479,12 +479,14 @@
                     <a href="{{ request()->fullUrlWithQuery(['lead_status' => '', 'deleted_leads' => '']) }}"
                         class="lead-status-tab status-primary {{ $isAllActived ? 'is-active' : '' }}">
                         <i class="feather-layers"></i>
-                        ALL ({{ $childtotalLeadsCount }})
+                        ALL ({{ $leads->total() }})
                     </a>
 
                     @foreach($childBuckets as $bucket)
                         @php
-                            $isActive = request('lead_status') == $bucket->name && !request('deleted_leads');
+                            $childNames = $bucket->children ? $bucket->children->pluck('name')->toArray() : [];
+                            $hasActiveChild = in_array(request('lead_status'), $childNames);
+                            $isActive = (request('lead_status') == $bucket->name || $hasActiveChild) && !request('deleted_leads');
                             $statusColor = match(true) {
                                 str_contains($bucket->bucket_color ?? '', 'success') => 'status-success',
                                 str_contains($bucket->bucket_color ?? '', 'warning') => 'status-warning',
@@ -517,6 +519,60 @@
                 <i class="feather-chevron-right"></i>
             </button>
         </div>
+
+        {{-- Sub-Statuses Strip (Displayed below main status bar when parent/child status is active) --}}
+        @php
+            $activeParentBucket = null;
+            $currentStatus = request('lead_status');
+            if (!empty($currentStatus) && !request('deleted_leads')) {
+                foreach ($childBuckets as $b) {
+                    $childNames = $b->children ? $b->children->pluck('name')->toArray() : [];
+                    if ($b->name == $currentStatus || in_array($currentStatus, $childNames)) {
+                        $activeParentBucket = $b;
+                        break;
+                    }
+                }
+            }
+        @endphp
+
+        @if($activeParentBucket && $activeParentBucket->children && $activeParentBucket->children->count() > 0)
+        <div class="lead-tab-strip py-2 px-3 border-top border-bottom" style="background: #f8fafc;">
+            <div class="d-flex align-items-center gap-2 overflow-x-auto flex-nowrap" style="scrollbar-width: none;">
+                <span class="fw-bold text-muted small me-2 text-nowrap d-inline-flex align-items-center gap-1" style="font-size: 11.5px;">
+                    <i class="feather-corner-down-right text-primary"></i> {{ $activeParentBucket->name }} Sub-Statuses:
+                </span>
+
+                @php
+                    $isParentAllActive = request('lead_status') == $activeParentBucket->name;
+                @endphp
+                <a href="{{ request()->fullUrlWithQuery(['lead_status' => $activeParentBucket->name, 'deleted_leads' => '']) }}"
+                    class="lead-status-tab status-dark {{ $isParentAllActive ? 'is-active' : '' }}"
+                    style="font-size: 11.5px; padding: 4px 10px;">
+                    ALL {{ $activeParentBucket->name }} ({{ $activeParentBucket->leads_count }})
+                </a>
+
+                @foreach($activeParentBucket->children as $child)
+                    @php
+                        $isChildActive = request('lead_status') == $child->name && !request('deleted_leads');
+                        $childStatusColor = match(true) {
+                            str_contains($child->bucket_color ?? '', 'success') => 'status-success',
+                            str_contains($child->bucket_color ?? '', 'warning') => 'status-warning',
+                            str_contains($child->bucket_color ?? '', 'danger') => 'status-danger',
+                            str_contains($child->bucket_color ?? '', 'info') => 'status-info',
+                            str_contains($child->bucket_color ?? '', 'dark') => 'status-dark',
+                            default => 'status-primary',
+                        };
+                    @endphp
+                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => $child->name, 'deleted_leads' => '']) }}"
+                        class="lead-status-tab {{ $childStatusColor }} {{ $isChildActive ? 'is-active' : '' }}"
+                        style="font-size: 11.5px; padding: 4px 10px;">
+                        <i class="feather-circle" style="font-size: 8px;"></i>
+                        {{ $child->name }} ({{ $child->leads_count ?? 0 }})
+                    </a>
+                @endforeach
+            </div>
+        </div>
+        @endif
         @endif
 
 
@@ -788,7 +844,8 @@
                                     {{-- Created Date --}}
                                     <div class="fs-10 text-muted text-truncate mt-0.5">
                                         <i class="far fa-calendar-alt text-primary fs-10 me-1"></i>
-                                        <span>Created <strong>{{ \Carbon\Carbon::parse($lead->created_at)->format('d M Y') }}</strong></span>
+                                        <!-- <span>Created <strong>{{ \Carbon\Carbon::parse($lead->created_at)->format('d M Y') }}</strong></span> -->
+                                         <span>Created <strong>{{ $lead->created_at ? $lead->created_at->format('d M Y') : 'N/A' }}</strong></span>
                                     </div>
                                 </div>
 
@@ -3517,6 +3574,51 @@
                     });
             }
 
+            // Global Status Hierarchy Mapping for Offcanvas
+            const leadStatusMap = @json(
+                (isset($childBuckets) ? $childBuckets : collect())->mapWithKeys(function($b) {
+                    return [$b->name => [
+                        'id' => $b->id,
+                        'children' => $b->children ? $b->children->map(function($c) {
+                            return ['id' => $c->id, 'name' => $c->name];
+                        })->values()->toArray() : []
+                    ]];
+                })
+            );
+
+            function onOffcanvasMainStatusChange(selectedMainStatus, preselectedSubStatus = '') {
+                const subSelect = document.getElementById('editStatusSubSelect');
+                if (!subSelect) return;
+                
+                subSelect.innerHTML = '';
+                
+                const parentData = leadStatusMap[selectedMainStatus];
+                if (parentData && parentData.children && parentData.children.length > 0) {
+                    let defaultOpt = document.createElement('option');
+                    defaultOpt.value = '';
+                    defaultOpt.textContent = 'Select Sub Status (Optional)';
+                    subSelect.appendChild(defaultOpt);
+                    
+                    parentData.children.forEach(child => {
+                        let opt = document.createElement('option');
+                        opt.value = child.name;
+                        opt.textContent = child.name;
+                        opt.dataset.bucketId = child.id;
+                        if (preselectedSubStatus && preselectedSubStatus.toLowerCase() === child.name.toLowerCase()) {
+                            opt.selected = true;
+                        }
+                        subSelect.appendChild(opt);
+                    });
+                    subSelect.disabled = false;
+                } else {
+                    let defaultOpt = document.createElement('option');
+                    defaultOpt.value = '';
+                    defaultOpt.textContent = 'No Sub Status Available';
+                    subSelect.appendChild(defaultOpt);
+                    subSelect.disabled = true;
+                }
+            }
+
             // Global Lazy Loading & Offcanvas Helpers
             function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId) {
                 let offcanvasEl = document.getElementById('editStatusOffcanvas');
@@ -3526,11 +3628,59 @@
                 let engSelect = form.querySelector('[name="lead_engagement_status"]');
                 if (engSelect) engSelect.value = (engagementStatus || '').toLowerCase();
                 
-                let statusSelect = form.querySelector('[name="lead_status"]');
-                if (statusSelect) statusSelect.value = leadStatus || '';
+                let mainSelect = document.getElementById('editStatusMainSelect');
+                let subSelect = document.getElementById('editStatusSubSelect');
+
+                // Determine matched main status and child sub status
+                let matchedMainStatus = '';
+                let matchedSubStatus = '';
+
+                for (let mainName in leadStatusMap) {
+                    if (mainName.toLowerCase() === (leadStatus || '').toLowerCase()) {
+                        matchedMainStatus = mainName;
+                        break;
+                    }
+                    let children = leadStatusMap[mainName].children || [];
+                    let foundChild = children.find(c => c.name.toLowerCase() === (leadStatus || '').toLowerCase());
+                    if (foundChild) {
+                        matchedMainStatus = mainName;
+                        matchedSubStatus = foundChild.name;
+                        break;
+                    }
+                }
+
+                if (!matchedMainStatus && mainSelect && mainSelect.options.length > 1) {
+                    matchedMainStatus = mainSelect.options[1].value;
+                }
+
+                if (mainSelect) mainSelect.value = matchedMainStatus;
+                onOffcanvasMainStatusChange(matchedMainStatus, matchedSubStatus);
                 
                 let bucketInput = form.querySelector('[name="lead_bucket_id"]');
                 if (bucketInput) bucketInput.value = bucketId || 46;
+
+                // Form submit handler to set final lead_status and lead_bucket_id
+                form.onsubmit = function() {
+                    let subVal = subSelect ? subSelect.value : '';
+                    let mainVal = mainSelect ? mainSelect.value : '';
+                    let finalStatus = subVal ? subVal : mainVal;
+                    
+                    let hiddenStatusInput = form.querySelector('input[name="lead_status"]');
+                    if (!hiddenStatusInput) {
+                        hiddenStatusInput = document.createElement('input');
+                        hiddenStatusInput.type = 'hidden';
+                        hiddenStatusInput.name = 'lead_status';
+                        form.appendChild(hiddenStatusInput);
+                    }
+                    hiddenStatusInput.value = finalStatus;
+
+                    if (subSelect && subSelect.selectedIndex >= 0) {
+                        let selectedOpt = subSelect.options[subSelect.selectedIndex];
+                        if (selectedOpt && selectedOpt.dataset.bucketId) {
+                            if (bucketInput) bucketInput.value = selectedOpt.dataset.bucketId;
+                        }
+                    }
+                };
 
                 let attachContainer = document.getElementById('sharedExistingAttachments');
                 if (attachContainer) attachContainer.innerHTML = '';
@@ -4590,32 +4740,28 @@
                                 </select>
                             </div>
 
-                            {{-- Lead Status / Sub Status --}}
-                            <div>
+                            {{-- Lead Status --}}
+                            <div class="mb-3">
                                 <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                                    <i class="fas fa-tag text-primary me-1 fs-10"></i>Lead Status / Sub Status
+                                    <i class="fas fa-tag text-primary me-1 fs-10"></i>Lead Status
                                 </label>
-                                <select class="form-select border-slate shadow-2xs fs-13" name="lead_status" style="border-color: #cbd5e1; border-radius: 8px;">
+                                <select class="form-select border-slate shadow-2xs fs-13" name="main_lead_status" id="editStatusMainSelect" onchange="onOffcanvasMainStatusChange(this.value)" style="border-color: #cbd5e1; border-radius: 8px;">
                                     <option value="" disabled selected>Select Lead Status</option>
                                     @if(isset($childBuckets) && count($childBuckets) > 0)
-                                        @foreach($childBuckets as $child)
-                                            <option value="{{ $child->name }}">{{ $child->name }}</option>
+                                        @foreach($childBuckets as $mainBucket)
+                                            <option value="{{ $mainBucket->name }}">{{ $mainBucket->name }}</option>
                                         @endforeach
-                                    @elseif(isset($allBucketsWithChildren) && count($allBucketsWithChildren) > 0)
-                                        @php
-                                            $leadParent = $allBucketsWithChildren[46] ?? ($allBucketsWithChildren[1] ?? null);
-                                            if (!$leadParent) {
-                                                $leadParent = collect($allBucketsWithChildren)->first(function($b) {
-                                                    return str_contains(strtolower($b->name ?? ''), 'lead');
-                                                });
-                                            }
-                                        @endphp
-                                        @if($leadParent && !empty($leadParent->children) && count($leadParent->children) > 0)
-                                            @foreach($leadParent->children as $child)
-                                                <option value="{{ $child->name }}">{{ $child->name }}</option>
-                                            @endforeach
-                                        @endif
                                     @endif
+                                </select>
+                            </div>
+
+                            {{-- Sub Status --}}
+                            <div>
+                                <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                    <i class="fas fa-tags text-info me-1 fs-10"></i>Sub Status
+                                </label>
+                                <select class="form-select border-slate shadow-2xs fs-13" name="sub_lead_status" id="editStatusSubSelect" style="border-color: #cbd5e1; border-radius: 8px;">
+                                    <option value="">Select Sub Status (Optional)</option>
                                 </select>
                             </div>
                         </div>
