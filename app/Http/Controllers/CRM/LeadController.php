@@ -745,7 +745,7 @@ class LeadController extends Controller
     public function destroy(Leads $lead)
     {
         $lead->delete();
-        return redirect()->route('lead.index')->with('success', 'Lead deleted successfully.');
+        return redirect()->back()->with('success', 'Lead deleted successfully.');
     }
 
     public function downloadSample()

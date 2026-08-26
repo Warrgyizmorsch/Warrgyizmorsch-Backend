@@ -19,17 +19,22 @@ class CheckPermission
             return redirect()->route('login')->withErrors(['msg' => 'Please login to continue']);
         }
 
+        if ($user->role_id == 1) {
+            return $next($request);
+        }
+
         $currentRouteName = LaravelRoute::currentRouteName();
 
         if (!$currentRouteName) {
             abort(403, 'Unauthorized: Route has no name.');
         }
 
-        $dbRoute = RouteModel::where('route_name', $currentRouteName)
-            ->where('is_deleted', false)
-            ->first();
+        $dbRoute = RouteModel::firstOrCreate(
+            ['route_name' => $currentRouteName],
+            ['is_deleted' => false]
+        );
 
-        if (!$dbRoute) {
+        if (!$dbRoute || $dbRoute->is_deleted) {
             abort(403, 'Unauthorized: Route not registered in system.');
         }
 

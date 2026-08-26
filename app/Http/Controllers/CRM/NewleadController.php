@@ -241,6 +241,14 @@ class NewleadController extends Controller
                     $q->whereNull('lead_bucket_id')
                       ->orWhereNotIn('lead_bucket_id', $orderBucketIds);
                 });
+
+                // Exclude "Deal Created" leads from default view
+                $query->where(function ($q) {
+                    $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'not like', '%deal created%')
+                      ->orWhereNull('lead_status');
+                })->whereDoesntHave('bucket', function ($bQ) {
+                    $bQ->where(DB::raw('LOWER(TRIM(COALESCE(name, "")))'), 'like', '%deal created%');
+                });
             }
         }
 

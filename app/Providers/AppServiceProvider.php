@@ -73,6 +73,41 @@ class AppServiceProvider extends ServiceProvider
                         }
                     }
 
+                    // Add dynamic Follow-ups menu item with 3 tabs
+                    $hasFollowups = $menus->contains(fn($m) => str_contains(strtolower($m->title ?? ''), 'followup') || str_contains(strtolower($m->title ?? ''), 'follow-up') || str_contains(strtolower($m->title ?? ''), 'follow up'));
+                    if (!$hasFollowups) {
+                        $followupMenu = new \App\Models\Menu([
+                            'title' => 'Follow-ups',
+                            'icon' => 'feather-phone-call',
+                        ]);
+                        $fRoute = new \stdClass();
+                        $fRoute->route_name = 'followups.index';
+                        $followupMenu->route = $fRoute;
+
+                        $fChildren = collect();
+                        
+                        $allF = new \App\Models\Menu(['title' => 'Follow Ups']);
+                        $aR = new \stdClass(); $aR->route_name = 'followups.index'; $allF->route = $aR; $allF->custom_params = ['tab' => 'all'];
+                        $fChildren->push($allF);
+
+                        $nextF = new \App\Models\Menu(['title' => 'Next Followup']);
+                        $nR = new \stdClass(); $nR->route_name = 'followups.index'; $nextF->route = $nR; $nextF->custom_params = ['tab' => 'next'];
+                        $fChildren->push($nextF);
+
+                        $dueF = new \App\Models\Menu(['title' => 'Due Followup']);
+                        $dR = new \stdClass(); $dR->route_name = 'followups.index'; $dueF->route = $dR; $dueF->custom_params = ['tab' => 'due'];
+                        $fChildren->push($dueF);
+
+                        $followupMenu->setRelation('children', $fChildren);
+
+                        $leadsIdx = $menus->search(fn($m) => str_contains(strtolower($m->title ?? ''), 'lead'));
+                        if ($leadsIdx !== false) {
+                            $menus->splice($leadsIdx + 1, 0, [$followupMenu]);
+                        } else {
+                            $menus->push($followupMenu);
+                        }
+                    }
+
                     // Dynamic Order Master sub-menus (only if user has permission for Order Master)
                     $orderMasterMenu = $menus->first(fn($m) => strtolower($m->title ?? '') === 'order master');
                     if ($orderMasterMenu) {

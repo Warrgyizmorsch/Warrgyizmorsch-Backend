@@ -24,6 +24,9 @@ use App\Http\Controllers\CRM\UniversityDetailController;
 use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\CRM\EmailTemplateController;
 use App\Http\Controllers\CRM\LeadEmailController;
+use App\Http\Controllers\CRM\LeadTableController;
+use App\Http\Controllers\CRM\CreatedDealController;
+use App\Http\Controllers\CRM\FollowupController;
 
 Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
     ->name('send.whatsapp.all');
@@ -105,7 +108,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/store', [LeadController::class, 'store'])->name('lead.store');
             Route::get('/edit/{lead}', [LeadController::class, 'edit'])->name('lead.edit');
             Route::put('/update/{lead}', [LeadController::class, 'update'])->name('lead.update');
-            // Route::delete('/destroy/{lead}', [LeadController::class, 'destroy'])->name('lead.destroy');
+            Route::delete('/destroy/{lead}', [LeadController::class, 'destroy'])->name('lead.destroy');
             Route::put('/bucket/{lead}', [LeadController::class, 'updateBucket'])->name('lead.updateBucket');
 
             Route::put('/status/{lead}', [LeadController::class, 'updateStatus'])->name('lead.updateStatus');
@@ -200,7 +203,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/crm/leads/sample', [LeadController::class, 'downloadSample'])->name('lead.sample');
     Route::get('/lead-import-status/{jobId}', [LeadController::class, 'getImportJobStatus']);
 
-    // Modern Leads
+    // Modern Leads & Followups
+    Route::get('/followups', [FollowupController::class, 'index'])->name('followups.index');
+    Route::get('/created-deals', [CreatedDealController::class, 'index'])->name('created.deals.index');
+    Route::get('/new-leads-table', [LeadTableController::class, 'index'])->name('leads.table.index');
     Route::get('/modern-leads/search-suggestions', [NewleadController::class, 'searchSuggestions'])->name('modern.leads.search.suggestions');
     Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
     Route::get('/modern-leads/{lead}/details-data', [NewleadController::class, 'getDetailsData'])->name('modern.leads.details.data');
