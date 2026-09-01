@@ -1439,6 +1439,7 @@ class NewleadController extends Controller
                 'followup_type' => $msg->followup_type,
                 'followup_status' => $msg->followup_status,
                 'next_followup_date' => $msg->next_followup_date ? \Carbon\Carbon::parse($msg->next_followup_date)->format('d M y, h:i A') : null,
+                'next_followup_date_formatted' => $msg->next_followup_date ? \Carbon\Carbon::parse($msg->next_followup_date)->format('d M Y, h:i A') : null,
                 'next_followup_date_raw' => $msg->next_followup_date,
                 'call_recording' => $msg->call_recording ? asset('storage/' . $msg->call_recording) : null,
                 'followup_documents' => is_array($msg->followup_documents) ? $msg->followup_documents : (is_string($msg->followup_documents) ? json_decode($msg->followup_documents, true) : []),

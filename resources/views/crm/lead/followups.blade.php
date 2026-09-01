@@ -4,6 +4,8 @@
 
 @push('styles')
 <style>
+    @include('crm.lead.partials.lead-interaction-styles')
+
     .lead-tab-strip {
         display: flex;
         align-items: center;
@@ -61,10 +63,10 @@
     }
 
     .lead-table-card {
-        border-radius: 12px;
+        border-radius: 14px;
         border: 1px solid #e2e8f0;
         background: #ffffff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        box-shadow: 0 5px 16px rgba(15, 23, 42, 0.05);
         overflow: hidden;
     }
 
@@ -78,26 +80,41 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: #64748b;
-        padding: 12px 14px;
+        padding: 13px 16px;
+        border-right: 1px solid #e2e8f0;
+        vertical-align: middle;
     }
+    .lead-table-head th:last-child { border-right: 0; }
     .lead-table-body td {
-        padding: 12px 14px;
+        padding: 14px 16px;
         font-size: 13px;
         color: #334155;
         vertical-align: middle;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+        border-right: 1px solid #f1f5f9;
     }
+    .lead-table-body td:last-child { border-right: 0; }
     .lead-table-body tr:last-child td {
         border-bottom: none;
     }
     .lead-table-body tr:hover td {
-        background-color: #f8fafc;
+        background-color: #f8fbff;
     }
 
+    .followup-filter-card { border: 1px solid #e2e8f0 !important; overflow: hidden; }
+    .followup-filter-toggle { width: 100%; border: 0; background: #fff; padding: 13px 16px; }
+    .followup-filter-toggle:not(.collapsed) { border-bottom: 1px solid #e2e8f0; background: #f8fbff; }
+    .followup-filter-toggle .feather-chevron-down { transition: transform .2s ease; }
+    .followup-filter-toggle:not(.collapsed) .feather-chevron-down { transform: rotate(180deg); }
+    .followup-filter-body { padding: 14px 16px; background: #fff; }
+    .followup-action-cell { min-width: 180px; }
+
     .done-checkbox {
-        width: 18px;
-        height: 18px;
+        width: 19px;
+        height: 19px;
         cursor: pointer;
+        border-color: #94a3b8;
+        accent-color: #16a34a;
     }
 </style>
 @endpush
@@ -141,8 +158,13 @@
         </div>
 
         {{-- Clean Filter & Search Toolbar (No Pin, No Pipeline view, Date range by next_followup_date) --}}
-        <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white">
-            <div class="card-body p-2.5">
+        <div class="card followup-filter-card shadow-sm rounded-3 mb-3 bg-white">
+            <button class="followup-filter-toggle d-flex align-items-center justify-content-between text-start {{ request()->hasAny(['search', 'from', 'to']) && (request('search') || request('from') || request('to')) ? '' : 'collapsed' }}" type="button" data-bs-toggle="collapse" data-bs-target="#followupFilters" aria-expanded="{{ request()->hasAny(['search', 'from', 'to']) && (request('search') || request('from') || request('to')) ? 'true' : 'false' }}">
+                <span class="d-flex align-items-center gap-2 fw-bold text-dark fs-12"><span class="rounded-circle bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center" style="width:28px;height:28px;"><i class="feather-filter"></i></span> Filters & Search</span>
+                <span class="d-flex align-items-center gap-2 text-muted fs-11">{{ request('search') || request('from') || request('to') ? 'Filters applied' : 'Expand filters' }} <i class="feather-chevron-down"></i></span>
+            </button>
+            <div id="followupFilters" class="collapse {{ request()->hasAny(['search', 'from', 'to']) && (request('search') || request('from') || request('to')) ? 'show' : '' }}">
+            <div class="followup-filter-body">
                 <form method="GET" action="{{ route('followups.index') }}" id="followupSearchForm" class="row g-2 align-items-center">
                     <input type="hidden" name="tab" value="{{ $tab }}">
 
@@ -184,7 +206,7 @@
                         @endif
                     </div>
                 </form>
-            </div>
+            </div></div>
         </div>
 
         {{-- Follow-ups Table Container --}}
@@ -193,12 +215,11 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="lead-table-head">
                         <tr>
-                            <th style="width: 40px;" class="text-center" title="Mark Done">Done</th>
                             <th style="min-width: 240px;">Lead / Deal Info</th>
                             <th style="min-width: 170px;">Company</th>
-                            <th style="min-width: 260px;">Remark & Communication</th>
+                            <th style="min-width: 260px;">Comment</th>
                             <th style="min-width: 180px;">Follow-up Date</th>
-                            <th class="text-center" style="min-width: 320px;">Actions</th>
+                            <th class="text-center followup-action-cell">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="lead-table-body">
@@ -211,14 +232,6 @@
                                 $statusName = optional($lead)->lead_status ?: optional(optional($lead)->bucket)->name ?: 'New';
                             @endphp
                             <tr id="followup-row-{{ $item->id }}">
-                                {{-- Checkbox to Mark Done --}}
-                                <td class="text-center">
-                                    <input type="checkbox" 
-                                           class="form-check-input done-checkbox shadow-2xs" 
-                                           title="Check to mark Done" 
-                                           onchange="markFollowupDoneCheckbox({{ $item->id }}, this)">
-                                </td>
-
                                 {{-- Lead / Deal Info --}}
                                 <td>
                                     <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
@@ -299,22 +312,10 @@
                                     @endif
                                 </td>
 
-                                {{-- Remark / Comment & Type --}}
+                                {{-- Comment --}}
                                 <td>
                                     <div class="fs-12 text-dark mb-1" style="line-height:1.4;white-space:normal;overflow-wrap:anywhere;">
                                         {{ $item->message ?: 'No remark added.' }}
-                                    </div>
-                                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
-                                        @if($item->followup_type)
-                                            <span class="badge bg-primary-subtle text-primary border fs-10 py-0.5 px-2">
-                                                <i class="feather-phone me-1"></i>{{ $item->followup_type }}
-                                            </span>
-                                        @endif
-                                        @if($item->followup_status)
-                                            <span class="badge bg-info-subtle text-info border fs-10 py-0.5 px-2">
-                                                {{ $item->followup_status }}
-                                            </span>
-                                        @endif
                                     </div>
                                 </td>
 
@@ -334,28 +335,14 @@
                                 </td>
 
                                 {{-- Action Buttons --}}
-                                <td class="text-center">
+                                <td class="text-center followup-action-cell">
                                     <div class="d-inline-flex align-items-center justify-content-center gap-1.5 flex-wrap">
-                                        {{-- Mark Done Button --}}
-                                        <button type="button" class="btn btn-xs btn-success d-inline-flex align-items-center gap-1 px-2 py-1 shadow-2xs fw-semibold" style="font-size: 11px;"
-                                                onclick="markFollowupDone({{ $item->id }}, this)" title="Mark as Done">
-                                            <i class="feather-check"></i> Done
+                                        <button type="button" class="table-action-btn text-success border-success-subtle" 
+                                                onclick="markFollowupDone({{ $item->id }}, this)" title="Mark follow-up complete">
+                                            <i class="feather-check"></i>
                                         </button>
 
-                                        {{-- Next Follow-up Button --}}
-                                        <button type="button" class="btn btn-xs btn-primary d-inline-flex align-items-center gap-1 px-2 py-1 shadow-2xs fw-semibold" style="font-size: 11px;"
-                                                onclick="openNextFollowupModal({{ $item->id }}, @js($item->message ?? ''))" title="Schedule Next Follow-up">
-                                            <i class="feather-calendar"></i> Next Follow-up
-                                        </button>
-
-                                        {{-- Edit Status Offcanvas --}}
                                         @if($lead)
-                                            <button type="button" class="table-action-btn text-primary" 
-                                                    onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
-                                                    title="Edit Status">
-                                                <i class="feather-sliders"></i>
-                                            </button>
-
                                             {{-- Edit Lead Modal --}}
                                             <button type="button" class="table-action-btn text-success" title="Edit Details"
                                                     onclick="openLeadEditModal({{ $lead->id }})">
