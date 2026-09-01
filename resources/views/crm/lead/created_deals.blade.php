@@ -117,10 +117,21 @@
     <div class="main-content px-3 py-2">
         {{-- Header Status Strip --}}
         <div class="lead-tab-strip">
-            <div class="d-flex align-items-center gap-2">
-                <span class="lead-status-tab status-primary is-active fs-13">
-                    <i class="feather-award"></i> CREATED DEALS ({{ $leads->total() }})
-                </span>
+            <div class="lead-tab-scroll d-flex align-items-center gap-2">
+                <a href="{{ route('created.deals.index', request()->except('bucket_id', 'lead_status', 'page')) }}"
+                   class="lead-status-tab status-primary {{ !request('bucket_id') && !request('lead_status') ? 'is-active' : '' }}">
+                    <i class="feather-grid"></i> ALL ({{ $totalDealsCount }})
+                </a>
+
+                @foreach($childBuckets as $b)
+                    @php
+                        $isActive = (request('bucket_id') == $b->id || strtolower(trim(request('lead_status'))) == strtolower(trim($b->name)));
+                    @endphp
+                    <a href="{{ route('created.deals.index', array_merge(request()->except('bucket_id', 'lead_status', 'page'), ['bucket_id' => $b->id])) }}"
+                       class="lead-status-tab status-primary {{ $isActive ? 'is-active' : '' }}">
+                       <span class="status-dot"></span> {{ $b->name }} ({{ $b->leads_count ?? 0 }})
+                    </a>
+                @endforeach
             </div>
         </div>
 

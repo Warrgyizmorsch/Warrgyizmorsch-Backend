@@ -523,6 +523,7 @@ class NewleadController extends Controller
             ->where(function($q) {
                 $q->where('type', 'lead')->orWhereNull('type');
             })
+            ->where(DB::raw('LOWER(TRIM(name))'), 'NOT LIKE', '%deal created%')
             ->with(['children' => function($cq) {
                 $cq->where('is_deleted', 0);
             }])
@@ -532,6 +533,10 @@ class NewleadController extends Controller
         $statusCountsQuery = (clone $query)
             ->where(function($lq) {
                 $lq->whereNull('is_converted')->orWhere('is_converted', 0);
+            })
+            ->where(function($sq2) {
+                $sq2->whereNull('lead_status')
+                    ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'NOT LIKE', '%deal created%');
             });
 
         $statusCounts = $statusCountsQuery
