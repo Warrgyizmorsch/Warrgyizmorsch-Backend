@@ -271,6 +271,7 @@ class LeadTableController extends Controller
             ->where(function($q) {
                 $q->where('type', 'lead')->orWhereNull('type');
             })
+            ->where(DB::raw('LOWER(TRIM(name))'), 'NOT LIKE', '%deal created%')
             ->with(['children' => function($cq) {
                 $cq->where('is_deleted', 0);
             }])
@@ -280,6 +281,10 @@ class LeadTableController extends Controller
         $statusCountsQuery = (clone $query)
             ->where(function($lq) {
                 $lq->whereNull('is_converted')->orWhere('is_converted', 0);
+            })
+            ->where(function($sq2) {
+                $sq2->whereNull('lead_status')
+                    ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'NOT LIKE', '%deal created%');
             });
 
         $statusCounts = $statusCountsQuery
@@ -458,9 +463,12 @@ class LeadTableController extends Controller
             $query->where('category_id', $request->category_id);
         }
 
-        // 8. Exclude Converted Orders by default
+        // 8. Exclude Converted Orders & Deal Created leads by default
         $query->where(function ($q) {
             $q->whereNull('is_converted')->orWhere('is_converted', 0);
+        })->where(function ($q2) {
+            $q2->whereNull('lead_status')
+               ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'NOT LIKE', '%deal created%');
         });
 
         // 9. Exclude Order Buckets by default
@@ -516,7 +524,7 @@ class LeadTableController extends Controller
         $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
         $categories = Category::where('is_active', 1)->orderBy('category_name')->get();
 
-        // 2. Fetch Top-Level Lead Buckets
+        // 2. Fetch Top-Level Lead Buckets (Excluding Deal Created)
         $mainStatuses = [
             'yet to call',
             'connected / in conversation',
@@ -533,6 +541,7 @@ class LeadTableController extends Controller
             ->where(function($q) {
                 $q->where('type', 'lead')->orWhereNull('type');
             })
+            ->where(DB::raw('LOWER(TRIM(name))'), 'NOT LIKE', '%deal created%')
             ->with('children')
             ->orderByRaw("FIELD(LOWER(name), '" . implode("','", $mainStatuses) . "')")
             ->get();

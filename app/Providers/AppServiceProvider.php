@@ -48,30 +48,80 @@ class AppServiceProvider extends ServiceProvider
             }
 
             if (Auth::check()) {
-                $user = Auth::user();
-                $version = Menu::getMenuVersion();
-                $cacheKey = "crm_full_aside_menu_{$user->id}_{$user->role_id}_v{$version}";
-
-                $menus = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($user) {
-                    $menus = Menu::getMenusForUser($user);
-
-                    // Add "Converted" sub-menu to Leads menu dynamically
-                    $leadsMenu = $menus->first(fn($m) => str_contains(strtolower($m->title ?? ''), 'lead'));
-                    if ($leadsMenu) {
-                        $children = $leadsMenu->children ? collect($leadsMenu->children) : collect();
-                        $hasConverted = $children->contains(fn($c) => str_contains(strtolower($c->title ?? ''), 'converted'));
-
-                        if (!$hasConverted) {
-                            $convertedMenu = new \App\Models\Menu(['title' => 'Converted']);
-                            $cRoute = new \stdClass();
-                            $cRoute->route_name = 'modern.leads.index';
-                            $convertedMenu->route = $cRoute;
-                            $convertedMenu->custom_params = ['converted' => 1];
-
-                            $children->push($convertedMenu);
-                            $leadsMenu->setRelation('children', $children);
+                // Perform one-time DB menu sync if records missing
+                try {
+                    $nlRouteId = DB::table('routes')->where('route_name', 'leads.table.index')->value('id');
+                    if (!$nlRouteId) {
+                        $nlRouteId = DB::table('routes')->insertGetId(['route_name' => 'leads.table.index', 'method' => 'GET', 'is_deleted' => 0, 'created_at' => now(), 'updated_at' => now()]);
+                    }
+                    $cdRouteId = DB::table('routes')->where('route_name', 'created.deals.index')->value('id');
+                    if (!$cdRouteId) {
+                        $cdRouteId = DB::table('routes')->insertGetId(['route_name' => 'created.deals.index', 'method' => 'GET', 'is_deleted' => 0, 'created_at' => now(), 'updated_at' => now()]);
+                    }
+                    $leadsParentId = DB::table('menus')->whereNull('parent_id')->where('title', 'LIKE', '%Lead%')->value('id');
+                    if ($leadsParentId) {
+                        $m1Exists = DB::table('menus')->where('parent_id', $leadsParentId)->where('title', 'New Leads Table')->exists();
+                        if (!$m1Exists) {
+                            $mId1 = DB::table('menus')->insertGetId(['parent_id' => $leadsParentId, 'title' => 'New Leads Table', 'icon' => 'feather-list', 'route_id' => $nlRouteId, 'sort_order' => 1, 'is_deleted' => 0, 'created_at' => now(), 'updated_at' => now()]);
+                            foreach ([1, 2, 3] as $rId) {
+                                DB::table('role_permissions')->updateOrInsert(['role_id' => $rId, 'menu_id' => $mId1], ['is_allowed' => 1, 'updated_at' => now()]);
+                            }
+                            Menu::bumpMenuVersion();
+                        }
+                        $m2Exists = DB::table('menus')->where('parent_id', $leadsParentId)->where('title', 'Created Deals')->exists();
+                        if (!$m2Exists) {
+                            $mId2 = DB::table('menus')->insertGetId(['parent_id' => $leadsParentId, 'title' => 'Created Deals', 'icon' => 'feather-check-square', 'route_id' => $cdRouteId, 'sort_order' => 3, 'is_deleted' => 0, 'created_at' => now(), 'updated_at' => now()]);
+                            foreach ([1, 2, 3] as $rId) {
+                                DB::table('role_permissions')->updateOrInsert(['role_id' => $rId, 'menu_id' => $mId2], ['is_allowed' => 1, 'updated_at' => now()]);
+                            }
+                            Menu::bumpMenuVersion();
                         }
                     }
+                } catch (\Throwable $e) {
+                    \Log::error('Aside DB menu sync error: ' . $e->getMessage());
+                }
+
+                $user = Auth::user();
+                $menus = Menu::getMenusForUser($user);
+
+                // Ensure "New Leads Table", "Created Deals", and "Converted" exist under Leads menu in view
+                $leadsMenu = $menus->first(fn($m) => str_contains(strtolower($m->title ?? ''), 'lead'));
+                if ($leadsMenu) {
+                    $children = $leadsMenu->children ? collect($leadsMenu->children) : collect();
+
+                    // 1. New Leads Table
+                    $hasNewLeads = $children->contains(fn($c) => str_contains(strtolower($c->title ?? ''), 'new lead'));
+                    if (!$hasNewLeads) {
+                        $newLeadMenu = new \App\Models\Menu(['title' => 'New Leads Table', 'icon' => 'feather-list']);
+                        $nlRoute = new \stdClass();
+                        $nlRoute->route_name = 'leads.table.index';
+                        $newLeadMenu->route = $nlRoute;
+                        $children->prepend($newLeadMenu);
+                    }
+
+                    // 2. Created Deals
+                    $hasCreatedDeals = $children->contains(fn($c) => str_contains(strtolower($c->title ?? ''), 'created deal'));
+                    if (!$hasCreatedDeals) {
+                        $createdDealMenu = new \App\Models\Menu(['title' => 'Created Deals', 'icon' => 'feather-check-square']);
+                        $cdRoute = new \stdClass();
+                        $cdRoute->route_name = 'created.deals.index';
+                        $createdDealMenu->route = $cdRoute;
+                        $children->push($createdDealMenu);
+                    }
+
+                    // 3. Converted
+                    $hasConverted = $children->contains(fn($c) => str_contains(strtolower($c->title ?? ''), 'converted'));
+                    if (!$hasConverted) {
+                        $convertedMenu = new \App\Models\Menu(['title' => 'Converted', 'icon' => 'feather-award']);
+                        $cRoute = new \stdClass();
+                        $cRoute->route_name = 'modern.leads.index';
+                        $convertedMenu->route = $cRoute;
+                        $convertedMenu->custom_params = ['converted' => 1];
+                        $children->push($convertedMenu);
+                    }
+
+                    $leadsMenu->setRelation('children', $children);
+                }
 
                     // Add dynamic Follow-ups menu item with 3 tabs
                     $hasFollowups = $menus->contains(fn($m) => str_contains(strtolower($m->title ?? ''), 'followup') || str_contains(strtolower($m->title ?? ''), 'follow-up') || str_contains(strtolower($m->title ?? ''), 'follow up'));
@@ -175,9 +225,6 @@ class AppServiceProvider extends ServiceProvider
                         }
                     };
                     $renameMenuToAttribute($menus);
-
-                    return $menus;
-                });
             } else {
                 $menus = collect(); // empty collection if not logged in
             }

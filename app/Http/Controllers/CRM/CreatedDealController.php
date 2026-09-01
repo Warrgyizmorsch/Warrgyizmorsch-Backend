@@ -110,11 +110,36 @@ class CreatedDealController extends Controller
 
         $leads = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        // Fetch parent/child buckets for offcanvas status change
-        $childBuckets = Bucket::with('children')
-            ->whereNull('parent_id')
-            ->where('is_deleted', 0)
+        // Fetch parent/child buckets & calculate sub-status counts for Created Deals header strip
+        $dealParentBucket = Bucket::where(DB::raw('LOWER(TRIM(name))'), 'like', '%deal created%')->with('children')->first();
+        if ($dealParentBucket && $dealParentBucket->children && $dealParentBucket->children->isNotEmpty()) {
+            $childBuckets = $dealParentBucket->children;
+        } else {
+            $childBuckets = Bucket::whereNull('parent_id')
+                ->where('is_deleted', 0)
+                ->where(function($q) {
+                    $q->where('type', 'lead')->orWhereNull('type');
+                })
+                ->where(DB::raw('LOWER(TRIM(name))'), 'NOT LIKE', '%deal created%')
+                ->get();
+        }
+
+        $statusCountsQuery = clone $countQuery;
+        $statusCounts = $statusCountsQuery
+            ->reorder()
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_id')
             ->get();
+
+        $childBuckets->each(function ($b) use ($statusCounts) {
+            $bName = strtolower(trim($b->name));
+            $bId = $b->id;
+            $cnt = $statusCounts->filter(function ($item) use ($bName, $bId) {
+                $itemStatus = strtolower(trim($item->status_name));
+                return ($itemStatus === $bName || $item->lead_bucket_id == $bId);
+            })->sum('cnt');
+            $b->leads_count = $cnt;
+        });
 
         $owners = User::whereIn('role_id', [1, 3])
             ->where('is_deleted', 0)
