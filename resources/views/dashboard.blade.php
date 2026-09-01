@@ -4,31 +4,62 @@
 
 {{-- Kanban Styles --}}
     <style>
-        /* ---- Wrapper ---- */
-        .db-kanban-wrapper {
-            overflow-x: auto;
-            padding-bottom: 10px;
-            width: 100%;
-        }
-        .db-kanban-board {
-            display: grid;
-            grid-template-columns: repeat(6, minmax(200px, 1fr));
-            gap: 12px;
-            width: 100%;
-            min-width: 1200px; /* Ensures minimum 200px per column before horizontal scroll */
-            align-items: stretch; /* Columns match height evenly */
-        }
-        .db-subkanban-board {
+        @include('crm.lead.partials.lead-interaction-styles')
+        /* Pipeline / Kanban Styles */
+        .pipeline-board {
             display: flex;
-            gap: 12px;
-            width: 100%;
+            flex-direction: row;
             overflow-x: auto;
-            padding-bottom: 10px;
-            align-items: stretch;
+            align-items: flex-start;
+            gap: 1.25rem;
+            padding-bottom: 1.5rem;
+            min-height: 480px;
         }
-        .db-subkanban-board .db-kanban-col {
-            min-width: 210px;
-            flex: 1 0 210px;
+        .pipeline-column {
+            flex: 0 0 380px;
+            max-width: 380px;
+            min-width: 360px;
+            background: #f4f6f9;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            max-height: 600px;
+        }
+        .pipeline-column-header {
+            padding: 0.85rem 1rem;
+            background: #ffffff;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .pipeline-cards-container {
+            padding: 0.85rem;
+            overflow-y: auto;
+            flex: 1 1 auto;
+            min-height: 150px;
+            scroll-behavior: smooth;
+        }
+        .pipeline-column.drag-over {
+            background: #e9ecef !important;
+            border: 2px dashed #006FC9 !important;
+        }
+        .pipeline-lead-card {
+            cursor: grab;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .pipeline-lead-card:active {
+            cursor: grabbing;
+        }
+        .pipeline-lead-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+        }
+        .pipeline-lead-card.dragging {
+            opacity: 0.4;
         }
 
         /* ---- Column ---- */
@@ -414,14 +445,45 @@
     <div class="main-content">
         <div class="row">
 
-            <div class="col-12">
-                <div class="card stretch stretch-full shadow-sm">
-                    <div class="card-body">
-                        <div class="hstack justify-content-between mb-4">
+
+
+            {{-- ============================================================ --}}
+            {{-- LEAD STATUSES OVERVIEW - Clickable Summary Boxes              --}}
+            {{-- ============================================================ --}}
+            <style>
+                .overview-status-card {
+                    background: #ffffff;
+                    border: 1.5px dashed #cbd5e1 !important;
+                    border-radius: 12px !important;
+                    transition: all 0.22s ease-in-out;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                }
+                .overview-status-card:hover {
+                    border-color: #006FC9 !important;
+                    border-style: solid !important;
+                    transform: translateY(-3px);
+                    box-shadow: 0 8px 20px rgba(0, 111, 201, 0.12) !important;
+                }
+                .overview-status-card.is-unassigned {
+                    background-color: #fffbf0 !important;
+                    border-color: #fed7aa !important;
+                }
+                .overview-status-card.is-unassigned:hover {
+                    border-color: #f97316 !important;
+                    border-style: solid !important;
+                    box-shadow: 0 8px 20px rgba(249, 115, 22, 0.15) !important;
+                }
+            </style>
+            <div class="col-12 mb-4">
+                <div class="card stretch stretch-full shadow-sm border-0 rounded-3">
+                    <div class="card-body p-4">
+                        <div class="hstack justify-content-between mb-3">
                             <div>
-                                <h5 class="mb-1 fw-bold">Overview</h5>
-                                <span class="fs-12 text-muted">
-                                    Lead Statuses Summary • Total: {{ $totalLeads }}
+                                <h5 class="mb-1 fw-bold text-dark d-flex align-items-center gap-2">
+                                    <i class="feather-grid text-primary"></i> Overview
+                                </h5>
+                                <span class="fs-12 text-muted fw-medium">
+                                    Lead Statuses Summary • Total: <strong class="text-dark">{{ number_format($totalLeads) }}</strong>
                                 </span>
                             </div>
                         </div>
@@ -429,7 +491,6 @@
                         <div class="row g-3">
                             @if(isset($overviewStatuses) && !empty($overviewStatuses))
                                 @foreach($overviewStatuses as $statusItem)
-                                    @if($statusItem['count'] > 0 || in_array($statusItem['name'], ['Yet to Call', 'Qualifying', 'Proposal Sent', 'Negotiation', 'Awaiting Confirmation', 'No Response']))
                                     @php
                                         $sName = strtolower(trim($statusItem['name']));
                                         $icon = 'bi-file-earmark-text';
@@ -449,23 +510,29 @@
                                             $icon = 'bi-pause-circle-fill'; $color = 'text-secondary';
                                         } elseif (str_contains($sName, 'response') || str_contains($sName, 'no response')) {
                                             $icon = 'bi-telephone-x-fill'; $color = 'text-danger';
-                                        } elseif (str_contains($sName, 'not interest') || str_contains($sName, 'not qualif') || str_contains($sName, 'close')) {
-                                            $icon = 'bi-x-circle-fill'; $color = 'text-muted';
+                                        } elseif (str_contains($sName, 'not interest') || str_contains($sName, 'not qualif')) {
+                                            $icon = 'bi-x-circle-fill'; $color = 'text-danger';
+                                        } elseif (str_contains($sName, 'close')) {
+                                            $icon = 'bi-x-circle-fill'; $color = 'text-secondary';
                                         } elseif (str_contains($sName, 'progress') || str_contains($sName, 'start') || str_contains($sName, 'active')) {
                                             $icon = 'bi-play-circle-fill'; $color = 'text-success';
+                                        } elseif (str_contains($sName, 'won') || str_contains($sName, 'enrolled')) {
+                                            $icon = 'bi-trophy-fill'; $color = 'text-success';
                                         } elseif (str_contains($sName, 'other') || str_contains($sName, 'unassigned')) {
                                             $icon = 'bi-question-circle-fill'; $color = 'text-warning';
                                         }
+                                        $isUnassigned = ($statusItem['bucket_id'] === 'other');
                                     @endphp
                                     <div class="col-xxl-2 col-lg-3 col-md-4 col-6">
-                                        <a href="{{ $statusItem['bucket_id'] === 'other' ? route('modern.leads.index', ['deleted_leads' => 1]) : route('modern.leads.index', ['bucket_id' => $statusItem['bucket_id'], 'lead_status' => $statusItem['name']]) }}" class="text-decoration-none" title="{{ $statusItem['name'] }}">
-                                            <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all" style="{{ $statusItem['bucket_id'] === 'other' ? 'background-color: #fffbf0;' : '' }}">
+                                        <a href="{{ $isUnassigned ? route('leads.table.index', ['deleted_leads' => 1]) : route('leads.table.index', ['bucket_id' => $statusItem['bucket_id'], 'lead_status' => $statusItem['name']]) }}" 
+                                           class="text-decoration-none" title="Filter by {{ $statusItem['name'] }}">
+                                            <div class="card overview-status-card h-100 {{ $isUnassigned ? 'is-unassigned' : '' }}">
                                                 <div class="card-body text-center p-3">
                                                     <div class="mb-2">
                                                         <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
                                                     </div>
                                                     <div class="fs-3 fw-bold text-dark">
-                                                        {{ $statusItem['count'] }}
+                                                        {{ number_format($statusItem['count']) }}
                                                     </div>
                                                     <p class="fs-12 text-muted mb-0 fw-semibold text-truncate" title="{{ $statusItem['name'] }}">
                                                         {{ $statusItem['name'] }}
@@ -474,820 +541,92 @@
                                             </div>
                                         </a>
                                     </div>
-                                    @endif
                                 @endforeach
                             @endif
                         </div>
                     </div>
                 </div>
             </div>
-            @if($firstBucket)
-            <div class="col-12 mt-2">
-                <div class="card stretch stretch-full shadow-sm">
-                    <div class="card-body">
-
-                        <div class="hstack justify-content-between mb-4">
-                            <div>
-                                <h5 class="mb-1 fw-bold">{{ $firstBucket->name }} Status Overview</h5>
-                                <span class="fs-12 text-muted">
-                                    {{ auth()->user()->role_id == 1 ? 'All Leads View' : 'My Leads View' }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="row g-3">
-                            @foreach($firstBucket->children as $child)
-                            @php
-                                $statusName = strtolower(trim($child->name)); // Normalize for matching
-
-                                // Default fallback
-                                $icon = 'bi-circle-fill';
-                                $color = 'text-secondary';
-
-                                // Specific matches based on your exact status names
-                                if (str_contains($statusName, 'sop under preparation') || str_contains($statusName, 'sop preparation')) {
-                                    $icon = 'bi-file-earmark-plus'; // alternative: creating/preparing doc
-                                    $color = 'text-primary';
-                                } elseif (str_contains($statusName, 'submitted')) {
-                                    $icon = 'bi-check-circle';
-                                    $color = 'text-success';
-                                } elseif (str_contains($statusName, 'processed') || str_contains($statusName, 'offer awaited')) {
-                                    $icon = 'bi-clock-history';
-                                    $color = 'text-warning';
-                                } elseif (str_contains($statusName, 'other') || str_contains($statusName, 'uncategorized')) {
-                                    $icon = 'bi-question-circle';
-                                    $color = 'text-secondary';
-                                }
-                            @endphp
-
-                            <div class="col-xxl-2 col-lg-3 col-md-6">
-                                <a href="{{ route('modern.leads.index', ['bucket_id' => $firstBucket->id, 'lead_status' => $child->name]) }}" class="text-decoration-none">
-                                    <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all">
-                                        <div class="card-body text-center">
-                                            <div class="mb-2">
-                                                <i class="bi {{ $icon }} fs-2 {{ $color }}"></i>
-                                            </div>
-                                            <div class="fs-3 fw-bold text-dark">
-                                                {{ $statusCounts[$child->id] ?? 0 }}
-                                            </div>
-                                            <p class="fs-12 text-muted mb-0">
-                                                {{ $child->name }}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-                            @endforeach
-
-                            {{-- Other (if handled separately in controller) --}}
-                            @if(isset($statusCounts['other']) && $statusCounts['other'] > 0)
-                            <div class="col-xxl-2 col-lg-3 col-md-6">
-                                <div class="card border border-dashed border-gray-5 h-100 hover-shadow transition-all bg-light">
-                                    <div class="card-body text-center">
-                                        <div class="mb-2">
-                                            <i class="bi bi-question-circle fs-2 text-secondary"></i>
-                                        </div>
-                                        <div class="fs-3 fw-bold text-dark">
-                                            {{ $statusCounts['other'] }}
-                                        </div>
-                                        <p class="fs-12 text-muted mb-0">Other</p>
-                                    </div>
-                                </div>
-                            </div>
-                            @endif
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-            @endif
 
             {{-- ============================================================ --}}
-            {{-- KANBAN BOARD - Lead Status Columns with Drag & Drop          --}}
+            {{-- MODERN LEAD PIPELINE BOARD - Drag & Drop with Infinite Scroll --}}
             {{-- ============================================================ --}}
-            <!-- <div class="col-12 mt-2">
-                <div class="card stretch stretch-full shadow-sm">
-                    <div class="card-header d-flex align-items-center justify-content-between">
+            <div class="col-12 mb-4">
+                <div class="card border-0 shadow-sm rounded-3">
+                    <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
                         <div>
-                            <h5 class="card-title mb-1">Lead </h5>
-                            <span class="fs-12 text-muted">Drag & drop leads to change their status</span>
-                        </div> 
-                        <a href="{{ route('modern.leads.index') }}" class="btn btn-sm btn-light-brand">
-                            <i class="feather-external-link me-1"></i> Open Leads
-                        </a>
-                    </div>
-                    <div class="card-body pt-2">
-
-                        @php
-                            function dbKanbanTheme($name) {
-                                $n = strtolower($name);
-                                if (str_contains($n,'lead'))        return 'lead';
-                                if (str_contains($n,'active'))      return 'active';
-                                if (str_contains($n,'completion') || str_contains($n,'launch')) return 'completion';
-                                if (str_contains($n,'post') || str_contains($n,'maintenance'))  return 'postlaunch';
-                                if (str_contains($n,'blocked') || str_contains($n,'cancelled')) return 'blocked';
-                                if (str_contains($n,'closed'))      return 'closed';
-                                return 'default';
-                            }
-                        @endphp
-
-                        <div class="db-kanban-wrapper">
-                            <div class="db-kanban-board" id="dbKanbanBoard">
-
-                                @foreach($buckets as $bucket)
-                                    @php
-                                        $dbTheme   = dbKanbanTheme($bucket->name);
-                                        $dbLeads   = $kanbanBucketLeads[$bucket->id] ?? collect();
-                                    @endphp
-
-                                    <div class="db-kanban-col db-theme-{{ $dbTheme }}"
-                                         id="dbKanbanCol-{{ $bucket->id }}"
-                                         data-bucket-id="{{ $bucket->id }}"
-                                         data-bucket-name="{{ $bucket->name }}">
-
-                                        {{-- Header --}}
-                                        <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'lead_status' => '']) }}" class="db-kanban-col-header text-decoration-none" title="Open {{ $bucket->name }} in Modern Leads">
-                                            <span class="db-kanban-col-title" title="{{ $bucket->name }}">{{ $bucket->name }}</span>
-                                            <span class="db-kanban-col-count" id="dbKColCount-{{ $bucket->id }}">{{ $bucket->total_leads }}</span>
-                                        </a>
-
-                                        {{-- Body --}}
-                                        <div class="db-kanban-col-body {{ $dbLeads->isEmpty() ? 'no-leads' : 'has-leads' }}" id="dbKanbanBody-{{ $bucket->id }}">
-                                            @if($dbLeads->isEmpty())
-                                                <div class="db-kanban-empty">
-                                                    <i class="fas fa-layer-group"></i>
-                                                    Drop leads here
-                                                </div>
-                                            @else
-                                                @foreach($dbLeads as $kl)
-                                                    @php
-                                                        $kEng  = strtolower($kl->lead_engagement_status ?? 'n/a');
-                                                        $kBadge = match($kEng) {
-                                                            'hot'  => 'db-kc-badge-hot',
-                                                            'warm' => 'db-kc-badge-warm',
-                                                            'cold' => 'db-kc-badge-cold',
-                                                            'dead' => 'db-kc-badge-dead',
-                                                            default => 'db-kc-badge-na',
-                                                        };
-                                                    @endphp
-                                                    <div class="db-kcard"
-                                                         draggable="true"
-                                                         data-lead-id="{{ $kl->id }}"
-                                                         data-bucket-id="{{ $bucket->id }}"
-                                                         id="dbKCard-{{ $kl->id }}">
-
-                                                        {{-- Name + Edit Button --}}
-                                                        <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
-                                                            <span class="db-kc-name fw-bold text-dark" style="font-size: 13px;">{{ optional($kl->user)->name ?? 'Unknown' }}</span>
-                                                            <a href="javascript:void(0);" class="d-inline-flex align-items-center justify-content-center rounded p-1" style="background: #eff6ff; border: 1px solid #dbeafe; color: #006FC9; text-decoration: none;" title="Edit Lead Form" data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}" onclick="event.stopPropagation(); openEditModal(this);">
-                                                                <i class="fa-solid fa-pen-to-square" style="font-size: 13px;"></i>
-                                                            </a>
-                                                        </div>
-
-                                                        {{-- Phone --}}
-                                                        <div class="db-kc-phone mb-1">
-                                                            <i class="fas fa-phone-alt" style="font-size:9px;color:#90a4ae;margin-right:3px;"></i>
-                                                            {{ optional($kl->user)->contact_no ?? 'N/A' }}
-                                                        </div>
-
-                                                        {{-- Badges --}}
-                                                        <div class="db-kc-badges mb-1">
-                                                            <span class="db-kc-badge {{ $kBadge }}">{{ strtoupper($kEng) }}</span>
-                                                            @if($kl->product)
-                                                                <span class="db-kc-badge db-kc-badge-prod">{{ $kl->product }}</span>
-                                                            @endif
-                                                        </div>
-
-                                                        {{-- Owner --}}
-                                                        <div class="db-kc-owner text-muted mb-1" style="font-size:10.5px;">
-                                                            <i class="fas fa-user-tie text-secondary me-1" style="font-size:9.5px;"></i>
-                                                            Owner: <span class="fw-semibold text-dark">{{ optional($kl->owner)->name ?? 'Unassigned' }}</span>
-                                                        </div>
-
-                                                        {{-- Created date --}}
-                                                        <div class="db-kc-date" style="font-size: 10px;">
-                                                            <i class="fas fa-calendar-alt" style="font-size:9px;"></i>
-                                                            Create On {{ \Carbon\Carbon::parse($kl->created_at)->format('d M Y h:i A') }}
-                                                        </div>
-                                                    </div>
-                                                @endforeach
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
-
-                            </div>
-                        </div>
-                    </div>{{-- /card-body --}}
-                </div>
-            </div> -->
-
-            {{-- ============================================================ --}}
-            {{-- KANBAN BOARD - Lead Sub-Status Columns with Drag & Drop     --}}
-            {{-- ============================================================ --}}
-            <div class="col-12 mt-4" id="dbKanbanSubContainer">
-                <div class="card stretch stretch-full shadow-sm">
-                    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-                        <div>
-                            <h5 class="card-title mb-1">Pipeline Lead</h5>
-                            <span class="fs-12 text-muted">Drag & drop leads to change their sub-status</span>
+                            <h5 class="card-title mb-1 fw-bold text-dark d-flex align-items-center gap-2">
+                                <i class="feather-columns text-primary"></i> Lead Pipeline
+                            </h5>
+                            <span class="fs-12 text-muted">Drag & drop leads across stages with real-time status update</span>
                         </div>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="fs-12 fw-semibold text-muted">Filter:</span>
-                            <select id="dbSubKanbanFilter" class="form-select form-select-sm" style="width:auto;min-width:160px;" onchange="dbFilterSubKanban(this.value)">
-                                <option value="all" selected>All Lead Buckets</option>
-                                @foreach($buckets as $index => $b)
-                                    <option value="{{ $b->id }}">{{ $b->name }}</option>
-                                @endforeach
-                            </select>
-                            <a href="{{ route('modern.leads.index') }}" class="btn btn-sm btn-light-brand">
-                                <i class="feather-external-link me-1"></i> Open Leads
+                            <a href="{{ route('leads.table.index') }}" class="btn btn-outline-primary btn-sm rounded-2 d-flex align-items-center gap-1">
+                                <i class="feather-list"></i> Table View
                             </a>
+                            <button type="button" onclick="openCreateModal()" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
+                                <i class="feather-plus"></i> Add New Lead
+                            </button>
                         </div>
                     </div>
-                    <div class="card-body pt-2">
-                        {{-- Sub-Status Board Grid --}}
-                        <div class="db-kanban-wrapper">
-                            <div class="db-subkanban-board" id="dbSubKanbanBoard">
+                    <div class="card-body p-3 bg-light-subtle">
+                        <div class="pipeline-board" id="pipelineBoard">
+                            @foreach(($pipelineBuckets ?? $buckets) as $bucket)
+                                @php
+                                    $bId = $bucket->id;
+                                    $colData = $columnCards[$bId] ?? ['total' => 0, 'leads' => [], 'has_more' => false, 'next_page' => null];
+                                    $bColor = $bucket->bucket_color ?? '#006FC9';
+                                @endphp
 
-                                @foreach($buckets as $bucket)
-                                    @php
-                                        $dbTheme   = dbKanbanTheme($bucket->name);
-                                        $children  = $bucket->children ?? collect();
-                                    @endphp
+                                <div class="pipeline-column" data-bucket-id="{{ $bId }}">
+                                    {{-- Column Header --}}
+                                    <div class="pipeline-column-header d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center gap-2 text-truncate me-2">
+                                            <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background-color: {{ $bColor }};"></span>
+                                            <h6 class="mb-0 fw-bold text-dark fs-14 text-truncate" title="{{ $bucket->name }}">
+                                                {{ $bucket->name }}
+                                            </h6>
+                                        </div>
+                                        <span class="badge rounded-pill bg-white text-dark border fs-12 px-2 py-1 col-count-badge" id="col-count-{{ $bId }}">
+                                            {{ number_format($colData['total']) }}
+                                        </span>
+                                    </div>
 
-                                    @if($children->isNotEmpty())
-                                        @foreach($children as $child)
-                                            @php
-                                                $cLeads = $kanbanSubStatusLeads[$bucket->id][$child->id] ?? collect();
-                                            @endphp
-                                            <div class="db-kanban-col db-theme-{{ $dbTheme }} db-subkanban-col"
-                                                 id="dbSubKCol-{{ $bucket->id }}-{{ $child->id }}"
-                                                 data-bucket-id="{{ $bucket->id }}"
-                                                 data-bucket-name="{{ $bucket->name }}"
-                                                 data-sub-status="{{ $child->name }}"
-                                                 data-child-id="{{ $child->id }}">
-
-                                                {{-- Header --}}
-                                                <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'lead_status' => $child->name]) }}" class="db-kanban-col-header text-decoration-none" title="{{ $child->name }} ({{ $bucket->name }})">
-                                                    <div class="d-flex flex-column overflow-hidden">
-                                                        <span class="db-kanban-col-title" title="{{ $child->name }}">{{ $child->name }}</span>
-                                                        <span class="pipeline-column-header-subtitle">Lead</span>
-                                                    </div>
-                                                    <span class="db-kanban-col-count" id="dbKSubColCount-{{ $bucket->id }}-{{ $child->id }}">{{ $cLeads->count() }}</span>
-                                                </a>
-
-                                                {{-- Body --}}
-                                                <div class="db-kanban-col-body db-sub-dropzone {{ $cLeads->isEmpty() ? 'no-leads' : 'has-leads' }}"
-                                                     id="dbSubKanbanBody-{{ $bucket->id }}-{{ $child->id }}"
-                                                     data-bucket-id="{{ $bucket->id }}"
-                                                     data-bucket-name="{{ $bucket->name }}"
-                                                     data-sub-status="{{ $child->name }}"
-                                                     data-child-id="{{ $child->id }}">
-                                                    @if($cLeads->isEmpty())
-                                                        <div class="db-kanban-empty">
-                                                            <i class="fas fa-layer-group"></i>
-                                                            Drop leads here
-                                                        </div>
-                                                    @else
-                                                        @foreach($cLeads as $kl)
-                                                            @php
-                                                                $kNameStr = optional($kl->user)->name ?? 'Unknown';
-                                                                $kWords = explode(' ', trim($kNameStr));
-                                                                $kInitials = '';
-                                                                if (count($kWords) >= 2) {
-                                                                    $kInitials = strtoupper(substr($kWords[0], 0, 1) . substr($kWords[1], 0, 1));
-                                                                } elseif (count($kWords) == 1 && !empty($kWords[0])) {
-                                                                    $kInitials = strtoupper(substr($kWords[0], 0, 2));
-                                                                }
-
-                                                                $kCompName = $kl->business_name ?: optional($kl->user)->company_name;
-
-                                                                $kEng = strtolower(trim($kl->lead_engagement_status ?? ''));
-                                                                $kPillClass = match($kEng) {
-                                                                    'hot'  => 'pipeline-pill-hot',
-                                                                    'warm' => 'pipeline-pill-warm',
-                                                                    'cold' => 'pipeline-pill-cold',
-                                                                    'dead' => 'pipeline-pill-dead',
-                                                                    default => 'pipeline-pill-new',
-                                                                };
-
-                                                                $kRawPrio = $kl->lead_priority ?: $kl->priority;
-                                                                $kPrio = strtolower(trim($kRawPrio ?? ''));
-                                                                $kPriorityFlag = match($kPrio) {
-                                                                    'high'   => ['class' => 'text-danger', 'label' => 'High'],
-                                                                    'low'    => ['class' => 'text-success', 'label' => 'Low'],
-                                                                    'medium' => ['class' => 'text-warning', 'label' => 'Medium'],
-                                                                    default  => null,
-                                                                };
-                                                                
-                                                                $optLead = [
-                                                                    'id' => $kl->id,
-                                                                    'lead_bucket_id' => $kl->lead_bucket_id,
-                                                                    'lead_status' => $kl->lead_status,
-                                                                    'lead_engagement_status' => $kl->lead_engagement_status,
-                                                                    'product' => $kl->product,
-                                                                    'lead_owner' => $kl->lead_owner,
-                                                                    'lead_source' => $kl->lead_source,
-                                                                    'lead_priority' => $kl->lead_priority,
-                                                                    'business_name' => $kl->business_name,
-                                                                    'description' => $kl->description,
-                                                                    'deal_value' => $kl->deal_value,
-                                                                ];
-                                                                $optUser = [
-                                                                    'id' => optional($kl->user)->id,
-                                                                    'name' => optional($kl->user)->name,
-                                                                    'email' => optional($kl->user)->email,
-                                                                    'contact_no' => optional($kl->user)->contact_no,
-                                                                    'country_code' => optional($kl->user)->country_code,
-                                                                    'company_name' => optional($kl->user)->company_name,
-                                                                ];
-                                                            @endphp
-                                                            <div class="pipeline-card db-kcard"
-                                                                 id="dbSubKCard-{{ $kl->id }}"
-                                                                 draggable="true"
-                                                                 data-lead-id="{{ $kl->id }}"
-                                                                 data-bucket-id="{{ $bucket->id }}"
-                                                                 data-sub-status="{{ $child->name }}">
-
-                                                                {{-- Header Row: Avatar + Name & Company + Quick Action Icons --}}
-                                                                <div class="d-flex align-items-start justify-content-between gap-2">
-                                                                    <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                                                        <div class="pipeline-card-avatar">{{ $kInitials ?: 'LD' }}</div>
-                                                                        <div class="overflow-hidden">
-                                                                            <div class="pipeline-card-title" title="{{ $kNameStr }}">{{ $kNameStr }}</div>
-                                                                            @if($kCompName)
-                                                                                <div class="pipeline-card-company" title="{{ $kCompName }}">{{ $kCompName }}</div>
-                                                                            @endif
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="d-flex align-items-center gap-2 flex-shrink-0 text-muted">
-                                                                        @if(optional($kl->user)->contact_no)
-                                                                            <a href="tel:{{ optional($kl->user)->contact_no }}" class="text-secondary text-hover-primary" style="font-size: 10px;" title="Call"><i class="fas fa-phone-alt"></i></a>
-                                                                        @else
-                                                                            <i class="fas fa-phone-alt opacity-50" style="font-size: 10px;"></i>
-                                                                        @endif
-                                                                        <a href="javascript:void(0);" class="text-secondary text-hover-primary" style="font-size: 10.5px;" title="Edit Lead"
-                                                                            data-lead="{{ json_encode($optLead) }}" data-user="{{ json_encode($optUser) }}"
-                                                                            onclick="event.stopPropagation(); openEditModal(this);"><i class="fas fa-edit"></i></a>
-                                                                    </div>
-                                                                </div>
-
-                                                                {{-- Phone Row --}}
-                                                                <div class="pipeline-card-phone">
-                                                                    <i class="fas fa-phone-alt fs-11 text-muted"></i>
-                                                                    <span>{{ optional($kl->user)->contact_no ?? 'N/A' }}</span>
-                                                                </div>
-
-                                                                {{-- Badges Row --}}
-                                                                <div class="pipeline-card-badges">
-                                                                    @if($kl->product)
-                                                                        <span class="pipeline-pill-badge pipeline-pill-saap">{{ strtoupper($kl->product) }}</span>
-                                                                    @else
-                                                                        <span class="pipeline-pill-badge pipeline-pill-saap">SAAP</span>
-                                                                    @endif
-                                                                    <div class="dropdown d-inline-block" onclick="event.stopPropagation();">
-                                                                        <a href="javascript:void(0);" 
-                                                                           class="pipeline-pill-badge {{ $kPillClass }} dropdown-toggle text-decoration-none" 
-                                                                           data-bs-toggle="dropdown" 
-                                                                           aria-expanded="false"
-                                                                           title="Click to change Engagement Status">
-                                                                            <span>{{ ucfirst($kEng ?: 'New') }}</span>
-                                                                        </a>
-                                                                        <ul class="dropdown-menu engagement-dropdown-menu shadow-sm border-0">
-                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'new', this)"><span class="pipeline-pill-badge pipeline-pill-new">New</span></a></li>
-                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'hot', this)"><span class="pipeline-pill-badge pipeline-pill-hot">Hot</span></a></li>
-                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'warm', this)"><span class="pipeline-pill-badge pipeline-pill-warm">Warm</span></a></li>
-                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'cold', this)"><span class="pipeline-pill-badge pipeline-pill-cold">Cold</span></a></li>
-                                                                            <li><a class="dropdown-item d-flex align-items-center" href="javascript:void(0);" onclick="updateLeadEngagement({{ $kl->id }}, 'dead', this)"><span class="pipeline-pill-badge pipeline-pill-dead">Dead</span></a></li>
-                                                                        </ul>
-                                                                    </div>
-                                                                </div>
-
-                                                                {{-- Owner Row --}}
-                                                                <div class="pipeline-card-owner">
-                                                                    @php
-                                                                        $dbOwnerImg = optional($kl->owner)->profile_image ?: optional($kl->owner)->image;
-                                                                    @endphp
-                                                                    @if($dbOwnerImg)
-                                                                        <img src="{{ asset($dbOwnerImg) }}" class="rounded-circle me-1" width="18" height="18" style="object-fit:cover;" alt="Owner">
-                                                                    @else
-                                                                        <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center fw-bold me-1" style="width:18px;height:18px;font-size:9px;">
-                                                                            {{ strtoupper(substr(optional($kl->owner)->name ?? 'A', 0, 1)) }}
-                                                                        </div>
-                                                                    @endif
-                                                                    <span>{{ optional($kl->owner)->name ?? 'Ayush Pariyani' }}</span>
-                                                                </div>
-
-                                                                {{-- Footer Row: Created Date + Priority Flag --}}
-                                                                <div class="pipeline-card-footer">
-                                                                    <div>
-                                                                        <i class="far fa-calendar me-1"></i>
-                                                                        <span>{{ optional($kl->created_at)->format('d M Y, h:i A') }}</span>
-                                                                    </div>
-                                                                    @if($kPriorityFlag)
-                                                                        <div class="fw-semibold {{ $kPriorityFlag['class'] }}">
-                                                                            <i class="fas fa-flag me-1"></i>{{ $kPriorityFlag['label'] }}
-                                                                        </div>
-                                                                    @endif
-                                                                </div>
-                                                            </div>
-                                                        @endforeach
-                                                    @endif
+                                    {{-- Column Scrollable Cards Area --}}
+                                    <div class="pipeline-cards-container" id="col-cards-container-{{ $bId }}" data-bucket-id="{{ $bId }}">
+                                        <div class="pipeline-cards-list" id="col-cards-list-{{ $bId }}">
+                                            @forelse($colData['leads'] as $leadItem)
+                                                @include('crm.lead.pipeline-card', ['lead' => $leadItem])
+                                            @empty
+                                                <div class="text-center py-4 text-muted empty-col-msg fs-13">
+                                                    <i class="feather-inbox fs-24 d-block mb-1"></i> No leads found
                                                 </div>
-                                            </div>
-                                        @endforeach
-                                    @endif
+                                            @endforelse
+                                        </div>
 
-                                    {{-- Converted Lead Column (Read Only) --}}
-                                    @php
-                                        $cConvLeads = $kanbanConvertedLeads[$bucket->id] ?? collect();
-                                    @endphp
-                                    <div class="db-kanban-col db-subkanban-col db-converted-col"
-                                         id="dbSubKCol-{{ $bucket->id }}-converted"
-                                         data-bucket-id="{{ $bucket->id }}"
-                                         data-bucket-name="{{ $bucket->name }}"
-                                         data-sub-status="Converted Lead"
-                                         data-child-id="converted"
-                                         style="border: 1.5px solid #86efac; background: #f0fdf4;">
-
-                                        {{-- Header --}}
-                                        <a href="{{ route('modern.leads.index', ['bucket_id' => $bucket->id, 'converted' => 1]) }}" class="db-kanban-col-header text-decoration-none" style="background: #dcfce7;" title="Converted Leads ({{ $bucket->name }})">
-                                            <div class="d-flex flex-column overflow-hidden">
-                                                <span class="db-kanban-col-title text-success" title="Converted Lead">
-                                                    <i class="fas fa-check-circle me-1"></i> Converted Lead
-                                                </span>
-                                                <span style="font-size:9.5px;opacity:0.75;font-weight:600;" class="text-truncate text-success">{{ $bucket->name }} (Read Only)</span>
-                                            </div>
-                                            <span class="db-kanban-col-count bg-success text-white" id="dbKSubColCount-{{ $bucket->id }}-converted">{{ $cConvLeads->count() }}</span>
-                                        </a>
-
-                                        {{-- Body (Read-Only: No db-sub-dropzone class) --}}
-                                        <div class="db-kanban-col-body {{ $cConvLeads->isEmpty() ? 'no-leads' : 'has-leads' }}"
-                                             id="dbSubKanbanBody-{{ $bucket->id }}-converted"
-                                             data-bucket-id="{{ $bucket->id }}"
-                                             data-bucket-name="{{ $bucket->name }}"
-                                             data-sub-status="Converted Lead"
-                                             data-child-id="converted">
-                                            @if($cConvLeads->isEmpty())
-                                                <div class="db-kanban-empty text-success opacity-75">
-                                                    <i class="fas fa-check-double mb-1 d-block"></i>
-                                                    No converted leads
-                                                </div>
-                                            @else
-                                                @foreach($cConvLeads as $kl)
-                                                    @php
-                                                        $kNameStr = optional($kl->user)->name ?? 'Unknown';
-                                                        $kWords = explode(' ', trim($kNameStr));
-                                                        $kInitials = '';
-                                                        if (count($kWords) >= 2) {
-                                                            $kInitials = strtoupper(substr($kWords[0], 0, 1) . substr($kWords[1], 0, 1));
-                                                        } elseif (count($kWords) == 1 && !empty($kWords[0])) {
-                                                            $kInitials = strtoupper(substr($kWords[0], 0, 2));
-                                                        }
-
-                                                        $kCompName = $kl->business_name ?: optional($kl->user)->company_name;
-                                                    @endphp
-                                                    <div class="pipeline-card db-kcard border-success-subtle bg-white"
-                                                         draggable="false"
-                                                         data-lead-id="{{ $kl->id }}"
-                                                         data-bucket-id="{{ $bucket->id }}"
-                                                         data-sub-status="Converted Lead"
-                                                         id="dbSubKCard-{{ $kl->id }}">
-
-                                                        {{-- Header Row: Avatar + Name & Company + Quick Action Icons --}}
-                                                        <div class="d-flex align-items-start justify-content-between gap-2">
-                                                            <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                                                <div class="pipeline-card-avatar">{{ $kInitials ?: 'LD' }}</div>
-                                                                <div class="overflow-hidden">
-                                                                    <div class="pipeline-card-title" title="{{ $kNameStr }}">{{ $kNameStr }}</div>
-                                                                    @if($kCompName)
-                                                                        <div class="pipeline-card-company" title="{{ $kCompName }}">{{ $kCompName }}</div>
-                                                                    @endif
-                                                                </div>
-                                                            </div>
-                                                            <div class="d-flex align-items-center gap-2 flex-shrink-0 text-muted">
-                                                                @if(optional($kl->user)->contact_no)
-                                                                    <a href="tel:{{ optional($kl->user)->contact_no }}" class="text-secondary text-hover-primary" style="font-size: 10px;" title="Call"><i class="fas fa-phone-alt"></i></a>
-                                                                @else
-                                                                    <i class="fas fa-phone-alt opacity-50" style="font-size: 10px;"></i>
-                                                                @endif
-                                                                <a href="javascript:void(0);" class="text-secondary text-hover-primary" style="font-size: 10.5px;" title="Edit Lead"
-                                                                    data-lead="{{ json_encode($kl ?? []) }}" data-user="{{ json_encode($kl->user ?? []) }}"
-                                                                    onclick="event.stopPropagation(); openEditModal(this);"><i class="fas fa-edit"></i></a>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Phone Row --}}
-                                                        <div class="pipeline-card-phone">
-                                                            <i class="fas fa-phone-alt fs-11 text-muted"></i>
-                                                            <span>{{ optional($kl->user)->contact_no ?? 'N/A' }}</span>
-                                                        </div>
-
-                                                        {{-- Badges Row --}}
-                                                        <div class="pipeline-card-badges">
-                                                            <span class="pipeline-pill-badge" style="background:#dcfce7; color:#16a34a;">
-                                                                <i class="fas fa-check-circle me-1"></i>Converted
-                                                            </span>
-                                                            @if($kl->product)
-                                                                <span class="pipeline-pill-badge pipeline-pill-saap">{{ strtoupper($kl->product) }}</span>
-                                                            @endif
-                                                        </div>
-
-                                                        {{-- Owner Row --}}
-                                                        <div class="pipeline-card-owner">
-                                                            @php
-                                                                $dbOwnerImg = optional($kl->owner)->profile_image ?: optional($kl->owner)->image;
-                                                            @endphp
-                                                            @if($dbOwnerImg)
-                                                                <img src="{{ asset($dbOwnerImg) }}" class="rounded-circle me-1" width="18" height="18" style="object-fit:cover;" alt="Owner">
-                                                            @else
-                                                                <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center fw-bold me-1" style="width:18px;height:18px;font-size:9px;">
-                                                                    {{ strtoupper(substr(optional($kl->owner)->name ?? 'A', 0, 1)) }}
-                                                                </div>
-                                                            @endif
-                                                            <span>{{ optional($kl->owner)->name ?? 'Ayush Pariyani' }}</span>
-                                                        </div>
-
-                                                        {{-- Footer Row --}}
-                                                        <div class="pipeline-card-footer">
-                                                            <div>
-                                                                <i class="far fa-calendar me-1"></i>
-                                                                <span>{{ optional($kl->created_at)->format('d M Y, h:i A') }}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                @endforeach
-                                            @endif
+                                        {{-- Column Loader & Sentinel for Infinite Scroll --}}
+                                        <div class="pipeline-scroll-sentinel text-center py-2 fs-12 text-muted" 
+                                             id="col-sentinel-{{ $bId }}"
+                                             data-bucket-id="{{ $bId }}"
+                                             data-has-more="{{ $colData['has_more'] ? '1' : '0' }}"
+                                             data-next-page="{{ $colData['next_page'] ?? '2' }}"
+                                             style="{{ $colData['has_more'] ? '' : 'display:none;' }}">
+                                            <span class="spinner-border spinner-border-sm text-primary me-1 col-spinner" style="display:none;" role="status"></span>
+                                            <span class="sentinel-text">Loading more...</span>
                                         </div>
                                     </div>
-                                @endforeach
-                            </div>
+                                </div>
+                            @endforeach
                         </div>
-
-                        {{-- Sub-Status Drag & Drop JS --}}
-                        <script>
-                        function dbFilterSubKanban(bucketId) {
-                            document.querySelectorAll('.db-subkanban-col').forEach(col => {
-                                if (bucketId === 'all' || col.dataset.bucketId === String(bucketId)) {
-                                    col.style.display = 'flex';
-                                } else {
-                                    col.style.display = 'none';
-                                }
-                            });
-                        }
-
-                        function updateLeadEngagement(leadId, status, el) {
-                            var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || "{{ csrf_token() }}";
-                            fetch(`/lead/${leadId}/engagement-status`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': csrfToken,
-                                    'Accept': 'application/json'
-                                },
-                                body: JSON.stringify({ lead_engagement_status: status })
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.status) {
-                                    if (typeof Swal !== 'undefined') {
-                                        Swal.fire({
-                                            icon: 'success',
-                                            title: 'Updated!',
-                                            text: 'Engagement status updated successfully.',
-                                            toast: true,
-                                            position: 'top-end',
-                                            showConfirmButton: false,
-                                            timer: 1500
-                                        });
-                                    }
-                                    setTimeout(function() { location.reload(); }, 500);
-                                } else {
-                                    alert(data.message || 'Could not update status');
-                                }
-                            })
-                            .catch(err => {
-                                console.error(err);
-                                alert('Failed to update engagement status');
-                            });
-                        }
-
-                        (function () {
-                            const initialFilter = document.getElementById('dbSubKanbanFilter')?.value;
-                            if (initialFilter) {
-                                dbFilterSubKanban(initialFilter);
-                            }
-
-                            const dragBase  = "{{ url('/modern-leads/drag-update') }}";
-                            const csrf      = "{{ csrf_token() }}";
-                            let subDragged  = null;
-                            let srcSubCol   = null;
-
-                            function attachSubCard(card) {
-                                card.addEventListener('dragstart', function(e) {
-                                    subDragged = this;
-                                    srcSubCol  = this.closest('.db-subkanban-col');
-                                    setTimeout(() => this.classList.add('dragging'), 0);
-                                    e.dataTransfer.effectAllowed = 'move';
-                                    e.dataTransfer.setData('text/plain', this.dataset.leadId);
-                                });
-                                card.addEventListener('dragend', function() {
-                                    this.classList.remove('dragging');
-                                    document.querySelectorAll('.db-subkanban-col').forEach(c => c.classList.remove('drag-over'));
-                                    subDragged = null; srcSubCol = null;
-                                });
-                            }
-
-                            function attachSubCol(col) {
-                                col.addEventListener('dragover', function(e) {
-                                    e.preventDefault(); this.classList.add('drag-over');
-                                });
-                                col.addEventListener('dragleave', function() {
-                                    this.classList.remove('drag-over');
-                                });
-                                col.addEventListener('drop', function(e) {
-                                    e.preventDefault();
-                                    this.classList.remove('drag-over');
-
-                                    if (!subDragged || !srcSubCol || col === srcSubCol) return;
-
-                                    const tBucketId   = this.dataset.bucketId;
-                                    const tBucketName = this.dataset.bucketName;
-                                    const tSubStatus  = this.dataset.subStatus;
-                                    const tChildId    = this.dataset.childId;
-                                    const leadId      = e.dataTransfer.getData('text/plain');
-
-                                    const sBucketId = srcSubCol.dataset.bucketId;
-                                    const sChildId  = srcSubCol.dataset.childId;
-
-                                    const body = this.querySelector('.db-kanban-col-body');
-                                    const emptyEl = body.querySelector('.db-kanban-empty');
-                                    if (emptyEl) emptyEl.remove();
-
-                                    body.classList.remove('no-leads');
-                                    body.classList.add('has-leads');
-
-                                    body.appendChild(subDragged);
-                                    subDragged.dataset.bucketId  = tBucketId;
-                                    subDragged.dataset.subStatus = tSubStatus;
-
-                                    // Source column empty?
-                                    const srcBody = srcSubCol.querySelector('.db-kanban-col-body');
-                                    if (srcBody && srcBody.querySelectorAll('.db-kcard').length === 0) {
-                                        srcBody.classList.remove('has-leads');
-                                        srcBody.classList.add('no-leads');
-                                        srcBody.innerHTML = `<div class="db-kanban-empty"><i class="fas fa-layer-group"></i>Drop leads here</div>`;
-                                    }
-
-                                    // Update Sub-Status Counts
-                                    const srcSubCount = document.querySelector(`#dbKSubColCount-${sBucketId}-${sChildId}`);
-                                    const tgtSubCount = document.querySelector(`#dbKSubColCount-${tBucketId}-${tChildId}`);
-                                    if (srcSubCount) srcSubCount.textContent = Math.max(0, parseInt(srcSubCount.textContent) - 1);
-                                    if (tgtSubCount) tgtSubCount.textContent = parseInt(tgtSubCount.textContent) + 1;
-
-                                    // Also update Top Main Status Counts if Bucket changed
-                                    if (sBucketId !== tBucketId) {
-                                        const srcMainCount = document.querySelector(`#dbKColCount-${sBucketId}`);
-                                        const tgtMainCount = document.querySelector(`#dbKColCount-${tBucketId}`);
-                                        if (srcMainCount) srcMainCount.textContent = Math.max(0, parseInt(srcMainCount.textContent) - 1);
-                                        if (tgtMainCount) tgtMainCount.textContent = parseInt(tgtMainCount.textContent) + 1;
-                                    }
-
-                                    // AJAX Update
-                                    fetch(`${dragBase}/${leadId}`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-                                        body: JSON.stringify({ lead_bucket_id: parseInt(tBucketId), lead_status: tSubStatus }),
-                                    })
-                                    .then(r => r.json())
-                                    .then(d => dbShowToast(d.success ? `✅ Sub-status updated to <strong>${tSubStatus}</strong>` : '❌ Failed', d.success ? 'success' : 'danger'))
-                                    .catch(() => dbShowToast('❌ Network error.', 'danger'));
-                                });
-                            }
-
-                            document.querySelectorAll('#dbSubKanbanBoard .db-kcard').forEach(attachSubCard);
-                            document.querySelectorAll('#dbSubKanbanBoard .db-subkanban-col').forEach(attachSubCol);
-
-                            window.dbChangeEngagement = function(leadId, newStatus, element) {
-                                const dragBase  = "{{ url('/modern-leads/drag-update') }}";
-                                const csrf      = "{{ csrf_token() }}";
-                                const container = element.closest('.db-star-rating-bar');
-                                const st        = newStatus.toLowerCase();
-
-                                if (container) {
-                                    if (st === 'dead') {
-                                        container.style.cssText = "padding: 2px 6px; border-radius: 12px; background: #ffebee; border: 1px solid #ffcdd2;";
-                                        container.innerHTML = `
-                                            <i class="fas fa-star db-star-btn text-danger" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement(${leadId}, 'cold', this)" title="Set Cold (1 Star)"></i>
-                                            <i class="fas fa-star db-star-btn text-danger" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement(${leadId}, 'warm', this)" title="Set Warm (2 Stars)"></i>
-                                            <i class="fas fa-star db-star-btn text-danger" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement(${leadId}, 'hot', this)" title="Set Hot (3 Stars)"></i>
-                                            <i class="fas fa-times-circle db-star-btn text-danger ms-1" style="font-size:11px; cursor:pointer; opacity:0.9;" onclick="dbChangeEngagement(${leadId}, 'dead', this)" title="Dead"></i>
-                                        `;
-                                    } else {
-                                        container.style.cssText = "padding: 2px 6px; border-radius: 12px; background: #fff8e1; border: 1px solid #ffe082;";
-                                        const s1Class = 'fas fa-star text-warning';
-                                        const s2Class = (st === 'hot' || st === 'warm') ? 'fas fa-star text-warning' : 'far fa-star text-muted';
-                                        const s3Class = (st === 'hot') ? 'fas fa-star text-warning' : 'far fa-star text-muted';
-                                        const s2Op = (st === 'cold') ? '0.4' : '1';
-                                        const s3Op = (st === 'hot') ? '1' : '0.4';
-
-                                        container.innerHTML = `
-                                            <i class="${s1Class} db-star-btn" style="font-size:10px; cursor:pointer;" onclick="dbChangeEngagement(${leadId}, 'cold', this)" title="Set Cold (1 Star)"></i>
-                                            <i class="${s2Class} db-star-btn" style="font-size:10px; cursor:pointer; opacity:${s2Op};" onclick="dbChangeEngagement(${leadId}, 'warm', this)" title="Set Warm (2 Stars)"></i>
-                                            <i class="${s3Class} db-star-btn" style="font-size:10px; cursor:pointer; opacity:${s3Op};" onclick="dbChangeEngagement(${leadId}, 'hot', this)" title="Set Hot (3 Stars)"></i>
-                                            <i class="fas fa-times-circle db-star-btn text-muted ms-1" style="font-size:11px; cursor:pointer; opacity:0.4;" onclick="dbChangeEngagement(${leadId}, 'dead', this)" title="Set Dead"></i>
-                                        `;
-                                    }
-                                }
-
-                                fetch(`${dragBase}/${leadId}`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': csrf,
-                                        'Accept': 'application/json'
-                                    },
-                                    body: JSON.stringify({ lead_engagement_status: newStatus })
-                                })
-                                .then(r => r.json())
-                                .then(d => {
-                                    if (typeof dbShowToast === 'function') {
-                                        dbShowToast(d.success ? `✅ Engagement updated to <strong>${newStatus.toUpperCase()}</strong>` : '❌ Failed', d.success ? 'success' : 'danger');
-                                    }
-                                })
-                                .catch(() => {
-                                    if (typeof dbShowToast === 'function') {
-                                        dbShowToast('❌ Network error.', 'danger');
-                                    }
-                                });
-                            };
-
-                            function dbShowToast(msg, type='success') {
-                                let t = document.getElementById('dbKanbanToast');
-                                if (!t) {
-                                    t = document.createElement('div');
-                                    t.id = 'dbKanbanToast';
-                                    t.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,0.15);transition:opacity 0.3s;min-width:220px;max-width:340px;line-height:1.5;';
-                                    document.body.appendChild(t);
-                                }
-                                t.style.background = type==='success'?'#e8f5e9':'#ffebee';
-                                t.style.color      = type==='success'?'#2e7d32':'#c62828';
-                                t.style.opacity    = '1'; t.innerHTML = msg;
-                                clearTimeout(t._timer);
-                                t._timer = setTimeout(() => t.style.opacity = '0', 3000);
-                            }
-                        })();
-                        </script>
-
-                    </div>{{-- /card-body --}}
+                    </div>
                 </div>
-            </div>
+            </div>{{-- /col-12 Pipeline Board --}}
 
-            <!-- [Goal Progress] start -->
-            <div class="col-xxl-4">
-                <div class="card stretch stretch-full">
-                    <div class="card-header">
-                        <h5 class="card-title">Lead Engagement Progress</h5>
-                        <div class="card-header-action">
-                            <div class="card-header-btn">
-                                <div data-bs-toggle="tooltip" title="Delete">
-                                    <a href="javascript:void(0);" class="avatar-text avatar-xs bg-danger"
-                                        data-bs-toggle="remove"></a>
-                                </div>
-                                <div data-bs-toggle="tooltip" title="Refresh">
-                                    <a href="javascript:void(0);" class="avatar-text avatar-xs bg-brand"
-                                        data-bs-toggle="refresh"></a>
-                                </div>
-                                <div data-bs-toggle="tooltip" title="Maximize/Minimize">
-                                    <a href="javascript:void(0);" class="avatar-text avatar-xs bg-success"
-                                        data-bs-toggle="expand"></a>
-                                </div>
-                            </div>
-                            <div class="dropdown">
-                                <a href="javascript:void(0);" class="avatar-text avatar-sm" data-bs-toggle="dropdown"
-                                    data-bs-offset="25, 25">
-                                    <div data-bs-toggle="tooltip" title="Options">
-                                        <i class="feather-more-vertical"></i>
-                                    </div>
-                                </a>
-                                <div class="dropdown-menu dropdown-menu-end">
-                                    <a href="javascript:void(0);" class="dropdown-item"><i
-                                            class="feather-at-sign"></i>New</a>
-                                    <a href="javascript:void(0);" class="dropdown-item"><i
-                                            class="feather-calendar"></i>Event</a>
-                                    <a href="javascript:void(0);" class="dropdown-item"><i
-                                            class="feather-bell"></i>Snoozed</a>
-                                    <a href="javascript:void(0);" class="dropdown-item"><i
-                                            class="feather-trash-2"></i>Deleted</a>
-                                    <div class="dropdown-divider"></div>
-                                    <a href="javascript:void(0);" class="dropdown-item"><i
-                                            class="feather-settings"></i>Settings</a>
-                                    <a href="javascript:void(0);" class="dropdown-item"><i
-                                            class="feather-life-buoy"></i>Tips & Tricks</a>
-                                </div>
-                            </div>
-                        </div>
+            <!-- [Lead Engagement Progress] -->
+            <div class="col-xxl-4 col-xl-4 col-lg-5 col-12 mb-4">
+                <div class="card stretch stretch-full h-100 shadow-sm">
+                    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+                        <h5 class="card-title mb-0 fw-bold text-dark">Lead Engagement Progress</h5>
                     </div>
 
                     <div class="card-body custom-card-action">
@@ -1311,7 +650,7 @@
                                     [
                                         'key' => 'cold',
                                         'label' => 'Cold Leads',
-                                        'color' => '#02a0e4', // Info Blue/Cyan to differentiate from brand blue
+                                        'color' => '#02a0e4',
                                         'icon' => 'bi-snow',
                                         'iconClass' => 'text-info',
                                     ],
@@ -1339,61 +678,47 @@
                                     $remainingEngagement = $totalEngagement - $knownEngagementTotal;
                             @endphp
                             <div class="col-sm-6">
-                                <div class="px-4 py-3 text-center border border-dashed rounded-3">
-                                    <div class="mx-auto mb-1 position-relative" style="width: 100px; height: 100px;">
-                                        <!-- SVG Circular Progress -->
-                                        <svg width="100" height="100" viewBox="0 0 100 100">
-                                            <!-- Background track -->
-                                            <circle cx="50" cy="50" r="42" fill="none" stroke="#e9ecef"
-                                                stroke-width="5" />
-                                            <!-- Colored progress arc -->
+                                <div class="px-3 py-3 text-center border border-dashed rounded-3 h-100 d-flex flex-column justify-content-between">
+                                    <div class="mx-auto mb-1 position-relative" style="width: 85px; height: 85px;">
+                                        <svg width="85" height="85" viewBox="0 0 100 100">
+                                            <circle cx="50" cy="50" r="42" fill="none" stroke="#e9ecef" stroke-width="6" />
                                             <circle cx="50" cy="50" r="42" fill="none" stroke="{{ $item['color'] }}"
-                                                stroke-width="5" stroke-linecap="round" stroke-dasharray="263.89"
+                                                stroke-width="6" stroke-linecap="round" stroke-dasharray="263.89"
                                                 stroke-dashoffset="{{ 263.89 * (1 - $percent / 100) }}"
                                                 transform="rotate(-90 50 50)" />
                                         </svg>
-
-                                        <!-- Center percentage + count -->
                                         <div class="position-absolute top-50 start-50 translate-middle text-center">
                                             <div class="fs-6 fw-bold">{{ $percent }}%</div>
                                         </div>
-
                                     </div>
 
-                                    <!-- Icon on top of circle -->
-                                    <div class="">
+                                    <div>
                                         <i class="bi {{ $item['icon'] }} fs-6 {{ $item['iconClass'] }}"></i>
-                                    </div>
-                                    <h2 class="fs-13 tx-spacing-1 mb-1">{{ $item['label'] }}</h2>
-                                    <div class="fs-11 text-muted">
-                                        {{ $count }} / {{ $totalEngagement }} leads
+                                        <h2 class="fs-13 tx-spacing-1 mb-1 mt-1">{{ $item['label'] }}</h2>
+                                        <div class="fs-11 text-muted">
+                                            {{ $count }} / {{ $totalEngagement }} leads
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             @endforeach
 
                             @if($remainingEngagement > 0)
-                            <div class="mb-2 text-muted small">
+                            <div class="col-12 text-muted small text-center">
                                 Engagement status not available in
                                 <strong>{{ $remainingEngagement }}</strong> leads
                             </div>
                             @endif
                         </div>
                     </div>
-
-                    <div class="card-footer text-center">
-                        <a href="javascript:void(0);" class="btn btn-primary w-100">GENERATE REPORT</a>
-                    </div>
                 </div>
             </div>
-            <!-- [Goal Progress] end -->
-            <!-- [Marketing Campaign] start -->
 
-            <!-- [New Leads by Month - Duralux Style] -->
-            <div class="col-xxl-8">
-                <div class="card stretch stretch-full">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">New Leads by Month</h5>
+            <!-- [New Leads by Month] -->
+            <div class="col-xxl-8 col-xl-8 col-lg-7 col-12 mb-4">
+                <div class="card stretch stretch-full h-100 shadow-sm">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 fw-bold text-dark">New Leads by Month</h5>
 
                        @if(auth()->user()->role_id === 1 && collect($monthlyChartData)->count() > 1)
                         <select id="monthlyUserSelect" class="form-select form-select-sm w-auto">
@@ -1410,15 +735,15 @@
                         <div id="monthly-new-leads-chart" style="min-height: 340px; padding: 15px;"></div>
                     </div>
 
-                    <div class="card-footer d-md-flex flex-wrap p-4 pt-5 border-top border-gray-5">
-                        <div class="flex-fill mb-4 mb-md-0 pb-2 pb-md-0 text-center text-md-start">
+                    <div class="card-footer d-md-flex flex-wrap p-4 pt-4 border-top border-gray-5">
+                        <div class="flex-fill mb-2 mb-md-0 text-center text-md-start">
                             <p class="fs-11 fw-semibold text-uppercase text-primary mb-1">Total in Period</p>
                             <h2 id="chartTotal" class="fs-22 fw-bold mb-0">0</h2>
                         </div>
 
                         <div class="vr mx-4 text-gray-600 d-none d-md-flex"></div>
 
-                        <div class="flex-fill mb-4 mb-md-0 pb-2 pb-md-0 text-center text-md-start">
+                        <div class="flex-fill mb-2 mb-md-0 text-center text-md-start">
                             <p class="fs-11 fw-semibold text-uppercase text-primary mb-1">Current Month</p>
                             <h2 id="currentMonthTotal" class="fs-22 fw-bold mb-0">0</h2>
                             <span id="growthBadge" class="fs-12"></span>
@@ -1426,151 +751,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- new source wise chart -->
-            <div class="col-xxl-12">
-                <div class="card stretch stretch-full">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">New Leads by Source</h5>
-
-                        <!-- SOURCE DROPDOWN -->
-                        @if(count($sourceChartData) > 1)
-                            <select id="sourceSelect" class="form-select form-select-sm w-auto">
-                                @foreach($sourceChartData as $index => $item)
-                                    <option value="{{ $index }}" {{ $index === 0 ? 'selected' : '' }}>
-                                        {{ $item['source_name'] }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        @endif
-                    </div>
-
-                    <div class="card-body p-0">
-                        <div id="source-chart" style="min-height: 340px; padding: 15px;"></div>
-                    </div>
-
-                    <!-- Footer Stats -->
-                    <div class="card-footer d-md-flex flex-wrap p-4 pt-5 border-top border-gray-5">
-                        <div class="flex-fill text-center text-md-start">
-                            <p class="fs-11 text-uppercase text-primary mb-1">Total in Period</p>
-                            <h2 id="sourceTotal" class="fs-22 fw-bold mb-0">0</h2>
-                        </div>
-
-                        <div class="vr mx-4 d-none d-md-flex"></div>
-
-                        <div class="flex-fill text-center text-md-start">
-                            <p class="fs-11 text-uppercase text-primary mb-1">Current Month</p>
-                            <h2 id="sourceCurrent" class="fs-22 fw-bold mb-0">0</h2>
-                            <span id="sourceGrowth" class="fs-12"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- source wise js -->
-            <script>
-                document.addEventListener('DOMContentLoaded', function () {
-
-                    const sourceData = @json($sourceChartData ?? []);
-                    const categories = @json($chartCategories ?? []);
-
-                    if (!sourceData.length) return;
-
-                    let chart;
-                    let currentIndex = 0;
-
-                    function renderChart(index) {
-
-                        const data = sourceData[index];
-                        const seriesData = data.series;
-                        const total = data.total;
-
-                        // Growth Calculation
-                        const last = seriesData[seriesData.length - 1] || 0;
-                        const prev = seriesData.length >= 2 ? seriesData[seriesData.length - 2] : 0;
-
-                        const growth = prev > 0
-                            ? Math.round(((last - prev) / prev) * 100)
-                            : (last > 0 ? 100 : 0);
-
-                        // Update Footer
-                        document.getElementById('sourceTotal').textContent = total.toLocaleString();
-                        document.getElementById('sourceCurrent').textContent = last.toLocaleString();
-
-                        const badge = document.getElementById('sourceGrowth');
-                        badge.textContent = growth !== 0 ? `${growth >= 0 ? '+' : ''}${growth}% vs previous` : '';
-                        badge.className = `fs-12 ${growth >= 0 ? 'text-success' : 'text-danger'}`;
-
-                        // Chart Update / Create
-                        if (chart) {
-                            chart.updateOptions({
-                                xaxis: { categories: categories }
-                            }, false, true);
-
-                            chart.updateSeries([{
-                                name: data.source_name,
-                                data: seriesData
-                            }]);
-
-                        } else {
-                            chart = new ApexCharts(document.querySelector("#source-chart"), {
-                                chart: {
-                                    type: 'bar',
-                                    height: 340,
-                                    toolbar: { show: false }
-                                },
-                                plotOptions: {
-                                    bar: {
-                                        columnWidth: '48%',
-                                        borderRadius: 6
-                                    }
-                                },
-                                dataLabels: {
-                                    enabled: true,
-                                    formatter: val => val > 0 ? val : '',
-                                    offsetY: -20
-                                },
-                                series: [{
-                                    name: data.source_name,
-                                    data: seriesData
-                                }],
-                                xaxis: {
-                                    categories: categories,
-                                    labels: {
-                                        rotate: -45
-                                    }
-                                },
-                                colors: ['#3454d1'],
-                                yaxis: {
-                                    min: 0
-                                },
-                                grid: {
-                                    strokeDashArray: 4
-                                },
-                                tooltip: {
-                                    y: {
-                                        formatter: val => val + " leads"
-                                    }
-                                }
-                            });
-
-                            chart.render();
-                        }
-                    }
-
-                    // Initial Load
-                    renderChart(currentIndex);
-
-                    // Dropdown Change
-                    document.getElementById("sourceSelect")?.addEventListener("change", function () {
-                        currentIndex = parseInt(this.value);
-                        renderChart(currentIndex);
-                    });
-
-                });
-            </script>
-
-            <!-- JavaScript -->
+            <!-- JavaScript for Monthly Chart -->
             <script>
                 document.addEventListener('DOMContentLoaded', function() {
 
@@ -1753,10 +934,10 @@
                     background-color: #e9ecef !important;
                 }
             </style>
-            <div class="col-xxl-8">
-                <div class="card stretch stretch-full">
-                    <div class="card-header">
-                        <h5 class="card-title">Recent Leads Progress</h5>
+            <div class="col-xxl-8 col-xl-8 col-lg-7 col-12 mb-4">
+                <div class="card stretch stretch-full h-100 shadow-sm">
+                    <div class="card-header bg-white py-3 border-bottom">
+                        <h5 class="card-title mb-0 fw-bold text-dark">Recent Leads Progress</h5>
                     </div>
 
                     <div class="card-body p-0">
@@ -1844,17 +1025,17 @@
                 </div>
 
                 <a href="{{ route('lead.index') }}"
-                    class="card-footer fs-11 fw-bold text-uppercase text-center">
+                    class="card-footer fs-11 fw-bold text-uppercase text-center border-top">
                     View All Leads
                 </a>
             </div>
         </div>
         <!-- [Projects Stats] end -->
         <!-- [Leads Overview] start -->
-        <div class="col-xxl-4">
-            <div class="card stretch stretch-full">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Sales Performance</h5>
+        <div class="col-xxl-4 col-xl-4 col-lg-5 col-12 mb-4">
+            <div class="card stretch stretch-full h-100 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center bg-white py-3 border-bottom">
+                    <h5 class="card-title mb-0 fw-bold text-dark">Sales Performance</h5>
 
                     @if(count($salesUserPerformance) > 0 && Auth()->user()->role_id === 1)
                     <select id="userSelect" class="form-select form-select-sm w-auto">
@@ -2170,6 +1351,149 @@
             </div>
         </div>
         <!-- [Project Remainders] end -->
+
+        <!-- [New Leads by Source] -->
+        <div class="col-xxl-12 col-12 mb-4">
+            <div class="card stretch stretch-full shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center bg-white py-3 border-bottom">
+                    <h5 class="card-title mb-0 fw-bold text-dark">New Leads by Source</h5>
+
+                    <!-- SOURCE DROPDOWN -->
+                    @if(count($sourceChartData) > 1)
+                        <select id="sourceSelect" class="form-select form-select-sm w-auto">
+                            @foreach($sourceChartData as $index => $item)
+                                <option value="{{ $index }}" {{ $index === 0 ? 'selected' : '' }}>
+                                    {{ $item['source_name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
+                </div>
+
+                <div class="card-body p-0">
+                    <div id="source-chart" style="min-height: 340px; padding: 15px;"></div>
+                </div>
+
+                <!-- Footer Stats -->
+                <div class="card-footer d-md-flex flex-wrap p-4 pt-4 border-top border-gray-5">
+                    <div class="flex-fill text-center text-md-start">
+                        <p class="fs-11 text-uppercase text-primary mb-1">Total in Period</p>
+                        <h2 id="sourceTotal" class="fs-22 fw-bold mb-0">0</h2>
+                    </div>
+
+                    <div class="vr mx-4 d-none d-md-flex"></div>
+
+                    <div class="flex-fill text-center text-md-start">
+                        <p class="fs-11 text-uppercase text-primary mb-1">Current Month</p>
+                        <h2 id="sourceCurrent" class="fs-22 fw-bold mb-0">0</h2>
+                        <span id="sourceGrowth" class="fs-12"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- source wise js -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+
+                const sourceData = @json($sourceChartData ?? []);
+                const categories = @json($chartCategories ?? []);
+
+                if (!sourceData.length) return;
+
+                let chart;
+                let currentIndex = 0;
+
+                function renderChart(index) {
+
+                    const data = sourceData[index];
+                    const seriesData = data.series;
+                    const total = data.total;
+
+                    // Growth Calculation
+                    const last = seriesData[seriesData.length - 1] || 0;
+                    const prev = seriesData.length >= 2 ? seriesData[seriesData.length - 2] : 0;
+
+                    const growth = prev > 0
+                        ? Math.round(((last - prev) / prev) * 100)
+                        : (last > 0 ? 100 : 0);
+
+                    // Update Footer
+                    document.getElementById('sourceTotal').textContent = total.toLocaleString();
+                    document.getElementById('sourceCurrent').textContent = last.toLocaleString();
+
+                    const badge = document.getElementById('sourceGrowth');
+                    badge.textContent = growth !== 0 ? `${growth >= 0 ? '+' : ''}${growth}% vs previous` : '';
+                    badge.className = `fs-12 ${growth >= 0 ? 'text-success' : 'text-danger'}`;
+
+                    // Chart Update / Create
+                    if (chart) {
+                        chart.updateOptions({
+                            xaxis: { categories: categories }
+                        }, false, true);
+
+                        chart.updateSeries([{
+                            name: data.source_name,
+                            data: seriesData
+                        }]);
+
+                    } else {
+                        chart = new ApexCharts(document.querySelector("#source-chart"), {
+                            chart: {
+                                type: 'bar',
+                                height: 340,
+                                toolbar: { show: false }
+                            },
+                            plotOptions: {
+                                bar: {
+                                    columnWidth: '48%',
+                                    borderRadius: 6
+                                }
+                            },
+                            dataLabels: {
+                                enabled: true,
+                                formatter: val => val > 0 ? val : '',
+                                offsetY: -20
+                            },
+                            series: [{
+                                name: data.source_name,
+                                data: seriesData
+                            }],
+                            xaxis: {
+                                categories: categories,
+                                labels: {
+                                    rotate: -45
+                                }
+                            },
+                            colors: ['#3454d1'],
+                            yaxis: {
+                                min: 0
+                            },
+                            grid: {
+                                strokeDashArray: 4
+                            },
+                            tooltip: {
+                                y: {
+                                    formatter: val => val + " leads"
+                                }
+                            }
+                        });
+
+                        chart.render();
+                    }
+                }
+
+                // Initial Load
+                renderChart(currentIndex);
+
+                // Dropdown Change
+                document.getElementById("sourceSelect")?.addEventListener("change", function () {
+                    currentIndex = parseInt(this.value);
+                    renderChart(currentIndex);
+                });
+
+            });
+        </script>
         <style>
             /* Fix comment column width */
             .last-comment-col {
@@ -2810,4 +2134,201 @@
             myModal.show();
         }
     </script>
+
+    {{-- Pipeline Board Scripts --}}
+    <script>
+    (function () {
+        const dragUpdateUrlBase = "{{ url('/new-leads-table/pipeline/drag-update') }}";
+        const cardsUrl = "{{ route('leads.table.pipeline.cards') }}";
+        let draggedCard = null;
+        let sourceBucketId = null;
+        let sourceCardsList = null;
+        let loadingColumns = {};
+
+        function initDragAndDrop() {
+            const cards = document.querySelectorAll('.pipeline-lead-card');
+            const columns = document.querySelectorAll('.pipeline-column');
+
+            cards.forEach(card => {
+                card.removeEventListener('dragstart', handleDragStart);
+                card.removeEventListener('dragend', handleDragEnd);
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+            });
+
+            columns.forEach(column => {
+                column.removeEventListener('dragover', handleDragOver);
+                column.removeEventListener('dragleave', handleDragLeave);
+                column.removeEventListener('drop', handleDrop);
+                column.addEventListener('dragover', handleDragOver);
+                column.addEventListener('dragleave', handleDragLeave);
+                column.addEventListener('drop', handleDrop);
+            });
+        }
+
+        function handleDragStart(e) {
+            draggedCard = this;
+            sourceBucketId = this.getAttribute('data-bucket-id');
+            sourceCardsList = this.closest('.pipeline-cards-list');
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.getAttribute('data-lead-id'));
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.pipeline-column').forEach(col => col.classList.remove('drag-over'));
+            draggedCard = null;
+            sourceBucketId = null;
+            sourceCardsList = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+
+            if (!draggedCard) return;
+
+            const leadId = e.dataTransfer.getData('text/plain');
+            const targetBucketId = this.getAttribute('data-bucket-id');
+            const targetCardsList = document.getElementById(`col-cards-list-${targetBucketId}`);
+
+            if (!targetCardsList || targetBucketId === sourceBucketId) return;
+
+            const emptyMsg = targetCardsList.querySelector('.empty-col-msg');
+            if (emptyMsg) emptyMsg.remove();
+
+            if (sourceCardsList && sourceCardsList.querySelectorAll('.pipeline-lead-card').length <= 1) {
+                sourceCardsList.innerHTML = `<div class="text-center py-4 text-muted empty-col-msg fs-13"><i class="feather-inbox fs-24 d-block mb-1"></i> No leads found</div>`;
+            }
+
+            draggedCard.setAttribute('data-bucket-id', targetBucketId);
+            targetCardsList.prepend(draggedCard);
+
+            if (sourceBucketId) updateColumnCount(sourceBucketId, -1);
+            if (targetBucketId) updateColumnCount(targetBucketId, 1);
+
+            fetch(`${dragUpdateUrlBase}/${leadId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    target_bucket_id: targetBucketId
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    if (sourceBucketId) draggedCard.setAttribute('data-bucket-id', sourceBucketId);
+                    sourceCardsList.prepend(draggedCard);
+                    if (sourceBucketId) updateColumnCount(sourceBucketId, 1);
+                    if (targetBucketId) updateColumnCount(targetBucketId, -1);
+                    alert(data.message || 'Failed to update lead status');
+                }
+            })
+            .catch(err => {
+                console.error('Drag update error:', err);
+                if (sourceBucketId) draggedCard.setAttribute('data-bucket-id', sourceBucketId);
+                sourceCardsList.prepend(draggedCard);
+                if (sourceBucketId) updateColumnCount(sourceBucketId, 1);
+                if (targetBucketId) updateColumnCount(targetBucketId, -1);
+            });
+        }
+
+        function updateColumnCount(bucketId, delta) {
+            const badge = document.getElementById(`col-count-${bucketId}`);
+            if (badge) {
+                let current = parseInt(badge.textContent.replace(/,/g, '')) || 0;
+                current = Math.max(0, current + delta);
+                badge.textContent = current.toLocaleString();
+            }
+        }
+
+        function setupInfiniteScroll() {
+            const sentinels = document.querySelectorAll('.pipeline-scroll-sentinel');
+            sentinels.forEach(sentinel => {
+                const bucketId = sentinel.getAttribute('data-bucket-id');
+                const container = document.getElementById(`col-cards-container-${bucketId}`);
+                if (!container) return;
+
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            loadMoreCards(bucketId);
+                        }
+                    });
+                }, {
+                    root: container,
+                    threshold: 0.1
+                });
+                observer.observe(sentinel);
+            });
+        }
+
+        function loadMoreCards(bucketId) {
+            const sentinel = document.getElementById(`col-sentinel-${bucketId}`);
+            if (!sentinel) return;
+
+            const hasMore = sentinel.getAttribute('data-has-more') === '1';
+            const nextPage = parseInt(sentinel.getAttribute('data-next-page')) || 2;
+
+            if (!hasMore || loadingColumns[bucketId]) return;
+
+            loadingColumns[bucketId] = true;
+            const spinner = sentinel.querySelector('.col-spinner');
+            if (spinner) spinner.style.display = 'inline-block';
+
+            fetch(`${cardsUrl}?bucket_id=${bucketId}&page=${nextPage}`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.cards_html) {
+                    const cardsList = document.getElementById(`col-cards-list-${bucketId}`);
+                    if (cardsList) {
+                        cardsList.insertAdjacentHTML('beforeend', data.cards_html);
+                        initDragAndDrop();
+                    }
+                    sentinel.setAttribute('data-has-more', data.has_more ? '1' : '0');
+                    sentinel.setAttribute('data-next-page', data.next_page || (nextPage + 1));
+                    sentinel.style.display = data.has_more ? 'block' : 'none';
+                } else {
+                    sentinel.setAttribute('data-has-more', '0');
+                    sentinel.style.display = 'none';
+                }
+            })
+            .catch(err => {
+                console.error('Error loading column cards:', err);
+            })
+            .finally(() => {
+                loadingColumns[bucketId] = false;
+                if (spinner) spinner.style.display = 'none';
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initDragAndDrop();
+            setupInfiniteScroll();
+        });
+    })();
+    </script>
+
+    @include('crm.lead.partials.lead-interaction-modals')
+    @include('crm.lead.partials.lead-interaction-scripts')
 @endsection

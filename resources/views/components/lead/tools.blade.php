@@ -138,19 +138,23 @@
 
                     <div class="dropdown-divider"></div>
 
+                    @unless(request()->routeIs('leads.table.*'))
                     <a href="{{ route('lead.sample') }}" class="dropdown-item">Download Sample</a>
                     
                     <div class="dropdown-divider"></div>
-                    <!-- <label for="importFile" class="dropdown-item">Import</label> -->
+                    @endunless
+
                     <a href="javascript:void(0)" onclick="openCustomImportModal()" class="dropdown-item fw-bold text-primary">
                         <i class="feather-upload me-2"></i> Custom Import (Mapping)
                     </a>
 
+                    @unless(request()->routeIs('leads.table.*'))
                     <a href="javascript:void(0)" onclick="openCompareExcelModal()" class="dropdown-item fw-bold text-info">
                         <i class="feather-check-square me-2"></i> Compare Excel vs Database
                     </a>
 
                     <label for="importFile" class="dropdown-item text-muted">Auto Import (Direct)</label>
+                    @endunless
                     <input type="file" id="importFile" class="d-none" accept=".csv,.xlsx,.xls">
                 </div>
             </div>
@@ -160,13 +164,27 @@
 </div>
 
 @php
-    $actualFilterQueryParams = request()->except('bucket_id', 'lead_status', 'per_page', 'page', 'view');
+    if (request()->routeIs('leads.table.pipeline*')) {
+        $filterPageRoute = 'leads.table.pipeline';
+    } elseif (request()->routeIs('leads.table.*')) {
+        $filterPageRoute = 'leads.table.index';
+    } elseif (request()->routeIs('created.deals.*')) {
+        $filterPageRoute = 'created.deals.index';
+    } else {
+        $filterPageRoute = 'modern.leads.index';
+    }
+
+    $ignoredFilterParams = ['bucket_id', 'lead_status', 'per_page', 'page', 'view'];
+    if (request()->routeIs('leads.table.*')) {
+        $ignoredFilterParams[] = 'lead_engagement_status';
+    }
+    $actualFilterQueryParams = request()->except($ignoredFilterParams);
     $hasActiveFilters = !empty(array_filter($actualFilterQueryParams, fn($val) => $val !== null && $val !== ''));
 @endphp
 <div id="collapseOne" class="collapse mt-3 {{ $hasActiveFilters ? 'show' : '' }}">
     <div class="card card-body shadow-sm">
 
-        <form method="GET" action="{{ route('modern.leads.index') }}">
+        <form method="GET" action="{{ route($filterPageRoute) }}">
 
             {{-- ✅ Preserve bucket --}}
             @if(request('bucket_id'))
@@ -236,6 +254,7 @@
                     </select>
                 </div>
 
+                @unless(request()->routeIs('leads.table.*'))
                 <div class="col-12 col-md-2 d-block d-md-block">
                     <select name="lead_engagement_status" class="form-select">
                         <option value="">All Engagement</option>
@@ -245,6 +264,7 @@
                         <option value="dead" {{ request('lead_engagement_status') == 'dead' ? 'selected' : '' }}>Dead</option>
                     </select>
                 </div>
+                @endunless
 
 
                 <div class="col-md-3 d-none d-md-block">
@@ -332,7 +352,7 @@
             {{-- ✅ BUTTONS SAME LINE --}}
             <div class="d-flex justify-content-start gap-2 mt-4 border-top pt-3">
 
-                <a href="{{ route('modern.leads.index') }}"
+                <a href="{{ route($filterPageRoute) }}"
                     class="btn btn-light border text-danger">
                     Reset
                 </a>

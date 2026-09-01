@@ -639,6 +639,8 @@ class NewleadController extends Controller
             'call_recording' => 'nullable|file|mimes:mp3,wav,m4a,ogg,aac,amr,3gp,mp4|max:51200 ',
             'followup_documents' => 'nullable|array',
             'followup_documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'integer|exists:tags,id',
         ]);
 
         $uploadedFollowupDocs = [];
@@ -690,9 +692,10 @@ class NewleadController extends Controller
         }
 
         $lead->update($updateData);
+        $lead->tags()->sync($request->input('tag_ids', []));
 
         if (!$isLeadBucket) {
-            \App\Models\Order::updateOrCreate(
+            $order = \App\Models\Order::updateOrCreate(
                 ['lead_id' => $lead->id],
                 [
                     'order_number'            => 'ORD-' . (10000 + $lead->id),
@@ -707,6 +710,7 @@ class NewleadController extends Controller
                     'converted_at'            => now(),
                 ]
             );
+            $order->tags()->sync($request->input('tag_ids', []));
         } else {
             \App\Models\Order::where('lead_id', $lead->id)->delete();
         }
@@ -1417,6 +1421,7 @@ class NewleadController extends Controller
             'bucket.children',
             'messages.user',
             'todoTasks.assignee',
+            'tags:id,name,color',
         ]);
 
         $messages = $lead->messages->sortByDesc('created_at')->values()->map(function ($msg) {

@@ -27,6 +27,7 @@ use App\Http\Controllers\CRM\LeadEmailController;
 use App\Http\Controllers\CRM\LeadTableController;
 use App\Http\Controllers\CRM\CreatedDealController;
 use App\Http\Controllers\CRM\FollowupController;
+use App\Http\Controllers\CRM\TagController;
 
 Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
     ->name('send.whatsapp.all');
@@ -44,6 +45,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/lead/bulk-owner-update', [LeadController::class, 'bulkOwnerUpdate'])
         ->name('lead.bulkOwnerUpdate');
+
+    Route::delete('/leads/{lead}/tags/{tag}', [TagController::class, 'detachFromLead'])
+        ->name('leads.tags.detach');
+    Route::post('/leads/{lead}/tags/{tag}/toggle', [TagController::class, 'toggleForLead'])
+        ->name('leads.tags.toggle');
 
 
     Route::prefix('categories')->group(function () {
@@ -128,6 +134,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/destroy/{bucket}', [BucketController::class, 'destroy'])->name('bucket.destroy');
         });
 
+        Route::resource('tags', TagController::class)->only(['index', 'store', 'update', 'destroy']);
+
         Route::prefix('lead-questions')->group(function () {
             Route::get('/', [LeadQuestionController::class, 'index'])->name('lead_questions.index');
             Route::post('/store', [LeadQuestionController::class, 'store'])->name('lead_questions.store');
@@ -205,11 +213,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Modern Leads & Followups
     Route::get('/followups', [FollowupController::class, 'index'])->name('followups.index');
+    Route::post('/followups/{followup}/done', [FollowupController::class, 'markDone'])->name('followups.done');
+    Route::post('/followups/{followup}/reschedule', [FollowupController::class, 'reschedule'])->name('followups.reschedule');
+    Route::post('/followups/{followup}/convert-deal', [FollowupController::class, 'convertToDeal'])->name('followups.convertDeal');
     Route::get('/created-deals', [CreatedDealController::class, 'index'])->name('created.deals.index');
     Route::get('/created-deals/pipeline', [CreatedDealController::class, 'pipelineIndex'])->name('created.deals.pipeline');
     Route::get('/created-deals/pipeline/cards', [CreatedDealController::class, 'pipelineCards'])->name('created.deals.pipeline.cards');
     Route::post('/created-deals/pipeline/drag-update/{lead}', [CreatedDealController::class, 'pipelineDragUpdate'])->name('created.deals.pipeline.dragUpdate');
     Route::get('/new-leads-table', [LeadTableController::class, 'index'])->name('leads.table.index');
+    Route::post('/new-leads-table/{lead}/convert-deal', [LeadTableController::class, 'convertToDeal'])->name('leads.table.convertDeal');
     Route::get('/new-leads-table/pipeline', [LeadTableController::class, 'pipelineIndex'])->name('leads.table.pipeline');
     Route::get('/new-leads-table/pipeline/cards', [LeadTableController::class, 'pipelineCards'])->name('leads.table.pipeline.cards');
     Route::post('/new-leads-table/pipeline/drag-update/{lead}', [LeadTableController::class, 'pipelineDragUpdate'])->name('leads.table.pipeline.dragUpdate');

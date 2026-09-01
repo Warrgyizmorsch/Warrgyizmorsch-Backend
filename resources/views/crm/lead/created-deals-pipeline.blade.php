@@ -66,6 +66,7 @@
         color: #ffffff !important;
         border-color: #006FC9 !important;
     }
+    @include('crm.lead.partials.lead-interaction-styles')
 </style>
 
 <div class="container-fluid px-4 py-3 pipeline-wrapper">
@@ -212,6 +213,12 @@
         @endforeach
     </div>
 </div>
+
+@php
+    $childBuckets = $buckets;
+    $categorys = $categories;
+@endphp
+@include('crm.lead.partials.lead-interaction-modals')
 
 @endsection
 
@@ -504,4 +511,5 @@
     });
 })();
 </script>
+@include('crm.lead.partials.lead-interaction-scripts')
 @endpush

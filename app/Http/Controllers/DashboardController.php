@@ -7,6 +7,9 @@ use App\Models\Bucket;
 use App\Models\Leads;
 use App\Models\User;
 use App\Models\CallBack;
+use App\Models\Category;
+use App\Models\LeadSource;
+use App\Models\Tag;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,24 +18,23 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $monthlyChartData = [];
-        $user = Auth::user();
-
-        if (!$user) {
+        if (!auth()->check()) {
             return redirect()->route('login');
         }
+        @session_write_close();
 
-        if ($user->role_id == 2) {
-            return view('crm.users.dashboard'); // basic welcome page
+        $currentUser = Auth::user();
+
+        if ($currentUser->role_id == 2) {
+            return view('crm.users.dashboard');
         }
-
 
         $leadQuery = Leads::query();
         $totalLeads = Leads::count();
 
-        if ($user->role_id != 1) {
-            $leadQuery->where('lead_owner', $user->id);
-            $totalLeads = Leads::where('lead_owner', auth()->id())->count();
+        if ($currentUser->role_id != 1) {
+            $leadQuery->where('lead_owner', $currentUser->id);
+            $totalLeads = Leads::where('lead_owner', $currentUser->id)->count();
         }
 
         // Handle date filtering
@@ -57,6 +59,7 @@ class DashboardController extends Controller
             $totalLeads = (clone $leadQuery)->count();
         }
 
+        // 1. Buckets & Dynamic Status Overview
         $buckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
             ->with([
@@ -75,469 +78,104 @@ class DashboardController extends Controller
                 ->count();
         }
 
-        // ── Kanban Board: load all leads per bucket & sub-status ──
-        $kanbanBucketLeads = [];
-        $kanbanSubStatusLeads = [];
-        $kanbanConvertedLeads = [];
-
-        foreach ($buckets as $bucket) {
-            $childIds = $bucket->children->pluck('id')->toArray();
-            $allBucketIds = array_merge([$bucket->id], $childIds);
-
-            $leads = Leads::with(['user', 'owner', 'bucket', 'category'])
-                ->whereIn('lead_bucket_id', $allBucketIds)
-                ->where(function ($q) {
-                    $q->whereNull('is_converted')
-                      ->orWhere('is_converted', 0);
-                })
-                ->where(function ($q) {
-                    $q->whereNull('lead_status')
-                      ->orWhere('lead_status', '!=', 'Converted');
-                })
-                ->when($filterStart && $filterEnd, fn($q) => $q->whereBetween('created_at', [$filterStart, $filterEnd]))
-                ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
-                ->latest()
-                ->get();
-
-            $kanbanBucketLeads[$bucket->id] = $leads;
-            $kanbanSubStatusLeads[$bucket->id] = [];
-
-            $assignedLeadIds = [];
-
-            foreach ($bucket->children as $child) {
-                $childLeads = $leads->filter(function ($l) use ($child) {
-                    return (int)$l->lead_bucket_id === (int)$child->id
-                        || strcasecmp(trim($l->lead_status ?? ''), trim($child->name)) === 0
-                        || (string)$l->lead_status === (string)$child->id;
-                });
-
-                foreach ($childLeads as $cl) {
-                    $assignedLeadIds[$cl->id] = true;
-                }
-
-                $kanbanSubStatusLeads[$bucket->id][$child->id] = $childLeads;
-            }
-
-            // Assign leads matching parent bucket or unassigned status to the first child column
-            $unassignedLeads = $leads->reject(fn($l) => isset($assignedLeadIds[$l->id]));
-            if ($unassignedLeads->isNotEmpty() && $bucket->children->isNotEmpty()) {
-                $firstChild = $bucket->children->first();
-                $existing = $kanbanSubStatusLeads[$bucket->id][$firstChild->id] ?? collect();
-                $kanbanSubStatusLeads[$bucket->id][$firstChild->id] = $existing->concat($unassignedLeads)->unique('id');
-            }
-
-            // Update total leads count on child buckets
-            foreach ($bucket->children as $child) {
-                $child->total_leads = ($kanbanSubStatusLeads[$bucket->id][$child->id] ?? collect())->count();
-            }
-
-            // Converted Leads for this bucket
-            $kanbanConvertedLeads[$bucket->id] = Leads::with(['user', 'owner', 'bucket', 'category'])
-                ->where(function ($q) use ($bucket, $allBucketIds) {
-                    $q->whereIn('lead_bucket_id', $allBucketIds)
-                      ->orWhere('category_id', $bucket->id);
-                })
-                ->where(function ($q) {
-                    $q->where('is_converted', 1)
-                      ->orWhere('lead_status', 'Converted');
-                })
-                ->when($filterStart && $filterEnd, fn($q) => $q->whereBetween('created_at', [$filterStart, $filterEnd]))
-                ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
-                ->latest()
-                ->get();
-        }
-
-        // ── Unmapped / Other Leads (Leads with deleted/invalid/NULL bucket_id) ──
-        $allMappedBucketIds = [];
-        foreach ($buckets as $b) {
-            $allMappedBucketIds[] = $b->id;
-            foreach ($b->children as $c) {
-                $allMappedBucketIds[] = $c->id;
-            }
-        }
-
-        $otherLeads = Leads::with(['user', 'owner', 'bucket', 'category'])
-            ->where(function ($q) use ($allMappedBucketIds) {
-                $q->whereNotIn('lead_bucket_id', $allMappedBucketIds)
-                  ->orWhereNull('lead_bucket_id');
-            })
-            ->where(function ($q) {
-                $q->whereNull('is_converted')
-                  ->orWhere('is_converted', 0);
-            })
-            ->where(function ($q) {
-                $q->whereNull('lead_status')
-                  ->orWhere('lead_status', '!=', 'Converted');
-            })
-            ->when($filterStart && $filterEnd, fn($q) => $q->whereBetween('created_at', [$filterStart, $filterEnd]))
-            ->when($user->role_id != 1, fn($q) => $q->where('lead_owner', $user->id))
-            ->latest()
+        // Build dynamic status summary across all buckets/statuses
+        $allStatusCounts = (clone $leadQuery)
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as norm_status, lead_status, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_id')
             ->get();
 
-        // ── Overview Statuses Summary Card Items ──
         $overviewStatuses = [];
-        foreach ($buckets as $bucket) {
-            foreach ($bucket->children as $child) {
-                $count = ($kanbanSubStatusLeads[$bucket->id][$child->id] ?? collect())->count();
+        $seenStatusKeys = [];
+
+        foreach ($buckets as $b) {
+            if ($b->children && $b->children->isNotEmpty()) {
+                foreach ($b->children as $child) {
+                    $childNameNorm = strtolower(trim($child->name));
+                    $statusKey = $b->id . '_' . $childNameNorm;
+                    if (isset($seenStatusKeys[$statusKey])) continue;
+                    $seenStatusKeys[$statusKey] = true;
+
+                    $matchingCount = $allStatusCounts->filter(function($item) use ($childNameNorm, $child, $b) {
+                        return $item->norm_status === $childNameNorm || $item->lead_bucket_id == $child->id;
+                    })->sum('cnt');
+
+                    if ($matchingCount > 0 || in_array($child->name, ['Yet to Call', 'Qualifying', 'Proposal Sent', 'Negotiation', 'Awaiting Confirmation', 'No Response', 'Closed', 'In Progress', 'Not Qualified'])) {
+                        $overviewStatuses[] = [
+                            'id' => $child->id,
+                            'name' => $child->name,
+                            'bucket_id' => $b->id,
+                            'bucket_name' => $b->name,
+                            'count' => $matchingCount,
+                        ];
+                    }
+                }
+            } else {
+                $bNameNorm = strtolower(trim($b->name));
+                $matchingCount = $allStatusCounts->filter(function($item) use ($bNameNorm, $b) {
+                    return $item->norm_status === $bNameNorm || $item->lead_bucket_id == $b->id;
+                })->sum('cnt');
+
                 $overviewStatuses[] = [
-                    'id' => $child->id,
-                    'name' => $child->name,
-                    'bucket_id' => $bucket->id,
-                    'bucket_name' => $bucket->name,
-                    'count' => $count,
+                    'id' => $b->id,
+                    'name' => $b->name,
+                    'bucket_id' => $b->id,
+                    'bucket_name' => $b->name,
+                    'count' => $matchingCount,
                 ];
             }
         }
 
-        if (isset($otherLeads) && $otherLeads->isNotEmpty()) {
+        // Check for other / unassigned
+        $unassignedCount = (clone $leadQuery)
+            ->where(function($q) {
+                $q->whereNull('lead_bucket_id')
+                  ->orWhere('lead_bucket_id', 0)
+                  ->orWhereNull('lead_status')
+                  ->orWhere('lead_status', '');
+            })->count();
+
+        if ($unassignedCount > 0) {
             $overviewStatuses[] = [
                 'id' => 'other',
                 'name' => 'Other / Unassigned',
                 'bucket_id' => 'other',
-                'bucket_name' => 'Unmapped',
-                'count' => $otherLeads->count(),
+                'bucket_name' => 'Unassigned',
+                'count' => $unassignedCount,
             ];
         }
 
-
-        $firstBucket = Bucket::where('name', 'Application')
-            ->whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->with([
-                'children' => function ($q) {
-                    $q->where('is_deleted', 0);
-                }
-            ])
-            ->first();
-
+        $firstBucket = $buckets->first();
         $statusCounts = [];
 
-        if ($firstBucket) {
-            $baseQuery = (clone $leadQuery)->where('lead_bucket_id', $firstBucket->id);
-
-            // Count each child status (match by name)
-            foreach ($firstBucket->children as $child) {
-                $count = (clone $baseQuery)->where('lead_status', $child->name)->count();
-                $statusCounts[$child->id] = $count;
-            }
-
-            // Optional: count leads with status not in any child bucket
-            $knownStatuses = $firstBucket->children->pluck('name')->all();
-
-            $otherCount = (clone $baseQuery)
-                ->whereNotIn('lead_status', $knownStatuses)
-                ->whereNotNull('lead_status')
-                ->where('lead_status', '!=', '')
-                ->count();
-
-            if ($otherCount > 0) {
-                $statusCounts['other'] = $otherCount;
-            }
-
-            // Optional: count leads with no status at all
-            $noStatusCount = (clone $baseQuery)
-                ->where(function ($q) {
-                    $q->whereNull('lead_status')->orWhere('lead_status', '');
-                })->count();
-
-            if ($noStatusCount > 0) {
-                $statusCounts['no_status'] = $noStatusCount;
-            }
-        }
-
+        // 2. Engagement Status Counts
         $engagementCounts = [
-            'hot' => 0,
-            'warm' => 0,
-            'cold' => 0,
-            'dead' => 0,
+            'hot' => (clone $leadQuery)->where('lead_engagement_status', 'hot')->count(),
+            'warm' => (clone $leadQuery)->where('lead_engagement_status', 'warm')->count(),
+            'cold' => (clone $leadQuery)->where('lead_engagement_status', 'cold')->count(),
+            'dead' => (clone $leadQuery)->where('lead_engagement_status', 'dead')->count(),
         ];
-
-        $engagementBaseQuery = clone $leadQuery;
-
-        foreach (array_keys($engagementCounts) as $status) {
-            $engagementCounts[$status] = (clone $engagementBaseQuery)
-                ->where('lead_engagement_status', $status)
-                ->count();
+        $totalEngagement = array_sum($engagementCounts);
+        $engagementPercentages = [];
+        foreach ($engagementCounts as $status => $count) {
+            $engagementPercentages[$status] = $totalEngagement > 0 ? round(($count / $totalEngagement) * 100) : 0;
         }
 
-        $totalEngagement = $totalLeads ?: 1; // prevent division by zero
-
-        $engagementPercentages = [
-            'hot' => round(($engagementCounts['hot'] / $totalEngagement) * 100, 1),
-            'warm' => round(($engagementCounts['warm'] / $totalEngagement) * 100, 1),
-            'cold' => round(($engagementCounts['cold'] / $totalEngagement) * 100, 1),
-            'dead' => round(($engagementCounts['dead'] / $totalEngagement) * 100, 1),
-        ];
-
-        // recent leads based on the comment        
-        $currentUser = Auth::user();
-
-        $recentLeadsQuery = Leads::with([
-            'user',                 // lead user
-            'owner',                // lead owner
-            'bucket',               // lead bucket
-            'latestMessage.user'    // last message + sender
-        ])
-            ->whereHas('latestMessage'); // only leads having messages
-        // ->whereNotNull('lead_owner');
-
-        // Role Based Filtering
-        if ($currentUser->role_id == 1) {
-            // Admin → see all
-        } elseif ($currentUser->role_id == 2) {
-            // Role 2(user) → show nothing
-            $recentLeadsQuery->whereRaw('1 = 0');
-        } else {
-            // other role → only their leads
-            $recentLeadsQuery->where('lead_owner', $currentUser->id);
-        }
-
-        // Apply date filter if present
-        if ($filterStart && $filterEnd) {
-            $recentLeadsQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
-        }
-
-        $recentLeads = $recentLeadsQuery
-            ->orderByDesc(
-                CallBack::select('created_at')
-                    ->whereColumn('callback_messages.lead_id', 'leads.id')
-                    ->latest()
-                    ->take(1)
-            )
-            ->limit(10)
-            ->get();
-
-
-        // ─────────────────────────────────────────────
-        // SALES PERFORMANCE (Updated Conversion Logic)
-        // ─────────────────────────────────────────────
-
-
-        // 1️⃣ Get all parent buckets
-        $salesParentBuckets = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->orderBy('id')
-            ->get();
-
-        // 2️⃣ Get conversion parent bucket IDs
-        $conversionParentBuckets = Bucket::whereIn('name', [
-            'Payment',
-            'CAS',
-            'Visa',
-            'Enrollment'
-        ])
-            ->whereNull('parent_id')
-            ->pluck('id')
-            ->toArray();
-
-
-        // 3️⃣ Role Based User Filtering
-        $currentUser = Auth::user();
-
-        if ($currentUser->role_id == 1) {
-            // Admin → all sales users
-            $salesUsersList = User::whereNotIn('role_id', [1, 2])->get();
-        } elseif ($currentUser->role_id == 2) {
-            // Role 2 → do not show anything
-            $salesUsersList = collect();
-        } else {
-            // Normal sales user → only himself
-            $salesUsersList = User::where('id', $currentUser->id)->get();
-        }
-
-
-        // 4️⃣ Grouped Lead Data (Bucket Distribution)
-        $salesGroupedLeadsQuery = Leads::select(
-            'lead_owner',
-            'lead_bucket_id',
-            DB::raw('COUNT(*) as total')
-        )
-            ->whereNotNull('lead_owner');
-
-        if ($filterStart && $filterEnd) {
-            $salesGroupedLeadsQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
-        }
-
-        $salesGroupedLeads = $salesGroupedLeadsQuery
-            ->groupBy('lead_owner', 'lead_bucket_id')
-            ->get()
-            ->groupBy('lead_owner');
-
-
-        // 5️⃣ Grouped Lead Data (Conversion Based On 3 Parent Buckets)
-        $conversionIdsString = empty($conversionParentBuckets) ? '0' : implode(',', $conversionParentBuckets);
-
-        $salesConversionGroupedQuery = Leads::select(
-            'lead_owner',
-            DB::raw('COUNT(*) as total_leads'),
-            DB::raw("
-                    SUM(
-                        CASE 
-                            WHEN lead_bucket_id IN (" . $conversionIdsString . ")
-                            THEN 1 
-                            ELSE 0 
-                        END
-                    ) as converted
-                ")
-        )
-            ->whereNotNull('lead_owner');
-
-        if ($filterStart && $filterEnd) {
-            $salesConversionGroupedQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
-        }
-
-        $salesConversionGrouped = $salesConversionGroupedQuery
-            ->groupBy('lead_owner')
-            ->get()
-            ->keyBy('lead_owner');
-
-
-        // 6️⃣ Blue Gradient Palette
-        $blueShades = [
-            '#0b3d91',
-            '#0d47a1',
-            '#1565c0',
-            '#1976d2',
-            '#1e88e5',
-            '#2196f3',
-            '#42a5f5',
-            '#64b5f6',
-            '#90caf9'
-        ];
-
+        // 3. Sales Performance
+        $salesUsers = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
         $salesUserPerformance = [];
-
-        foreach ($salesUsersList as $salesUser) {
-
-            $userBucketData = $salesGroupedLeads->get($salesUser->id, collect());
-            $conversionData = $salesConversionGrouped->get($salesUser->id);
-
-            $userTotalLeads = $conversionData->total_leads ?? 0;
-            $convertedLeads = $conversionData->converted ?? 0;
-
-            // 🚫 Skip user if no leads
-            if ($userTotalLeads == 0) {
-                continue;
+        foreach ($salesUsers as $sUser) {
+            $uQuery = Leads::where('lead_owner', $sUser->id);
+            if ($filterStart && $filterEnd) {
+                $uQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
             }
-
-            $conversionRate = round(($convertedLeads / $userTotalLeads) * 100, 1);
-
-            $donutSeries = [];
-            $donutLabels = [];
-            $donutColors = [];
-
-            foreach ($salesParentBuckets as $index => $parentBucket) {
-
-                $bucketCount = $userBucketData
-                    ->where('lead_bucket_id', $parentBucket->id)
-                    ->sum('total');
-
-                $donutSeries[] = $bucketCount;
-                $donutLabels[] = $parentBucket->name;
-                $donutColors[] = $blueShades[$index % count($blueShades)];
-            }
-
             $salesUserPerformance[] = [
-                'user' => $salesUser,
-                'series' => $donutSeries,
-                'labels' => $donutLabels,
-                'colors' => $donutColors,
-                'conversion_rate' => $conversionRate,
-                'converted' => $convertedLeads,
-                'total_leads' => $userTotalLeads,
+                'user' => $sUser,
+                'total_leads' => (clone $uQuery)->count(),
+                'converted' => (clone $uQuery)->where('is_converted', 1)->count(),
             ];
         }
 
-        // ─────────────────────────────────────────────
-        // RECENT LEADS PROGRESS SECTION
-        // ─────────────────────────────────────────────
-
-        // 🎯 Fixed Main Stage Order
-        // $mainBucketOrder = [
-        //     'Follow Up',
-        //     'Options Shortlisting',
-        //     'Application',
-        //     'Offer Letter',
-        //     'Payment',
-        //     'CAS',
-        //     'Visa',
-        //     'Enrollment'
-        // ];
-
-        // Get only required parent buckets
-        $parentBuckets = Bucket::whereNull('parent_id')
-            ->where('name', '!=', 'Lost')
-            ->where('is_deleted', 0)
-            // ->whereIn('name', $mainBucketOrder)
-            ->get();
-
-
-        // Total stages
-        $totalParentBuckets = $parentBuckets->count();
-        $progressPerBucket = $totalParentBuckets > 0
-            ? 100 / $totalParentBuckets
-            : 0;
-
-        // Map bucket id → position based on FIXED ORDER
-        $bucketPositionMap = [];
-
-        foreach ($parentBuckets as $index => $bucket) {
-            $bucketPositionMap[$bucket->id] = $index + 1;
-        }
-
-        // 3️⃣ Build Lead Query Based On Role
-        $leadQuery = Leads::with(['bucket', 'user'])
-            ->orderBy('id', 'desc');
-
-        if ($currentUser->role_id == 1) {
-            // Admin → see all
-        } elseif ($currentUser->role_id == 2) {
-            // Role 2 → show nothing
-            $leadQuery->whereRaw('1 = 0');
-        } else {
-            // Other roles → only their leads
-            $leadQuery->where('lead_owner', $currentUser->id);
-        }
-
-        // Apply date filter if present
-        if ($filterStart && $filterEnd) {
-            $leadQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
-        }
-
-        // Get recent 5 leads
-        $recentLeadsProgress = $leadQuery
-            ->latest()
-            ->take(5)
-            ->get()
-            ->map(function ($lead) use ($bucketPositionMap, $progressPerBucket, $totalParentBuckets) {
-
-                if (!$lead->bucket) {
-                    return null;
-                }
-
-                $parentBucketId = $lead->bucket->parent_id
-                    ? $lead->bucket->parent_id
-                    : $lead->bucket->id;
-
-                $position = $bucketPositionMap[$parentBucketId] ?? 0;
-                $progress = round($position * $progressPerBucket);
-
-                return [
-                    'user' => $lead->user,
-                    'lead_name' => $lead->id,
-                    'bucket_name' => $lead->bucket->name,
-                    'stage_position' => $position,        // 👈 important
-                    'total_stages' => $totalParentBuckets, // 👈 important
-                    'progress' => $progress
-                ];
-            })
-            ->filter();
-
-
-
-        // ── Monthly New Leads Chart – Prepare data for frontend switching ────────────
-
-        // Date range (full current year by default)
+        // 4. Monthly Leads Chart
         $now = Carbon::now();
         $chartStart = $now->copy()->startOfYear();
         $chartEnd = $now->copy()->endOfYear();
@@ -547,7 +185,6 @@ class DashboardController extends Controller
             $chartEnd = $filterEnd->copy()->endOfMonth();
         }
 
-        // Generate month categories (always full range)
         $chartCategories = [];
         $current = $chartStart->copy();
         while ($current->lte($chartEnd)) {
@@ -555,78 +192,33 @@ class DashboardController extends Controller
             $current->addMonthNoOverflow();
         }
 
-        // ── 1. Get list of users + their monthly data
         $monthlyChartData = [];
+        $usersForChart = ($currentUser->role_id == 1)
+            ? User::whereIn('role_id', [1, 3])->orderBy('name')->get(['id', 'name'])
+            : User::where('id', $currentUser->id)->get(['id', 'name']);
 
-        $currentUser = auth()->user();
-
-        if ($currentUser->role_id == 1) {
-            // Admin → get all sales users
-            $usersForChart = User::whereNotIn('role_id', [1, 2])
-                ->orderBy('name')
-                ->get(['id', 'name']);
-        } else {
-            // Normal user → only self
-            $usersForChart = User::where('id', $currentUser->id)->get(['id', 'name']);
-        }
-
-        // Build data for each user
-        foreach ($usersForChart as $user) {
-            $query = Leads::where('lead_owner', $user->id)
+        foreach ($usersForChart as $u) {
+            $query = Leads::where('lead_owner', $u->id)
                 ->whereBetween('created_at', [$chartStart, $chartEnd])
                 ->selectRaw("DATE_FORMAT(created_at, '%b %y') as month, COUNT(*) as total")
                 ->groupBy('month')
                 ->pluck('total', 'month')
                 ->toArray();
 
-            $userData = collect($chartCategories)
-                ->map(fn($m) => (int) ($query[$m] ?? 0))
-                ->toArray();
-
+            $userData = collect($chartCategories)->map(fn($m) => (int) ($query[$m] ?? 0))->toArray();
             $monthlyChartData[] = [
-                'user_id' => $user->id,
-                'user_name' => $user->name,
+                'user_id' => $u->id,
+                'user_name' => $u->name,
                 'series' => $userData,
                 'total' => array_sum($userData),
             ];
         }
 
-        // ── 2. Also prepare "All Users" combined data (for admin default view)
-        $allTotals = Leads::whereBetween('created_at', [$chartStart, $chartEnd])
-            ->selectRaw("DATE_FORMAT(created_at, '%b %y') as month, COUNT(*) as total")
-            ->groupBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
-
-        $allSeries = collect($chartCategories)
-            ->map(fn($m) => (int) ($allTotals[$m] ?? 0))
-            ->toArray();
-
-        $monthlyChartData = array_merge(
-            [['user_id' => 'all', 'user_name' => 'All Users', 'series' => $allSeries, 'total' => array_sum($allSeries)]],
-            $monthlyChartData
-        );
-
-        // source wise data 
-        $fixedSources = [
-            'website',
-            'referral',
-            'social media',
-            'facebook',
-            'instagram',
-            'whatsapp',
-            'advertisement',
-            'other',
-            'landing page',
-            'manual import'
-        ];
-
+        // 5. Source Chart Data
+        $fixedSources = ['website', 'referral', 'social media', 'facebook', 'instagram', 'whatsapp', 'advertisement', 'other', 'landing page', 'manual import'];
         $sourceChartData = [];
-
         foreach ($fixedSources as $source) {
-
             $normalizedSource = strtolower(trim($source));
-
             $query = Leads::whereRaw("LOWER(TRIM(platform)) = ?", [$normalizedSource])
                 ->whereBetween('created_at', [$chartStart, $chartEnd])
                 ->selectRaw("DATE_FORMAT(created_at, '%b %y') as month, COUNT(*) as total")
@@ -634,10 +226,7 @@ class DashboardController extends Controller
                 ->pluck('total', 'month')
                 ->toArray();
 
-            $series = collect($chartCategories)
-                ->map(fn($m) => (int) ($query[$m] ?? 0))
-                ->toArray();
-
+            $series = collect($chartCategories)->map(fn($m) => (int) ($query[$m] ?? 0))->toArray();
             $sourceChartData[] = [
                 'source_name' => ucfirst($source),
                 'series' => $series,
@@ -645,41 +234,143 @@ class DashboardController extends Controller
             ];
         }
 
-        $allTotals = Leads::whereIn(
-            DB::raw("LOWER(TRIM(platform))"),
-            array_map('strtolower', $fixedSources)
-        )
-            ->whereBetween('created_at', [$chartStart, $chartEnd])
-            ->selectRaw("DATE_FORMAT(created_at, '%b %y') as month, COUNT(*) as total")
-            ->groupBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
+        // 6. Modern Lead Pipeline Board Data
+        $mainStatuses = [
+            'yet to call',
+            'connected / in conversation',
+            'hot lead',
+            'warm lead',
+            'cold lead',
+            'application / deal in progress',
+            'won / enrolled',
+            'lost / closed'
+        ];
 
-        $allSeries = collect($chartCategories)
-            ->map(fn($m) => (int) ($allTotals[$m] ?? 0))
-            ->toArray();
+        $pipelineBuckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where(function($q) {
+                $q->where('type', 'lead')->orWhereNull('type');
+            })
+            ->with('children')
+            ->orderByRaw("FIELD(LOWER(name), '" . implode("','", $mainStatuses) . "')")
+            ->get();
 
-        $sourceChartData = array_merge(
-            [
-                [
-                    'source_name' => 'All Sources',
-                    'series' => $allSeries,
-                    'total' => array_sum($allSeries),
-                ]
-            ],
-            $sourceChartData
-        );
+        $statusCountsQuery = Leads::query();
+        if ($currentUser->role_id != 1) {
+            $statusCountsQuery->where('lead_owner', $currentUser->id);
+        }
+        if ($filterStart && $filterEnd) {
+            $statusCountsQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
+        }
 
-        $categorys = \App\Models\Category::where('is_active', 1)->get();
-        $owners = \App\Models\User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
-        $sources = \App\Models\LeadSource::pluck('source_name')->toArray();
+        $statusCountsDb = $statusCountsQuery
+            ->reorder()
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_id')
+            ->get();
+
+        $columnCards = [];
+        $perPage = 15;
+
+        foreach ($pipelineBuckets as $b) {
+            $bName = strtolower(trim($b->name));
+            $bId = $b->id;
+            $childIds = $b->children ? $b->children->pluck('id')->toArray() : [];
+            $childNames = $b->children ? $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
+
+            $colTotal = $statusCountsDb->filter(function ($item) use ($bName, $bId, $childNames, $childIds) {
+                $itemStatus = strtolower(trim($item->status_name));
+                if ($itemStatus === $bName || $item->lead_bucket_id == $bId) return true;
+                if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) return true;
+                if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) return true;
+                return false;
+            })->sum('cnt');
+
+            $cardQuery = Leads::with([
+                'user:id,name,email,contact_no,city,state,address',
+                'owner:id,name',
+                'bucket:id,name,bucket_color',
+                'category:id,category_name',
+                'tags:id,name,color',
+                'latestMessage.user:id,name'
+            ]);
+
+            if ($currentUser->role_id != 1) {
+                $cardQuery->where('lead_owner', $currentUser->id);
+            }
+            if ($filterStart && $filterEnd) {
+                $cardQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
+            }
+
+            $cardQuery->where(function ($q) use ($bName, $bId, $childNames, $childIds) {
+                $q->where('lead_bucket_id', $bId)
+                  ->orWhere('lead_status', $bName);
+                if (!empty($childIds)) {
+                    $q->orWhereIn('lead_bucket_id', $childIds);
+                }
+                if (!empty($childNames)) {
+                    $q->orWhereIn('lead_status', $childNames);
+                }
+                if ($bName === 'yet to call') {
+                    $q->orWhereNull('lead_status')->orWhere('lead_status', '');
+                }
+            });
+
+            $paginator = $cardQuery->orderBy('id', 'desc')->paginate($perPage, ['*'], 'col_' . $bId, 1);
+
+            $columnCards[$bId] = [
+                'bucket' => $b,
+                'total' => $colTotal,
+                'leads' => $paginator->items(),
+                'has_more' => $paginator->hasMorePages(),
+                'next_page' => $paginator->hasMorePages() ? 2 : null,
+            ];
+        }
+
+        $parentBuckets = Bucket::whereNull('parent_id')->where('name', '!=', 'Lost')->where('is_deleted', 0)->get();
+        $totalParentBuckets = $parentBuckets->count();
+        $progressPerBucket = $totalParentBuckets > 0 ? 100 / $totalParentBuckets : 0;
+        $bucketPositionMap = [];
+        foreach ($parentBuckets as $index => $bucket) {
+            $bucketPositionMap[$bucket->id] = $index + 1;
+        }
+
+        $rQuery = Leads::with(['bucket', 'user', 'owner'])->orderBy('id', 'desc');
+        if ($currentUser->role_id != 1) {
+            $rQuery->where('lead_owner', $currentUser->id);
+        }
+        if ($filterStart && $filterEnd) {
+            $rQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
+        }
+
+        $recentLeads = (clone $rQuery)->take(5)->get();
+
+        $recentLeadsProgress = $recentLeads->map(function ($lead) use ($bucketPositionMap, $progressPerBucket, $totalParentBuckets) {
+            if (!$lead->bucket) return null;
+            $parentBucketId = $lead->bucket->parent_id ? $lead->bucket->parent_id : $lead->bucket->id;
+            $position = $bucketPositionMap[$parentBucketId] ?? 0;
+            $progress = round($position * $progressPerBucket);
+            return [
+                'user' => $lead->user,
+                'lead_name' => $lead->id,
+                'bucket_name' => $lead->bucket->name,
+                'stage_position' => $position,
+                'total_stages' => $totalParentBuckets,
+                'progress' => $progress
+            ];
+        })->filter();
+
+        $categorys = Category::where('is_active', 1)->get();
+        $categories = $categorys;
+        $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->get();
+        $sources = LeadSource::pluck('source_name')->toArray();
+        $allTags = Tag::where('is_active', true)->orderBy('name')->get();
+        $childBuckets = $buckets;
 
         return view('dashboard', compact(
             'buckets',
-            'kanbanBucketLeads',
-            'kanbanSubStatusLeads',
-            'kanbanConvertedLeads',
-            'otherLeads',
+            'pipelineBuckets',
+            'columnCards',
             'overviewStatuses',
             'firstBucket',
             'statusCounts',
@@ -687,16 +378,18 @@ class DashboardController extends Controller
             'engagementCounts',
             'engagementPercentages',
             'totalEngagement',
-            'recentLeads',
             'salesUserPerformance',
+            'recentLeads',
             'recentLeadsProgress',
             'monthlyChartData',
             'chartCategories',
             'sourceChartData',
             'categorys',
+            'categories',
             'owners',
-            'sources'
+            'sources',
+            'allTags',
+            'childBuckets'
         ));
-
     }
 }

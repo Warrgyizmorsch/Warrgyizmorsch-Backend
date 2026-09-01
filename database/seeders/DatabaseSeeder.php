@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             UsersTableSeeder::class,
             MenuSeeder::class,
             RolePermissionSeeder::class,
+            LeadStatusSeeder::class,
         ]);
     }
 }

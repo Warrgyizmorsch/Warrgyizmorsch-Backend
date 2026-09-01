@@ -28,6 +28,7 @@ class CreatedDealController extends Controller
             'bucket:id,name,bucket_color,parent_id',
             'category',
             'latestMessage.user:id,name',
+            'tags:id,name,color',
         ]);
 
         // 2. Role-based restrictions (Role 3 sees only assigned leads)
@@ -35,13 +36,8 @@ class CreatedDealController extends Controller
             $query->where('lead_owner', auth()->id());
         }
 
-        // 3. Filter ONLY "Deal Created" leads
-        $query->where(function ($q) {
-            $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%')
-              ->orWhereHas('bucket', function ($bQ) {
-                  $bQ->where(DB::raw('LOWER(TRIM(COALESCE(name, "")))'), 'like', '%deal created%');
-              });
-        });
+        // Show every converted lead throughout the complete deal lifecycle.
+        $query->where('is_converted', 1);
 
         // 4. Search Filter
         $searchUserIds = [];
@@ -100,6 +96,23 @@ class CreatedDealController extends Controller
             }
         }
 
+        if ($request->filled('source')) {
+            $query->where('platform', 'like', '%' . $request->source . '%');
+        }
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->filled('company')) {
+            $query->where('business_name', 'like', '%' . $request->company . '%');
+        }
+        if ($request->filled('campaign_name')) {
+            $query->where('campaign_name', 'like', '%' . $request->campaign_name . '%');
+        }
+        $dealStatusFilter = $request->input('lead_status', $request->input('status'));
+        if (!empty($dealStatusFilter)) {
+            $query->where('lead_status', $dealStatusFilter);
+        }
+
         // Clone query for total count calculation
         $countQuery = clone $query;
         $totalDealsCount = $countQuery->count();
@@ -114,18 +127,57 @@ class CreatedDealController extends Controller
         $childBuckets = Bucket::with('children')
             ->whereNull('parent_id')
             ->where('is_deleted', 0)
+            ->where('type', 'order')
             ->get();
+
+        $childBuckets->each(function ($bucket) {
+            $bucketIds = collect([$bucket->id])->merge($bucket->children->pluck('id'))->all();
+            $statusNames = collect([$bucket->name])->merge($bucket->children->pluck('name'))->all();
+            $bucket->leads_count = Leads::where('is_converted', 1)
+                ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
+                ->where(function ($q) use ($bucketIds, $statusNames) {
+                    $q->whereIn('lead_bucket_id', $bucketIds)->orWhereIn('lead_status', $statusNames);
+                })
+                ->count();
+        });
 
         $owners = User::whereIn('role_id', [1, 3])
             ->where('is_deleted', 0)
             ->select('id', 'name', 'email')
             ->get();
 
-        return view('crm.lead.created_deals', compact(
+        $categorys = Category::where('is_active', 1)->orderBy('category_name')->get();
+        $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
+        $totalLeadsCount = $totalDealsCount;
+        $filteredLeadCount = $leads->total();
+        $systemTotalLeadsCount = Leads::where('is_converted', 1)
+            ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
+            ->count();
+        $childtotalLeadsCount = $childBuckets->sum('leads_count');
+        $deletedLeadsCount = 0;
+        $followupsCount = 0;
+        $otherLeadsCount = 0;
+        $allBucketsWithChildren = $childBuckets->keyBy('id');
+        $isDealView = true;
+        $allTags = \App\Models\Tag::where('is_active', true)->orderBy('name')->get();
+
+        return view('crm.lead.tableindex', compact(
             'leads',
             'childBuckets',
             'owners',
-            'totalDealsCount'
+            'totalDealsCount',
+            'categorys',
+            'sources',
+            'totalLeadsCount',
+            'filteredLeadCount',
+            'systemTotalLeadsCount',
+            'childtotalLeadsCount',
+            'deletedLeadsCount',
+            'followupsCount',
+            'otherLeadsCount',
+            'allBucketsWithChildren',
+            'isDealView',
+            'allTags'
         ));
     }
 
@@ -140,13 +192,8 @@ class CreatedDealController extends Controller
             $query->where('lead_owner', auth()->id());
         }
 
-        // 2. Filter ONLY "Deal Created" leads
-        $query->where(function ($q) {
-            $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%')
-              ->orWhereHas('bucket', function ($bQ) {
-                  $bQ->where(DB::raw('LOWER(TRIM(COALESCE(name, "")))'), 'like', '%deal created%');
-              });
-        });
+        // Keep converted deals visible while they move through order statuses.
+        $query->where('is_converted', 1);
 
         // 3. Global Search
         if ($request->filled('search')) {
@@ -244,12 +291,10 @@ class CreatedDealController extends Controller
         $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
         $categories = Category::where('is_active', 1)->orderBy('category_name')->get();
 
-        // 2. Fetch Top-Level Lead Buckets
+        // 2. Fetch Top-Level Deal/Order Buckets
         $buckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
-            ->where(function($q) {
-                $q->where('type', 'lead')->orWhereNull('type');
-            })
+            ->where('type', 'order')
             ->with('children')
             ->orderBy('id', 'asc')
             ->get();
@@ -392,7 +437,7 @@ class CreatedDealController extends Controller
         }
 
         $targetBucketId = $request->input('target_bucket_id');
-        $targetBucket = Bucket::find($targetBucketId);
+        $targetBucket = Bucket::where('type', 'order')->find($targetBucketId);
 
         if (!$targetBucket) {
             return response()->json(['success' => false, 'message' => 'Target bucket invalid'], 400);
@@ -408,6 +453,11 @@ class CreatedDealController extends Controller
             $lead->lead_status = $targetBucket->name;
         }
         $lead->save();
+
+        \App\Models\Order::where('lead_id', $lead->id)->update([
+            'order_bucket_id' => $targetBucket->id,
+            'order_status' => $lead->lead_status,
+        ]);
 
         try {
             \App\Models\LeadHistory::create([

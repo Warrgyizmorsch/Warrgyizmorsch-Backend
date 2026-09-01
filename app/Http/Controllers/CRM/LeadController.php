@@ -484,6 +484,8 @@ class LeadController extends Controller
             'cloned_contacts' => 'nullable|array',
             'documents' => 'nullable|array',
             'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'integer|exists:tags,id',
         ]);
 
         // ----------------------------
@@ -557,6 +559,7 @@ class LeadController extends Controller
         }
 
         $lead->update($leadData);
+        $lead->tags()->sync($request->input('tag_ids', []));
 
         $newOwnerId = $lead->lead_owner;
 
@@ -1669,7 +1672,7 @@ class LeadController extends Controller
 
         $oldEngagement = $lead->lead_engagement_status;
         $engS = strtolower(trim($request->lead_engagement_status ?? ''));
-        if (in_array($engS, ['hot', 'warm', 'cold', 'dead'])) {
+        if (in_array($engS, ['new', 'hot', 'warm', 'cold', 'dead'])) {
             $lead->update([
                 'lead_engagement_status' => $engS
             ]);

@@ -69,4 +69,9 @@ class Order extends Model
     {
         return $this->hasMany(CallBack::class, 'lead_id', 'lead_id');
     }
+
+    public function tags()
+    {
+        return $this->morphToMany(Tag::class, 'taggable')->orderBy('name');
+    }
 }

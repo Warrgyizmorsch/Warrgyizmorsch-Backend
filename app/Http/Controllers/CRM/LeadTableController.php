@@ -9,12 +9,57 @@ use App\Models\Bucket;
 use App\Models\Category;
 use App\Models\User;
 use App\Models\LeadSource;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class LeadTableController extends Controller
 {
+    public function convertToDeal(Request $request, Leads $lead)
+    {
+        abort_unless(auth()->check(), 401);
+        if (auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
+            abort(403, 'You are not allowed to convert this lead.');
+        }
+
+        DB::transaction(function () use ($lead) {
+            $dealBucket = Bucket::where('is_deleted', 0)
+                ->where('type', 'order')
+                ->whereRaw('LOWER(TRIM(name)) LIKE ?', ['%deal created%'])
+                ->first() ?? Bucket::where('is_deleted', 0)->where('type', 'order')->orderBy('id')->first();
+
+            $dealStatus = $dealBucket?->name ?? 'Deal Created';
+            $lead->update([
+                'is_converted' => 1,
+                'lead_status' => $dealStatus,
+                'lead_bucket_id' => $dealBucket?->id ?? $lead->lead_bucket_id,
+            ]);
+
+            Order::updateOrCreate(
+                ['lead_id' => $lead->id],
+                [
+                    'order_number' => 'ORD-' . (10000 + $lead->id),
+                    'uid' => $lead->uid,
+                    'order_bucket_id' => $dealBucket?->id ?? $lead->lead_bucket_id,
+                    'order_status' => $dealStatus,
+                    'order_engagement_status' => $lead->lead_engagement_status ?? 'hot',
+                    'order_owner' => $lead->lead_owner,
+                    'converted_by' => auth()->id(),
+                    'category_id' => $lead->category_id,
+                    'product' => $lead->product,
+                    'services' => is_array($lead->services) ? $lead->services : (json_decode($lead->services, true) ?? null),
+                    'pain_points' => $lead->pain_points,
+                    'client_details' => is_array($lead->client_details) ? $lead->client_details : (json_decode($lead->client_details, true) ?? null),
+                    'documents' => is_array($lead->documents) ? $lead->documents : (json_decode($lead->documents, true) ?? null),
+                    'converted_at' => now(),
+                ]
+            );
+        });
+
+        return response()->json(['status' => true, 'message' => 'Lead converted to deal successfully']);
+    }
+
     public function index(Request $request)
     {
         if (!auth()->check()) {
@@ -29,6 +74,7 @@ class LeadTableController extends Controller
             'bucket:id,name,bucket_color,parent_id',
             'category',
             'latestMessage.user:id,name',
+            'tags:id,name,color',
         ]);
 
         // 2. Role-based restrictions
@@ -368,6 +414,7 @@ class LeadTableController extends Controller
 
         $otherLeadsCount = $deletedLeadsCount;
         $allBucketsWithChildren = Bucket::with('children')->where('is_deleted', 0)->get()->keyBy('id');
+        $allTags = \App\Models\Tag::where('is_active', true)->orderBy('name')->get();
 
         return view('crm.lead.tableindex', compact(
             'leads',
@@ -382,7 +429,8 @@ class LeadTableController extends Controller
             'followupsCount',
             'otherLeadsCount',
             'systemTotalLeadsCount',
-            'allBucketsWithChildren'
+            'allBucketsWithChildren',
+            'allTags'
         ));
     }
 

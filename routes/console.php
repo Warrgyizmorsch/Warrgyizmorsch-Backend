@@ -14,3 +14,4 @@ Schedule::command('currency:fetch')->daily();
 Schedule::command('report:send-whatsapp')
     ->dailyAt('14:37');
 
+

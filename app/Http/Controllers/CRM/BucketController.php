@@ -36,14 +36,12 @@ class BucketController extends Controller
 
     public function leadStatuses()
     {
-        // return redirect()->route('bucket.index', ['type' => 'lead']);
-         $allBuckets = (clone $query)->whereNull('parent_id')->orderBy('id', 'asc')->get();
+        return redirect()->route('bucket.index', ['type' => 'lead']);
     }
 
     public function orderStatuses()
     {
-        // return redirect()->route('bucket.index', ['type' => 'order']);
-        return redirect()->route('bucket.index', ['type' => 'lead']);
+        return redirect()->route('bucket.index', ['type' => 'order']);
     }
 
     public function store(Request $request)
@@ -71,6 +69,9 @@ class BucketController extends Controller
                 return redirect()->back()
                     ->withInput()
                     ->with('error', "Type mismatch: Cannot add a {$type} child status under an {$parentType} parent status.");
+            }
+            if ($parent->parent_id) {
+                return redirect()->back()->withInput()->with('error', 'A sub-status can only be added under a main status.');
             }
         }
 
@@ -146,6 +147,9 @@ class BucketController extends Controller
                 return redirect()->back()
                     ->withInput()
                     ->with('error', "Type mismatch: Cannot assign a {$type} status under an {$parentType} parent status.");
+            }
+            if ($parent->parent_id) {
+                return redirect()->back()->withInput()->with('error', 'A sub-status can only be assigned under a main status.');
             }
         }
 

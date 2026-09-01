@@ -119,6 +119,16 @@ class Leads extends Model
         return $this->belongsTo(Category::class, 'category_id');
     }
 
+    public function tags()
+    {
+        return $this->morphToMany(Tag::class, 'taggable')->orderBy('name');
+    }
+
+    public function order()
+    {
+        return $this->hasOne(Order::class, 'lead_id');
+    }
+
     public function emailLogs()
     {
         return $this->hasMany(EmailLog::class, 'lead_id')->latest();

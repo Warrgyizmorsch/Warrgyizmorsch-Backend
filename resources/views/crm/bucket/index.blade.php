@@ -1,339 +1,38 @@
 @extends('layouts.app')
-
 @section('content')
-
+@php
+ $currentType=$type??'lead'; $isDeal=$currentType==='order'; $entity=$isDeal?'Deal':'Lead';
+ $selectedParent=old('parent_id',$editBucket->parent_id??request('parent_id'));
+@endphp
 <style>
-    .status-master-tabs .nav-link {
-        font-weight: 600;
-        font-size: 15px;
-        color: #4b5563;
-        padding: 12px 24px;
-        border-radius: 8px 8px 0 0;
-        border: 1px solid transparent;
-        transition: all 0.2s ease;
-    }
-    .status-master-tabs .nav-link.active {
-        color: #2563eb;
-        background-color: #ffffff;
-        border-color: #e5e7eb #e5e7eb #ffffff;
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.03);
-    }
-    .status-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        background: #ffffff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .sticky-form-card {
-        position: sticky;
-        top: 20px;
-        z-index: 10;
-    }
-    .status-tree {
-        max-height: 540px;
-        overflow-y: auto;
-        padding-right: 10px;
-    }
-    /* Custom Smooth Scrollbar */
-    .status-tree::-webkit-scrollbar {
-        width: 6px;
-    }
-    .status-tree::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 4px;
-    }
-    .status-tree::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-    }
-    .status-tree::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-    }
-    .status-parent-item {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 16px 20px;
-        margin-bottom: 16px;
-        transition: all 0.2s ease;
-    }
-    .status-parent-item:hover {
-        border-color: #cbd5e1;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-    .status-parent-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #0f172a;
-    }
-    .status-child-item {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-left: 4px solid #3b82f6;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-top: 8px;
-        margin-left: 24px;
-    }
-    .status-child-item:hover {
-        border-color: #94a3b8;
-        background-color: #f1f5f9;
-    }
-    .status-child-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: #1e293b;
-    }
-    .color-dot {
-        display: inline-block;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        margin-right: 8px;
-        vertical-align: middle;
-        box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
-    }
-    .btn-action {
-        width: 34px;
-        height: 34px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        font-size: 14px;
-        border: none;
-        transition: all 0.2s ease;
-    }
-    .btn-action-edit {
-        background-color: #eff6ff;
-        color: #2563eb;
-    }
-    .btn-action-edit:hover {
-        background-color: #2563eb;
-        color: #ffffff;
-    }
-    .btn-action-delete {
-        background-color: #fef2f2;
-        color: #ef4444;
-    }
-    .btn-action-delete:hover {
-        background-color: #ef4444;
-        color: #ffffff;
-    }
-    .badge-substatus-count {
-        font-size: 12px;
-        font-weight: 600;
-        padding: 4px 10px;
-        border-radius: 12px;
-        background-color: #e2e8f0;
-        color: #334155;
-    }
+.status-shell{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:24px}.status-tabs{display:flex;gap:7px;background:#eef2f7;border-radius:12px;padding:5px}.status-tab{padding:10px 18px;border-radius:9px;color:#64748b;text-decoration:none;font-weight:700}.status-tab:hover{color:#2563eb}.status-tab.active{background:#fff;color:#2563eb;box-shadow:0 2px 8px #0f172a14}.status-card{height:100%;background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 5px 18px rgba(15,23,42,.04)}.status-head{min-height:79px;padding:17px 20px;border-bottom:1px solid #e2e8f0;display:flex;flex-direction:column;justify-content:center}.status-list-head{flex-direction:row;justify-content:space-between}.status-form{position:sticky;top:16px;height:auto}.status-form .form-label{font-size:13px;color:#334155;margin-bottom:7px}.status-form .form-control,.status-form .form-select{min-height:44px;border-color:#cbd5e1;border-radius:9px}.status-form .form-control:focus,.status-form .form-select:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}.status-table{width:calc(100% - 28px);table-layout:fixed;border-collapse:separate;border-spacing:0 10px;margin:2px 14px 12px}.status-table thead th{height:40px;border:0;background:transparent;color:#64748b;font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:8px 14px}.status-table th:last-child,.status-table td:last-child{width:110px;white-space:nowrap}.status-table tbody td{height:62px;padding:12px 14px;vertical-align:middle;background:#fff;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;transition:.18s}.status-table tbody td:first-child{border-left:1px solid #e2e8f0;border-radius:11px 0 0 11px}.status-table tbody td:last-child{border-right:1px solid #e2e8f0;border-radius:0 11px 11px 0}.status-table tbody tr:hover td{border-color:#bfdbfe;background:#f8fbff;box-shadow:0 4px 12px rgba(15,23,42,.04)}.main-row td:first-child{border-left:4px solid #3b82f6!important}.main-name{font-weight:700;color:#0f172a;overflow-wrap:anywhere}.main-icon{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:#eff6ff;color:#2563eb;margin-right:10px}.sub-row td{background:#f8fafc!important}.sub-row td:first-child{border-left-color:#cbd5e1}.sub-name{padding-left:34px!important;color:#475569;position:relative;overflow-wrap:anywhere}.tree-branch{display:inline-block;width:24px;height:18px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;border-radius:0 0 0 5px;margin:-8px 10px 3px 0;vertical-align:middle}.color-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:9px;box-shadow:0 0 0 3px #f1f5f9}.child-count{display:inline-block;font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;padding:4px 8px;border-radius:999px;margin-left:10px}.icon-action{width:34px;height:34px;border:0;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;transition:.18s}.action-edit{background:#eff6ff;color:#2563eb}.action-edit:hover{background:#2563eb;color:#fff}.action-delete{background:#fef2f2;color:#dc2626}.action-delete:hover{background:#dc2626;color:#fff}@media(max-width:991px){.status-shell{padding:15px}.status-form{position:static}.status-tabs{width:100%}.status-tab{flex:1;text-align:center}.status-card{height:auto}}@media(max-width:575px){.status-table{width:calc(100% - 16px);margin-left:8px;margin-right:8px}.status-table th,.status-table td{padding-left:10px;padding-right:10px}.status-table th:last-child,.status-table td:last-child{width:92px}.main-icon{display:none}.sub-name{padding-left:18px!important}.tree-branch{width:16px;margin-right:6px}.child-count{display:block;width:max-content;margin:6px 0 0 0}}
 </style>
-
-<main class="py-3">
-    <div class="container-fluid">
-        <div class="page-header mb-4 d-flex justify-content-between align-items-center">
-            <div>
-                <h4 class="fw-bold mb-1">
-                    <i class="fas fa-sitemap me-2 text-primary"></i> Status Master Management
-                </h4>
-                <p class="text-muted small mb-0">Configure Parent-Child Status Hierarchies for Lead and Order Workflows</p>
-            </div>
-            <ul class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/dashboard">Home</a></li>
-                <li class="breadcrumb-item active">{{ ($type ?? 'lead') === 'order' ? 'Order Statuses' : 'Lead Statuses' }}</li>
-            </ul>
-        </div>
-
-        {{-- Success / Error Alerts --}}
-        @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
-                <i class="fas fa-check-circle me-2"></i> {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-        @if(session('error'))
-            <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4" role="alert">
-                <i class="fas fa-exclamation-triangle me-2"></i> {{ session('error') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-
-        {{-- Navigation Tabs: Lead Status Master vs Order Status Master --}}
-        <ul class="nav status-master-tabs mb-0 border-bottom">
-            <li class="nav-item">
-                <a class="nav-link {{ ($type ?? 'lead') === 'lead' ? 'active' : '' }}" href="{{ route('bucket.index', ['type' => 'lead']) }}">
-                    <i class="fas fa-filter me-2"></i> Lead Status Master
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ ($type ?? 'lead') === 'order' ? 'active' : '' }}" href="{{ route('bucket.index', ['type' => 'order']) }}">
-                    <i class="fas fa-shopping-bag me-2"></i> Order Status Master
-                </a>
-            </li>
-        </ul>
-
-        <div class="status-card p-4 rounded-top-0 mb-4">
-            <div class="row g-4">
-                
-                {{-- Form Section: Add / Edit Status (Sticky Left Column) --}}
-                <div class="col-lg-4">
-                    <div class="card border-0 shadow-sm rounded-3 bg-light sticky-form-card">
-                        <div class="card-header bg-primary text-white rounded-top-3 py-3">
-                            <h6 class="mb-0 fw-bold fs-6">
-                                <i class="fas {{ $editBucket ? 'fa-edit' : 'fa-plus-circle' }} me-2"></i>
-                                {{ $editBucket ? 'Edit ' . ucfirst($type ?? 'lead') . ' Status' : 'Add New ' . ucfirst($type ?? 'lead') . ' Status' }}
-                            </h6>
-                        </div>
-                        <div class="card-body p-3">
-                            <form action="{{ $editBucket ? route('bucket.update', $editBucket->id) : route('bucket.store') }}" method="POST">
-                                @csrf
-                                @if($editBucket)
-                                    @method('PUT')
-                                @endif
-                                <input type="hidden" name="type" value="{{ $type ?? 'lead' }}">
-
-                                {{-- Status Name --}}
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small text-secondary">
-                                        Status Name <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" name="name" value="{{ old('name', $editBucket->name ?? '') }}" class="form-control" placeholder="e.g. In Progress, Hot Lead, Dispatched" required>
-                                </div>
-
-                                {{-- Parent Status --}}
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small text-secondary">
-                                        Parent Status (Hierarchy)
-                                    </label>
-                                    <select name="parent_id" class="form-select">
-                                         <option value="">None (Root Main Status)</option>
-                                         @foreach($allBuckets as $bucketOption)
-                                             @if(!$editBucket || $editBucket->id != $bucketOption->id)
-                                                 <option value="{{ $bucketOption->id }}" @if(($editBucket && $editBucket->parent_id == $bucketOption->id) || request('parent_id') == $bucketOption->id) selected @endif>
-                                                     📁 {{ $bucketOption->name }} {{ $bucketOption->parent ? '('.$bucketOption->parent->name.')' : '' }}
-                                                 </option>
-                                             @endif
-                                         @endforeach
-                                    </select>
-                                    <small class="text-muted d-block mt-1">Select parent if this is a sub-status (child status).</small>
-                                </div>
-
-                                {{-- Status Color --}}
-                                <div class="mb-4">
-                                    <label class="form-label fw-semibold small text-secondary">Badge Color</label>
-                                    <select name="bucket_color" class="form-select">
-                                        <option value="">Default (Blue)</option>
-                                        <option value="bg-primary" {{ (isset($editBucket) && $editBucket->bucket_color == 'bg-primary') ? 'selected' : '' }}>Blue (Primary)</option>
-                                        <option value="bg-success" {{ (isset($editBucket) && $editBucket->bucket_color == 'bg-success') ? 'selected' : '' }}>Green (Success)</option>
-                                        <option value="bg-danger" {{ (isset($editBucket) && $editBucket->bucket_color == 'bg-danger') ? 'selected' : '' }}>Red (Danger/Hot)</option>
-                                        <option value="bg-warning text-dark" {{ (isset($editBucket) && $editBucket->bucket_color == 'bg-warning text-dark') ? 'selected' : '' }}>Yellow (Warning)</option>
-                                        <option value="bg-info text-dark" {{ (isset($editBucket) && $editBucket->bucket_color == 'bg-info text-dark') ? 'selected' : '' }}>Teal (Info)</option>
-                                        <option value="bg-secondary" {{ (isset($editBucket) && $editBucket->bucket_color == 'bg-secondary') ? 'selected' : '' }}>Gray (Secondary)</option>
-                                        <option value="bg-dark" {{ (isset($editBucket) && $editBucket->bucket_color == 'bg-dark') ? 'selected' : '' }}>Black (Dark)</option>
-                                    </select>
-                                </div>
-
-                                {{-- Submit / Cancel Buttons --}}
-                                <div class="d-flex gap-2">
-                                    <button type="submit" class="btn btn-{{ $editBucket ? 'warning' : 'primary' }} w-100 fw-semibold">
-                                        <i class="fas fa-save me-1"></i> {{ $editBucket ? 'Update Status' : 'Add Status' }}
-                                    </button>
-                                    @if($editBucket)
-                                        <a href="{{ route('bucket.index', ['type' => $type ?? 'lead']) }}" class="btn btn-outline-secondary">
-                                            Cancel
-                                        </a>
-                                    @endif
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Hierarchy View Section: Scrollable Parent & Child Tree --}}
-                <div class="col-lg-8">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h6 class="fw-bold mb-0 text-dark fs-6">
-                            <i class="fas fa-layer-group me-2 text-primary"></i>
-                            {{ ucfirst($type ?? 'lead') }} Status Hierarchy Tree
-                        </h6>
-                        <span class="badge bg-primary text-white px-3 py-2 rounded-pill fw-semibold">
-                            Total Main Statuses: {{ $buckets->count() }}
-                        </span>
-                    </div>
-
-                    @if($buckets->isEmpty())
-                        <div class="text-center py-5 border rounded-3 bg-light">
-                            <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
-                            <h6 class="text-muted fw-semibold">No {{ ucfirst($type ?? 'lead') }} Statuses Found</h6>
-                            <p class="text-muted small mb-0">Use the form on the left to add root statuses and child sub-statuses.</p>
-                        </div>
-                    @else
-                        <div class="status-tree">
-                            @foreach ($buckets as $bucket)
-                                <div class="status-parent-item">
-                                    <div class="d-flex align-items-center justify-content-between">
-                                        <div class="d-flex align-items-center">
-                                            <span class="color-dot {{ $bucket->bucket_color ? $bucket->bucket_color : 'bg-primary' }}"></span>
-                                            <span class="status-parent-title">{{ $bucket->name }}</span>
-                                            @if($bucket->children->count() > 0)
-                                                <span class="badge-substatus-count ms-2">
-                                                    {{ $bucket->children->count() }} sub-status{{ $bucket->children->count() > 1 ? 'es' : '' }}
-                                                </span>
-                                            @endif
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <a href="{{ route('bucket.index', ['type' => $type ?? 'lead', 'parent_id' => $bucket->id]) }}" class="btn btn-sm btn-outline-primary py-1 px-3 fw-semibold" title="Add child sub-status under this status">
-                                                <i class="fas fa-plus me-1"></i> Add Sub-status
-                                            </a>
-                                            <a href="{{ route('bucket.edit', ['id' => $bucket->id, 'type' => $type ?? 'lead']) }}" class="btn-action btn-action-edit" title="Edit Status">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <form action="{{ route('bucket.destroy', $bucket->id) }}" method="POST" class="d-inline">
-                                                @csrf 
-                                                @method('DELETE')
-                                                <button type="submit" class="btn-action btn-action-delete" onclick="return confirm('Delete this status?')" title="Delete Status">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-
-                                    {{-- Sub-Statuses (Children) --}}
-                                    @if ($bucket->children->count() > 0)
-                                        <div class="mt-3 pt-2 border-top border-200">
-                                            @foreach ($bucket->children as $child)
-                                                <div class="status-child-item d-flex align-items-center justify-content-between">
-                                                    <div class="d-flex align-items-center">
-                                                        <span class="text-secondary me-2 fw-bold">└─</span>
-                                                        <span class="color-dot {{ $child->bucket_color ? $child->bucket_color : 'bg-secondary' }}"></span>
-                                                        <span class="status-child-title">{{ $child->name }}</span>
-                                                    </div>
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <a href="{{ route('bucket.edit', ['id' => $child->id, 'type' => $type ?? 'lead']) }}" class="btn-action btn-action-edit" title="Edit Sub-status">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                        <form action="{{ route('bucket.destroy', $child->id) }}" method="POST" class="d-inline">
-                                                            @csrf 
-                                                            @method('DELETE')
-                                                            <button type="submit" class="btn-action btn-action-delete" onclick="return confirm('Delete this sub-status?')" title="Delete Sub-status">
-                                                                <i class="fas fa-trash-alt"></i>
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </div>
-
-            </div>
-        </div>
-    </div>
-</main>
-
+<main class="py-3"><div class="container-fluid">
+ <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div><h4 class="fw-bold mb-1"><i class="fas fa-layer-group text-primary me-2"></i>Status Master</h4><p class="text-muted mb-0">Lead aur Deal ke main status aur sub-status manage karein.</p></div>
+  <div class="status-tabs"><a class="status-tab {{!$isDeal?'active':''}}" href="{{route('bucket.index',['type'=>'lead'])}}"><i class="fas fa-user-tag me-2"></i>Lead Status</a><a class="status-tab {{$isDeal?'active':''}}" href="{{route('bucket.index',['type'=>'order'])}}"><i class="fas fa-handshake me-2"></i>Deal Status</a></div>
+ </div>
+ @if(session('success'))<div class="alert alert-success alert-dismissible fade show"><i class="fas fa-check-circle me-2"></i>{{session('success')}}<button class="btn-close" data-bs-dismiss="alert"></button></div>@endif
+ @if(session('error'))<div class="alert alert-danger alert-dismissible fade show"><i class="fas fa-exclamation-circle me-2"></i>{{session('error')}}<button class="btn-close" data-bs-dismiss="alert"></button></div>@endif
+ @if($errors->any())<div class="alert alert-danger">{{$errors->first()}}</div>@endif
+ <div class="status-shell"><div class="row g-4">
+  <div class="col-lg-5"><div class="status-card status-form">
+   <div class="status-head"><h6 class="fw-bold mb-1">{{$editBucket?'Edit':'Add New'}} {{$entity}} Status</h6><small class="text-muted">Parent blank rakhen to Main Status banega.</small></div>
+   <form class="p-3" action="{{$editBucket?route('bucket.update',$editBucket):route('bucket.store')}}" method="POST">@csrf @if($editBucket)@method('PUT')@endif<input type="hidden" name="type" value="{{$currentType}}">
+    <div class="mb-3"><label class="form-label fw-semibold">Status name <span class="text-danger">*</span></label><input class="form-control" name="name" value="{{old('name',$editBucket->name??'')}}" placeholder="Status name enter karein" required></div>
+    <div class="mb-3"><label class="form-label fw-semibold">Parent status <span class="text-muted fw-normal">(Optional)</span></label><select class="form-select" name="parent_id"><option value="">No Parent — Create as Main Status</option>@foreach($allBuckets as $option)@if(!$editBucket||$option->id!==$editBucket->id)<option value="{{$option->id}}" {{(string)$selectedParent===(string)$option->id?'selected':''}}>{{$option->name}}</option>@endif @endforeach</select><small class="text-muted">Parent select karne par ye uska Sub Status banega.</small></div>
+    <div class="mb-4"><label class="form-label fw-semibold">Status color</label><select class="form-select" name="bucket_color">@foreach(['bg-primary'=>'Blue','bg-success'=>'Green','bg-danger'=>'Red','bg-warning text-dark'=>'Yellow','bg-info text-dark'=>'Teal','bg-secondary'=>'Grey','bg-dark'=>'Black'] as $value=>$label)<option value="{{$value}}" {{old('bucket_color',$editBucket->bucket_color??'bg-primary')===$value?'selected':''}}>{{$label}}</option>@endforeach</select></div>
+    <div class="d-flex gap-2"><button class="btn btn-primary flex-grow-1"><i class="fas fa-save me-1"></i>{{$editBucket?'Update Status':'Save Status'}}</button>@if($editBucket)<a class="btn btn-outline-secondary" href="{{route('bucket.index',['type'=>$currentType])}}">Cancel</a>@endif</div>
+   </form>
+  </div></div>
+  <div class="col-lg-7"><div class="status-card"><div class="status-head status-list-head align-items-center"><div><h6 class="fw-bold mb-1">{{$entity}} Status List</h6><small class="text-muted">Sub-status apne main status ke niche grouped hain.</small></div><span class="badge bg-primary rounded-pill px-3 py-2">{{$buckets->count()}} Main Status</span></div>
+   <div class="table-responsive"><table class="table status-table"><thead><tr><th>Status hierarchy</th><th class="text-end">Action</th></tr></thead><tbody>
+   @forelse($buckets as $bucket)
+    <tr class="main-row"><td class="main-name"><span class="main-icon"><i class="fas fa-folder"></i></span><span class="color-dot {{$bucket->bucket_color?:'bg-primary'}}"></span>{{$bucket->name}}@if($bucket->children->count())<span class="child-count">{{$bucket->children->count()}} sub</span>@endif</td><td class="text-end"><a class="icon-action action-edit me-1" href="{{route('bucket.edit',['id'=>$bucket->id,'type'=>$currentType])}}" title="Edit"><i class="fas fa-pen"></i></a><form class="d-inline" method="POST" action="{{route('bucket.destroy',$bucket)}}">@csrf @method('DELETE')<button class="icon-action action-delete" onclick="return confirm('Is status ko delete karein?')" title="Delete"><i class="fas fa-trash"></i></button></form></td></tr>
+    @foreach($bucket->children as $child)<tr class="sub-row"><td class="sub-name"><span class="tree-branch"></span><span class="color-dot {{$child->bucket_color?:'bg-secondary'}}"></span>{{$child->name}}</td><td class="text-end"><a class="icon-action action-edit me-1" href="{{route('bucket.edit',['id'=>$child->id,'type'=>$currentType])}}" title="Edit"><i class="fas fa-pen"></i></a><form class="d-inline" method="POST" action="{{route('bucket.destroy',$child)}}">@csrf @method('DELETE')<button class="icon-action action-delete" onclick="return confirm('Is sub-status ko delete karein?')" title="Delete"><i class="fas fa-trash"></i></button></form></td></tr>@endforeach
+   @empty<tr><td colspan="2" class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x d-block mb-2"></i>Abhi koi {{strtolower($entity)}} status nahi hai.</td></tr>@endforelse
+   </tbody></table></div>
+  </div></div>
+ </div></div>
+</div></main>
 @endsection

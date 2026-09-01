@@ -16,9 +16,9 @@
         min-height: calc(100vh - 250px);
     }
     .pipeline-column {
-        flex: 0 0 320px;
-        max-width: 320px;
-        min-width: 300px;
+        flex: 0 0 390px;
+        max-width: 390px;
+        min-width: 370px;
         background: #f4f6f9;
         border-radius: 12px;
         border: 1px solid #e2e8f0;
@@ -66,6 +66,7 @@
         color: #ffffff !important;
         border-color: #006FC9 !important;
     }
+    @include('crm.lead.partials.lead-interaction-styles')
 </style>
 
 <div class="container-fluid px-4 py-3 pipeline-wrapper">
@@ -75,88 +76,25 @@
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                 {{-- Title & View Switcher --}}
                 <div class="d-flex align-items-center gap-3">
-                    <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                        <i class="ti ti-layout-kanban me-2 text-primary"></i>New Leads Table Pipeline
-                    </h5>
-                    
                     {{-- Dedicated View Switcher (New Leads Table View <-> New Leads Pipeline View) --}}
                     <div class="btn-group btn-group-sm" role="group" aria-label="View Switcher">
                         <a href="{{ route('leads.table.index') }}" class="btn btn-outline-primary view-switcher-btn d-flex align-items-center gap-1">
-                            <i class="ti ti-list"></i> Table View
+                            <i class="feather-list"></i> Table View
                         </a>
                         <button type="button" class="btn btn-primary view-switcher-btn active d-flex align-items-center gap-1">
-                            <i class="ti ti-layout-kanban"></i> Pipeline View
+                            <i class="feather-columns"></i> Pipeline View
                         </button>
                     </div>
                 </div>
 
                 {{-- Action / Add Lead Button --}}
                 <div>
-                    <a href="{{ route('lead.create') }}" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
-                        <i class="ti ti-plus"></i> Add New Lead
-                    </a>
+                    <button type="button" onclick="openCreateModal()" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
+                        <i class="feather-plus"></i> Add New Lead
+                    </button>
                 </div>
             </div>
 
-            {{-- Filters Bar --}}
-            <form id="pipelineFilterForm" class="mt-3 pt-3 border-top border-light">
-                <div class="row g-2 align-items-center">
-                    {{-- Search Input --}}
-                    <div class="col-md-3 col-sm-6">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-light border-end-0"><i class="ti ti-search text-muted"></i></span>
-                            <input type="text" name="search" id="pipelineSearchInput" class="form-control bg-light border-start-0 fs-13" placeholder="Search name, phone, email, company..." value="{{ request('search') }}">
-                        </div>
-                    </div>
-
-                    {{-- Lead Owner Filter --}}
-                    <div class="col-md-2 col-sm-6">
-                        <select name="owner_id" class="form-select form-select-sm fs-13 pipeline-filter-control">
-                            <option value="">All Owners</option>
-                            <option value="null" {{ request('owner_id') === 'null' ? 'selected' : '' }}>Unassigned</option>
-                            @foreach($owners as $owner)
-                                <option value="{{ $owner->id }}" {{ request('owner_id') == $owner->id ? 'selected' : '' }}>
-                                    {{ $owner->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Category Filter --}}
-                    <div class="col-md-2 col-sm-6">
-                        <select name="category_id" class="form-select form-select-sm fs-13 pipeline-filter-control">
-                            <option value="">All Categories</option>
-                            @foreach($categories as $cat)
-                                <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>
-                                    {{ $cat->category_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Source Filter --}}
-                    <div class="col-md-2 col-sm-6">
-                        <select name="source" class="form-select form-select-sm fs-13 pipeline-filter-control">
-                            <option value="">All Sources</option>
-                            @foreach($sources as $src)
-                                <option value="{{ $src }}" {{ request('source') == $src ? 'selected' : '' }}>
-                                    {{ $src }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Date From --}}
-                    <div class="col-md-1.5 col-sm-6">
-                        <input type="date" name="from" class="form-control form-control-sm fs-13 pipeline-filter-control" placeholder="From Date" value="{{ request('from') }}">
-                    </div>
-
-                    {{-- Date To --}}
-                    <div class="col-md-1.5 col-sm-6">
-                        <input type="date" name="to" class="form-control form-control-sm fs-13 pipeline-filter-control" placeholder="To Date" value="{{ request('to') }}">
-                    </div>
-                </div>
-            </form>
         </div>
     </div>
 
@@ -190,7 +128,7 @@
                             @include('crm.lead.pipeline-card', ['lead' => $leadItem])
                         @empty
                             <div class="text-center py-4 text-muted empty-col-msg fs-13">
-                                <i class="ti ti-inbox fs-24 d-block mb-1"></i> No leads found
+                                <i class="feather-inbox fs-24 d-block mb-1"></i> No leads found
                             </div>
                         @endforelse
                     </div>
@@ -212,6 +150,12 @@
         @endforeach
     </div>
 </div>
+
+@php
+    $childBuckets = $buckets;
+    $categorys = $categories;
+@endphp
+@include('crm.lead.partials.lead-interaction-modals')
 
 @endsection
 
@@ -391,9 +335,7 @@
         const spinner = sentinel.querySelector('.col-spinner');
         if (spinner) spinner.style.display = 'inline-block';
 
-        const filterForm = document.getElementById('pipelineFilterForm');
-        const formData = new FormData(filterForm);
-        const params = new URLSearchParams(formData);
+        const params = new URLSearchParams(window.location.search);
         params.set('bucket_id', bucketId);
         params.set('page', nextPage);
 
@@ -478,7 +420,7 @@
                         if (colInfo.cards_html) {
                             cardsList.innerHTML = colInfo.cards_html;
                         } else {
-                            cardsList.innerHTML = `<div class="text-center py-4 text-muted empty-col-msg fs-13"><i class="ti ti-inbox fs-24 d-block mb-1"></i> No leads found</div>`;
+                            cardsList.innerHTML = `<div class="text-center py-4 text-muted empty-col-msg fs-13"><i class="feather-inbox fs-24 d-block mb-1"></i> No leads found</div>`;
                         }
                     }
 
@@ -500,8 +442,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         initDragAndDrop();
         setupInfiniteScroll();
-        initFilters();
     });
 })();
 </script>
+@include('crm.lead.partials.lead-interaction-scripts')
 @endpush

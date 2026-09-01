@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Follow-ups - CRM')
+@section('title', 'Follow-ups Tracker - CRM')
 
 @push('styles')
 <style>
@@ -15,6 +15,7 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         border: 1px solid #e2e8f0;
         margin-bottom: 12px;
+        overflow-x: auto;
     }
 
     .lead-status-tab {
@@ -31,14 +32,14 @@
         white-space: nowrap;
     }
 
-    .lead-status-tab.status-primary { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
-    .lead-status-tab.status-primary:hover, .lead-status-tab.status-primary.is-active { background-color: #0284c7; color: #ffffff; }
+    .lead-status-tab.tab-lead { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .lead-status-tab.tab-lead:hover, .lead-status-tab.tab-lead.is-active { background-color: #0284c7; color: #ffffff; }
 
-    .lead-status-tab.status-success { background-color: #dcfce7; color: #15803d; border-color: #bbf7d0; }
-    .lead-status-tab.status-success:hover, .lead-status-tab.status-success.is-active { background-color: #16a34a; color: #ffffff; }
+    .lead-status-tab.tab-deal { background-color: #f3e8ff; color: #7e22ce; border-color: #e9d5ff; }
+    .lead-status-tab.tab-deal:hover, .lead-status-tab.tab-deal.is-active { background-color: #9333ea; color: #ffffff; }
 
-    .lead-status-tab.status-danger { background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-    .lead-status-tab.status-danger:hover, .lead-status-tab.status-danger.is-active { background-color: #dc2626; color: #ffffff; }
+    .lead-status-tab.tab-missed { background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .lead-status-tab.tab-missed:hover, .lead-status-tab.tab-missed.is-active { background-color: #dc2626; color: #ffffff; }
 
     .table-action-btn {
         width: 28px;
@@ -77,10 +78,10 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: #64748b;
-        padding: 12px 16px;
+        padding: 12px 14px;
     }
     .lead-table-body td {
-        padding: 12px 16px;
+        padding: 12px 14px;
         font-size: 13px;
         color: #334155;
         vertical-align: middle;
@@ -92,210 +93,299 @@
     .lead-table-body tr:hover td {
         background-color: #f8fafc;
     }
+
+    .done-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
 </style>
 @endpush
 
 @section('content')
 <div class="nxl-content">
-    {{-- Header Component --}}
-    <x-lead.tools :title="'Follow-ups Tracker'" :buckets="$childBuckets" :filterBucket="$childBuckets" :totalLeadsCount="$allCount" />
+    {{-- Clean Header for Follow-ups Tracker --}}
+    <div class="page-header py-3 px-3 border-bottom bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div class="page-header-left d-flex align-items-center gap-3">
+            <div class="page-header-title">
+                <h5 class="m-b-0 fw-bold fs-16 text-dark d-flex align-items-center gap-2">
+                    <i class="feather-calendar text-primary fs-18"></i>
+                    Follow-ups Tracker
+                    <span class="badge bg-primary-subtle text-primary rounded-pill fs-11 px-2.5 py-1">{{ $allCount }} Total</span>
+                </h5>
+            </div>
+            <ul class="breadcrumb mb-0 d-none d-md-flex align-items-center fs-12 text-muted">
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}" class="text-decoration-none text-muted">Home</a></li>
+                <li class="breadcrumb-item active text-dark fw-semibold">Follow-ups</li>
+            </ul>
+        </div>
+    </div>
 
-    <div class="main-content px-3 py-2">
-        {{-- 3 Main Navigation Tabs --}}
+    <div class="main-content px-3 py-1">
+        {{-- The 3 Follow-up Tabs: Lead / Deal / Missed --}}
         <div class="lead-tab-strip">
-            <a href="{{ request()->fullUrlWithQuery(['tab' => 'all']) }}" 
-               class="lead-status-tab status-primary {{ $tab === 'all' ? 'is-active' : '' }}">
-                <i class="feather-phone-call me-1"></i> Follow Ups ({{ $allCount }})
+            <a href="{{ request()->fullUrlWithQuery(['tab' => 'lead', 'page' => null]) }}"
+               class="lead-status-tab tab-lead {{ $tab === 'lead' ? 'is-active' : '' }}">
+                <i class="feather-users me-1"></i> Lead Follow-ups ({{ $leadCount }})
             </a>
 
-            <a href="{{ request()->fullUrlWithQuery(['tab' => 'next']) }}" 
-               class="lead-status-tab status-success {{ $tab === 'next' ? 'is-active' : '' }}">
-                <i class="feather-calendar me-1"></i> Next Followup ({{ $nextCount }})
+            <a href="{{ request()->fullUrlWithQuery(['tab' => 'deal', 'page' => null]) }}"
+               class="lead-status-tab tab-deal {{ $tab === 'deal' ? 'is-active' : '' }}">
+                <i class="feather-briefcase me-1"></i> Deal Follow-ups ({{ $dealCount }})
             </a>
 
-            <a href="{{ request()->fullUrlWithQuery(['tab' => 'due']) }}" 
-               class="lead-status-tab status-danger {{ $tab === 'due' ? 'is-active' : '' }}">
-                <i class="feather-alert-triangle me-1"></i> Due Followup ({{ $dueCount }})
+            <a href="{{ request()->fullUrlWithQuery(['tab' => 'missed', 'page' => null]) }}"
+               class="lead-status-tab tab-missed {{ $tab === 'missed' ? 'is-active' : '' }}">
+                <i class="feather-alert-triangle me-1"></i> Missed Follow-ups ({{ $missedCount }})
             </a>
         </div>
 
-        {{-- Toolbar --}}
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-1">
-            <div class="d-flex align-items-center gap-2">
-                <label class="mb-0 text-muted fs-13">Show</label>
-                <form method="GET">
-                    @foreach(request()->except('per_page', 'page') as $key => $value)
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endforeach
-                    <select name="per_page" class="form-select form-select-sm border-slate rounded-2" onchange="this.form.submit()" style="width: 75px;">
-                        <option value="20" {{ request('per_page', 20) == 20 ? 'selected' : '' }}>20</option>
-                        <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
-                        <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
-                        <option value="250" {{ request('per_page') == 250 ? 'selected' : '' }}>250</option>
-                        <option value="500" {{ request('per_page') == 500 ? 'selected' : '' }}>500</option>
-                    </select>
-                </form>
-                <span class="text-muted fs-13">Entries</span>
-            </div>
+        {{-- Clean Filter & Search Toolbar (No Pin, No Pipeline view, Date range by next_followup_date) --}}
+        <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white">
+            <div class="card-body p-2.5">
+                <form method="GET" action="{{ route('followups.index') }}" id="followupSearchForm" class="row g-2 align-items-center">
+                    <input type="hidden" name="tab" value="{{ $tab }}">
 
-            <div class="d-flex align-items-center gap-2">
-                <form method="GET" class="d-flex align-items-center gap-2">
-                    @foreach(request()->except('search', 'page') as $key => $value)
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endforeach
-                    <div class="input-group input-group-sm" style="width: 280px;">
-                        <input type="text" name="search" class="form-control border-slate" placeholder="Search message, lead name, phone..." value="{{ request('search') }}">
-                        <button class="btn btn-outline-secondary" type="submit"><i class="feather-search"></i></button>
+                    {{-- Follow-up Date Filter (From Date) --}}
+                    <div class="col-12 col-sm-auto d-flex align-items-center gap-1.5">
+                        <span class="text-muted fs-12 fw-semibold"><i class="feather-calendar text-primary me-1"></i>From:</span>
+                        <input type="date" name="from" class="form-control form-control-sm border-slate" value="{{ request('from') }}" style="font-size: 12px; width: 140px;">
+                    </div>
+
+                    {{-- Follow-up Date Filter (To Date) --}}
+                    <div class="col-12 col-sm-auto d-flex align-items-center gap-1.5">
+                        <span class="text-muted fs-12 fw-semibold">To:</span>
+                        <input type="date" name="to" class="form-control form-control-sm border-slate" value="{{ request('to') }}" style="font-size: 12px; width: 140px;">
+                    </div>
+
+                    {{-- Live Search Input with Suggestions Dropdown --}}
+                    <div class="col-12 col-md position-relative">
+                        <div class="input-group input-group-sm w-100">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="feather-search text-muted" id="search-icon"></i>
+                                <span class="spinner-border spinner-border-sm text-primary d-none" id="search-spinner" role="status" style="width: 13px; height: 13px;"></span>
+                            </span>
+                            <input type="text" name="search" id="lead-live-search" class="form-control border-start-0"
+                                placeholder="Search Name, Phone, Email, Company, Remark..."
+                                value="{{ request('search') }}" autocomplete="off" style="font-size: 12px;">
+                        </div>
+                        <div id="search-suggestions-box" class="dropdown-menu shadow-lg w-100 mt-1 overflow-auto" style="max-height: 320px; display: none; z-index: 1050; border-radius: 8px;"></div>
+                    </div>
+
+                    {{-- Submit & Reset Buttons --}}
+                    <div class="col-auto d-flex align-items-center gap-1">
+                        <button type="submit" class="btn btn-sm btn-primary px-3 d-flex align-items-center gap-1 fw-semibold" style="font-size: 12px;">
+                            <i class="feather-filter fs-11"></i> Filter
+                        </button>
+                        @if(request()->hasAny(['search', 'from', 'to']) && (request('search') || request('from') || request('to')))
+                            <a href="{{ route('followups.index', ['tab' => $tab]) }}" class="btn btn-sm btn-light border text-danger px-2.5 d-flex align-items-center gap-1" title="Clear Filters" style="font-size: 12px;">
+                                <i class="feather-x"></i> Reset
+                            </a>
+                        @endif
                     </div>
                 </form>
             </div>
         </div>
 
-        {{-- Table Container --}}
+        {{-- Follow-ups Table Container --}}
         <div class="lead-table-card">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="lead-table-head">
                         <tr>
-                            <th style="min-width: 200px;">Lead Info</th>
-                            <th style="min-width: 170px;">Communication & Status</th>
-                            <th style="width: 250px; min-width: 250px; max-width: 250px;">Remark / Comment</th>
-                            <th style="min-width: 160px; white-space: nowrap;">Next Followup Date</th>
-                            <th style="min-width: 160px; white-space: nowrap;">Updated By & Date</th>
-                            <th class="text-end" style="min-width: 200px; white-space: nowrap;">Actions</th>
+                            <th style="width: 40px;" class="text-center" title="Mark Done">Done</th>
+                            <th style="min-width: 240px;">Lead / Deal Info</th>
+                            <th style="min-width: 170px;">Company</th>
+                            <th style="min-width: 260px;">Remark & Communication</th>
+                            <th style="min-width: 180px;">Follow-up Date</th>
+                            <th class="text-center" style="min-width: 320px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="lead-table-body">
-                        @forelse($followups as $index => $item)
+                        @forelse($followups as $item)
                             @php
                                 $lead = $item->lead;
                                 $user = optional($lead)->user;
                                 $nextDate = $item->next_followup_date ? \Carbon\Carbon::parse($item->next_followup_date) : null;
-                                $isOverdue = $nextDate && $nextDate->isPast() && !$nextDate->isToday();
-                                $isToday = $nextDate && $nextDate->isToday();
+                                $isMissed = $nextDate && $nextDate->isPast();
+                                $statusName = optional($lead)->lead_status ?: optional(optional($lead)->bucket)->name ?: 'New';
                             @endphp
-                            <tr>
-                                <td>
-                                    <div class="d-flex flex-column gap-1.5">
-                                        <div class="fw-bold text-dark fs-13 d-flex align-items-center gap-1.5 mb-0.5">
-                                            <span>{{ $user->name ?? 'N/A' }}</span>
-                                        </div>
-                                        <div class="text-muted fs-11 d-flex align-items-center">
-                                            <i class="feather-phone text-primary me-2 flex-shrink-0 d-inline-flex justify-content-center" style="width: 16px;"></i>
-                                            <span>{{ $user->contact_no ?? 'N/A' }}</span>
-                                        </div>
-                                        @if(optional($user)->email)
-                                            <div class="text-muted fs-11 d-flex align-items-center">
-                                                <i class="feather-mail text-primary me-2 flex-shrink-0 d-inline-flex justify-content-center" style="width: 16px;"></i>
-                                                <span class="text-truncate" style="max-width: 220px;" title="{{ $user->email }}">{{ $user->email }}</span>
-                                            </div>
-                                        @endif
-                                        @if(optional($lead)->business_name)
-                                            <div class="text-muted fs-11 d-flex align-items-center">
-                                                <i class="feather-briefcase text-secondary me-2 flex-shrink-0 d-inline-flex justify-content-center" style="width: 16px;"></i>
-                                                <span class="text-truncate" style="max-width: 220px;" title="{{ $lead->business_name }}">{{ $lead->business_name }}</span>
-                                            </div>
-                                        @endif
-                                    </div>
+                            <tr id="followup-row-{{ $item->id }}">
+                                {{-- Checkbox to Mark Done --}}
+                                <td class="text-center">
+                                    <input type="checkbox" 
+                                           class="form-check-input done-checkbox shadow-2xs" 
+                                           title="Check to mark Done" 
+                                           onchange="markFollowupDoneCheckbox({{ $item->id }}, this)">
                                 </td>
+
+                                {{-- Lead / Deal Info --}}
                                 <td>
-                                    <div class="d-flex flex-column gap-1">
-                                        @if($item->followup_type || $item->followup_status)
-                                            <div class="d-flex align-items-center gap-1 flex-wrap">
-                                                @if($item->followup_type)
-                                                    <span class="badge bg-primary-subtle text-primary border fs-11 fw-semibold">
-                                                        <i class="feather-phone-call me-1"></i>{{ $item->followup_type }}
-                                                    </span>
-                                                @endif
-                                                @if($item->followup_status)
-                                                    <span class="badge bg-info-subtle text-info border fs-11 fw-semibold">
-                                                        {{ $item->followup_status }}
-                                                    </span>
-                                                @endif
-                                            </div>
-                                        @endif
-                                        @if($item->bucket || $item->status)
-                                            <span class="text-muted fs-11">
-                                                Stage: <strong>{{ $item->bucket ?? '' }}</strong> {{ $item->status ? '('.$item->status.')' : '' }}
+                                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                        <span class="fw-bold text-dark fs-13">{{ $user->name ?? 'N/A' }}</span>
+                                        
+                                        {{-- Lead / Deal Badge with Clear Styling --}}
+                                        @if(optional($lead)->is_converted)
+                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill fs-10 px-2">
+                                                <i class="feather-briefcase me-0.5"></i> Deal
+                                            </span>
+                                        @else
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill fs-10 px-2">
+                                                <i class="feather-users me-0.5"></i> Lead
                                             </span>
                                         @endif
+
+                                        {{-- Manage Tags Dropdown Button --}}
+                                        @if($lead)
+                                            <div class="dropdown d-inline-block">
+                                                <button type="button" class="btn btn-xs btn-light border rounded-pill px-1.5 py-0.5 text-primary d-inline-flex align-items-center gap-1 shadow-2xs" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Manage Tags" style="font-size: 11px; line-height: 1;">
+                                                    <i class="fas fa-tag"></i>
+                                                    <span class="badge bg-primary text-white rounded-pill px-1 py-0 {{ ($lead->tags && $lead->tags->count() > 0) ? '' : 'd-none' }}" data-lead-tag-btn-badge="{{ $lead->id }}" style="font-size: 9px;">{{ $lead->tags ? $lead->tags->count() : 0 }}</span>
+                                                </button>
+                                                <div class="dropdown-menu p-2 shadow-lg border-0" style="min-width:220px;max-height:260px;overflow-y:auto;border-radius:10px;z-index:1050;">
+                                                    <div class="d-flex align-items-center justify-content-between px-2 py-1 border-bottom mb-1">
+                                                        <span class="small fw-bold text-dark fs-11 text-uppercase"><i class="fas fa-tags text-primary me-1"></i>Select Tags</span>
+                                                        <a href="{{ route('tags.index') }}" target="_blank" class="text-primary text-decoration-none fs-10 fw-semibold" title="Tag Master">+ Manage</a>
+                                                    </div>
+                                                    @forelse(($allTags ?? collect()) as $tagOption)
+                                                        <button type="button" class="dropdown-item rounded d-flex align-items-center justify-content-between py-1.5 px-2 mb-0.5" onclick="toggleLeadTag(event, {{ $lead->id }}, {{ $tagOption->id }}, this)" data-tag-name="{{ $tagOption->name }}" data-tag-color="{{ $tagOption->color }}">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <input class="form-check-input m-0 pe-none" type="checkbox" {{ $lead->tags && $lead->tags->contains('id', $tagOption->id) ? 'checked' : '' }}>
+                                                                <span class="badge rounded-pill text-white fs-11" style="background-color: {{ $tagOption->color }}">{{ $tagOption->name }}</span>
+                                                            </div>
+                                                        </button>
+                                                    @empty
+                                                        <span class="dropdown-item-text text-muted small py-2 text-center d-block">No tags in Tag Master.</span>
+                                                    @endforelse
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
-                                </td>
-                                <td style="width: 250px; max-width: 250px;">
-                                    <div style="width: 250px; max-width: 250px; word-break: break-all; overflow-wrap: anywhere; white-space: normal;">
-                                        <p class="mb-0 fs-12 text-dark" style="line-height: 1.4; word-break: break-all; overflow-wrap: anywhere; white-space: normal;">
-                                            {{ $item->message ?: 'No remark added.' }}
-                                        </p>
+
+                                    <div class="text-muted fs-11 mb-0.5 d-flex align-items-center">
+                                        <i class="feather-phone text-primary me-1.5 flex-shrink-0"></i>
+                                        <span>{{ $user->contact_no ?? 'N/A' }}</span>
                                     </div>
-                                </td>
-                                <td style="white-space: nowrap;">
-                                    @if($nextDate)
-                                        <div class="d-flex flex-column gap-1">
-                                            <span class="fs-12 fw-bold {{ $isOverdue ? 'text-danger' : ($isToday ? 'text-warning' : 'text-primary') }}">
-                                                <i class="feather-calendar me-1"></i>{{ $nextDate->format('d M Y, h:i A') }}
-                                            </span>
-                                            @if($isOverdue)
-                                                <span class="badge bg-danger-subtle text-danger border fs-10 w-auto d-inline-block text-start">Overdue</span>
-                                            @elseif($isToday)
-                                                <span class="badge bg-warning-subtle text-warning border fs-10 w-auto d-inline-block text-start">Due Today</span>
-                                            @else
-                                                <span class="badge bg-success-subtle text-success border fs-10 w-auto d-inline-block text-start">Upcoming</span>
-                                            @endif
+                                    @if(optional($user)->email)
+                                        <div class="text-muted fs-11 text-truncate d-flex align-items-center" style="max-width:220px;" title="{{ $user->email }}">
+                                            <i class="feather-mail text-primary me-1.5 flex-shrink-0"></i>
+                                            <span class="text-truncate">{{ $user->email }}</span>
                                         </div>
-                                    @else
-                                        <span class="text-muted fs-11">Not Scheduled</span>
+                                    @endif
+
+                                    {{-- Tag Badges Display --}}
+                                    @if($lead)
+                                        <div class="d-flex flex-wrap gap-1 mt-1" data-lead-tags-container="{{ $lead->id }}">
+                                            @foreach(($lead->tags ?? []) as $tag)
+                                                <span class="badge rounded-pill text-white fs-10 d-inline-flex align-items-center gap-1 shadow-2xs" style="background-color:{{ $tag->color }}" data-lead-tag="{{ $lead->id }}-{{ $tag->id }}">
+                                                    {{ $tag->name }}
+                                                    <button type="button" class="border-0 bg-transparent text-white p-0 d-inline-flex align-items-center" style="font-size:11px;line-height:1;opacity:0.85;" title="Remove tag" onclick="removeLeadTag(event, {{ $lead->id }}, {{ $tag->id }}, this)"><i class="fas fa-times-circle"></i></button>
+                                                </span>
+                                            @endforeach
+                                        </div>
                                     @endif
                                 </td>
-                                <td style="white-space: nowrap;">
-                                    <div class="d-flex flex-column gap-0.5">
-                                        <span class="fs-12 text-dark fw-medium"><i class="feather-user text-primary me-1 fs-11"></i>{{ optional($item->user)->name ?? 'System' }}</span>
-                                        <span class="text-muted fs-11">{{ $item->created_at ? $item->created_at->format('d M Y, h:i A') : 'N/A' }}</span>
+
+                                {{-- Company Name --}}
+                                <td>
+                                    <div class="d-flex align-items-center gap-1.5">
+                                        <i class="feather-briefcase text-secondary fs-12"></i>
+                                        <span class="fw-semibold fs-12 text-dark">{{ optional($lead)->business_name ?: 'N/A' }}</span>
+                                    </div>
+                                    @if(optional($lead)->owner)
+                                        <div class="text-muted fs-10 mt-1 d-flex align-items-center gap-1">
+                                            <i class="feather-user fs-10"></i> Owner: {{ optional($lead)->owner->name }}
+                                        </div>
+                                    @endif
+                                </td>
+
+                                {{-- Remark / Comment & Type --}}
+                                <td>
+                                    <div class="fs-12 text-dark mb-1" style="line-height:1.4;white-space:normal;overflow-wrap:anywhere;">
+                                        {{ $item->message ?: 'No remark added.' }}
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                                        @if($item->followup_type)
+                                            <span class="badge bg-primary-subtle text-primary border fs-10 py-0.5 px-2">
+                                                <i class="feather-phone me-1"></i>{{ $item->followup_type }}
+                                            </span>
+                                        @endif
+                                        @if($item->followup_status)
+                                            <span class="badge bg-info-subtle text-info border fs-10 py-0.5 px-2">
+                                                {{ $item->followup_status }}
+                                            </span>
+                                        @endif
                                     </div>
                                 </td>
-                                <td class="text-end" style="white-space: nowrap;">
-                                    @if($lead)
-                                        <div class="d-inline-flex align-items-center gap-1">
-                                            {{-- Edit Status Offcanvas Button --}}
+
+                                {{-- Follow-up Date --}}
+                                <td>
+                                    @if($nextDate)
+                                        <div class="fw-bold fs-12 {{ $isMissed ? 'text-danger' : 'text-primary' }} d-flex align-items-center gap-1">
+                                            <i class="feather-calendar"></i>
+                                            <span>{{ $nextDate->format('d M Y, h:i A') }}</span>
+                                        </div>
+                                        <span class="badge {{ $isMissed ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-success-subtle text-success border-success-subtle' }} border mt-1 fs-10">
+                                            {{ $isMissed ? 'Missed (' . $nextDate->diffForHumans() . ')' : 'Upcoming (' . $nextDate->diffForHumans() . ')' }}
+                                        </span>
+                                    @else
+                                        <span class="text-muted fs-12">N/A</span>
+                                    @endif
+                                </td>
+
+                                {{-- Action Buttons --}}
+                                <td class="text-center">
+                                    <div class="d-inline-flex align-items-center justify-content-center gap-1.5 flex-wrap">
+                                        {{-- Mark Done Button --}}
+                                        <button type="button" class="btn btn-xs btn-success d-inline-flex align-items-center gap-1 px-2 py-1 shadow-2xs fw-semibold" style="font-size: 11px;"
+                                                onclick="markFollowupDone({{ $item->id }}, this)" title="Mark as Done">
+                                            <i class="feather-check"></i> Done
+                                        </button>
+
+                                        {{-- Next Follow-up Button --}}
+                                        <button type="button" class="btn btn-xs btn-primary d-inline-flex align-items-center gap-1 px-2 py-1 shadow-2xs fw-semibold" style="font-size: 11px;"
+                                                onclick="openNextFollowupModal({{ $item->id }}, @js($item->message ?? ''))" title="Schedule Next Follow-up">
+                                            <i class="feather-calendar"></i> Next Follow-up
+                                        </button>
+
+                                        {{-- Edit Status Offcanvas --}}
+                                        @if($lead)
                                             <button type="button" class="table-action-btn text-primary" 
-                                                    onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($lead->lead_status ?? '') }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
+                                                    onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
                                                     title="Edit Status">
                                                 <i class="feather-sliders"></i>
                                             </button>
 
-                                            {{-- Edit Lead Button --}}
-                                            <a href="{{ route('lead.edit', $lead->id) }}" class="table-action-btn text-success" title="Edit Lead">
+                                            {{-- Edit Lead Modal --}}
+                                            <button type="button" class="table-action-btn text-success" title="Edit Details"
+                                                    onclick="openLeadEditModal({{ $lead->id }})">
                                                 <i class="feather-edit"></i>
-                                            </a>
-
-                                            {{-- View Details Modal --}}
-                                            <button type="button" class="table-action-btn text-info" 
-                                                    onclick="openViewDetailsModalLazy({{ $lead->id }})"
-                                                    title="View Details">
-                                                <i class="feather-eye"></i>
                                             </button>
 
-                                            {{-- View Comments / Messages --}}
+                                            {{-- View Comments --}}
                                             <button type="button" class="table-action-btn text-warning" 
-                                                    onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($user)->name ?? 'Lead') }}')"
+                                                    onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes($user->name ?? 'Lead') }}')"
                                                     title="View Comments & History">
                                                 <i class="feather-message-square"></i>
                                             </button>
 
-                                            {{-- To-Do Task --}}
-                                            <button type="button" class="table-action-btn text-purple" 
-                                                    onclick="openTodoOffcanvas({{ $lead->id }}, '{{ addslashes(optional($user)->name ?? 'Lead') }}')"
-                                                    title="To-Do Task">
-                                                <i class="feather-check-square"></i>
-                                            </button>
-                                        </div>
-                                    @endif
+                                            {{-- Convert to Deal (for Leads) --}}
+                                            @unless($lead->is_converted)
+                                                <button type="button" class="table-action-btn text-warning" 
+                                                        onclick="convertFollowupToDeal({{ $item->id }}, this)"
+                                                        title="Convert to Deal">
+                                                    <i class="feather-briefcase"></i>
+                                                </button>
+                                            @endunless
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">
-                                    <i class="feather-phone-off fs-2 mb-2 d-block text-secondary"></i>
-                                    No follow-ups found in this view.
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="feather-calendar fs-1 text-secondary opacity-50 mb-2 d-block"></i>
+                                    <p class="fs-13 mb-0 fw-semibold">No {{ $tab }} follow-ups found.</p>
                                 </td>
                             </tr>
                         @endforelse
@@ -316,506 +406,318 @@
     </div>
 </div>
 
-{{-- Shared Edit Status Offcanvas --}}
-<div class="offcanvas offcanvas-end border-0 shadow-lg" tabindex="-1" id="editStatusOffcanvas" aria-labelledby="editStatusOffcanvasLabel" style="width: 420px; background: #f8fafc;">
-    <div class="offcanvas-header border-bottom bg-white py-3 px-4 shadow-2xs">
-        <div class="d-flex align-items-center gap-2.5">
-            <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold fs-13 shadow-2xs" style="width: 36px; height: 36px;">
-                <i class="fa-solid fa-clipboard-check"></i>
-            </div>
-            <div>
-                <h6 class="offcanvas-title fw-bold text-dark mb-0 fs-14" id="editStatusOffcanvasLabel">Edit Status</h6>
-                <span class="fs-11 text-muted">Lead: <strong class="text-dark text-capitalize" id="sharedEditStatusLeadName">User</strong></span>
-            </div>
-        </div>
-        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body p-3.5">
-        <form id="sharedQuickUpdateForm" method="POST" action="" enctype="multipart/form-data">
-            @csrf
-            <input type="hidden" name="lead_bucket_id" value="46">
-            
-            <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
-                    <i class="fas fa-sliders text-primary fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status & Engagement</h6>
-                </div>
-                <div class="card-body p-3">
-                    <div class="mb-3">
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                            <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
-                        </label>
-                        <select class="form-select border-slate shadow-2xs fs-13" name="lead_engagement_status" style="border-color: #cbd5e1; border-radius: 8px;">
-                            <option value="" disabled selected>Select Engagement Status</option>
-                            <option value="hot">🔥 Hot</option>
-                            <option value="warm">⚡ Warm</option>
-                            <option value="cold">❄️ Cold</option>
-                            <option value="dead">💀 Dead</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                            <i class="fas fa-tag text-primary me-1 fs-10"></i>Lead Status
-                        </label>
-                        <select class="form-select border-slate shadow-2xs fs-13" name="main_lead_status" id="editStatusMainSelect" onchange="onOffcanvasMainStatusChange(this.value)" style="border-color: #cbd5e1; border-radius: 8px;">
-                            <option value="" disabled selected>Select Lead Status</option>
-                            @if(isset($childBuckets) && count($childBuckets) > 0)
-                                @foreach($childBuckets as $mainBucket)
-                                    <option value="{{ $mainBucket->name }}">{{ $mainBucket->name }}</option>
-                                @endforeach
-                            @endif
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                            <i class="fas fa-tags text-info me-1 fs-10"></i>Sub Status
-                        </label>
-                        <select class="form-select border-slate shadow-2xs fs-13" name="sub_lead_status" id="editStatusSubSelect" style="border-color: #cbd5e1; border-radius: 8px;">
-                            <option value="">Select Sub Status (Optional)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
-                    <i class="fas fa-comments text-info fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Communication & Comment</h6>
-                </div>
-                <div class="card-body p-3">
-                    <div class="mb-3">
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">Communication Type</label>
-                        <select class="form-select border-slate shadow-2xs fs-13" name="followup_type" style="border-color: #cbd5e1; border-radius: 8px;">
-                            <option value="" disabled selected>Select Communication Type</option>
-                            <option value="Call">Call</option>
-                            <option value="WhatsApp Call">WhatsApp Call</option>
-                            <option value="Whatsapp">Whatsapp</option>
-                            <option value="Email">Email</option>
-                            <option value="Meeting">Meeting</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">Communication Status</label>
-                        <select class="form-select border-slate shadow-2xs fs-13" name="followup_status" style="border-color: #cbd5e1; border-radius: 8px;">
-                            <option value="" disabled selected>Select Communication Status</option>
-                            <option value="Answered">Answered</option>
-                            <option value="Unanswered">Unanswered</option>
-                            <option value="Busy">Busy</option>
-                            <option value="Switched Off">Switched Off</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">Add Comment / Message</label>
-                        <textarea class="form-control border-slate shadow-2xs fs-13" name="message" rows="3" placeholder="Write a comment or message..." style="border-color: #cbd5e1; border-radius: 8px; resize: none;"></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
-                    <i class="fas fa-calendar-check text-warning fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Next Follow-up & Attachments</h6>
-                </div>
-                <div class="card-body p-3">
-                    <div class="mb-3">
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">Next Follow-up Date & Time</label>
-                        <input type="datetime-local" class="form-control border-slate shadow-2xs fs-13" name="next_followup_date" style="border-color: #cbd5e1; border-radius: 8px;">
-                    </div>
-                    <div>
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">Attachments (Multiple PDF/Doc/Images)</label>
-                        <input type="file" class="form-control border-slate shadow-2xs fs-12" name="followup_documents[]" multiple style="border-color: #cbd5e1; border-radius: 8px;">
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex align-items-center justify-content-end gap-2 pt-3 border-top mt-4">
-                <button type="button" class="btn btn-light text-secondary fw-semibold border px-3 py-1.5 fs-13" data-bs-dismiss="offcanvas">CLOSE</button>
-                <button type="submit" class="btn text-white fw-bold px-4 py-1.5 fs-13 shadow-sm d-inline-flex align-items-center gap-1.5" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%); border: none; border-radius: 6px;">
-                    <i class="fas fa-check-circle fs-12"></i> UPDATE STATUS
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-{{-- View Lead Details Modal --}}
-<div class="modal fade" id="viewLeadDetailsModal" tabindex="-1" aria-labelledby="viewLeadDetailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
-            <div class="modal-header border-0 px-4 py-3 text-white" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%);">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25" style="width: 38px; height: 38px;">
-                        <i class="feather-user fs-5 text-white"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-white mb-0 fs-15" id="vd_leadName">Lead Details</h5>
-                        <small class="text-white opacity-75 fs-11" id="vd_leadSubtitle">Complete Information</small>
-                    </div>
-                </div>
+{{-- Schedule Next Follow-up Modal --}}
+<div class="modal fade" id="nextFollowupModal" tabindex="-1" aria-labelledby="nextFollowupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header text-white px-4 py-3" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%);">
+                <h6 class="modal-title fw-bold text-white mb-0 fs-14" id="nextFollowupModalLabel">
+                    <i class="feather-calendar me-1.5"></i> Schedule Next Follow-up
+                </h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4" style="background: #f8fafc;">
-                <div class="d-flex flex-wrap gap-2 mb-3" id="vd_badges"></div>
-                <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                    <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom">
-                        <h6 class="fs-12 fw-bold text-primary mb-0 text-uppercase tracking-wider"><i class="feather-user me-1"></i> Personal & Contact Information</h6>
-                    </div>
-                    <div class="card-body p-3">
-                        <div class="row g-3" id="vd_personalInfo"></div>
-                    </div>
-                </div>
-                <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                    <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom">
-                        <h6 class="fs-12 fw-bold text-primary mb-0 text-uppercase tracking-wider"><i class="feather-target me-1"></i> Lead Information & Campaign</h6>
-                    </div>
-                    <div class="card-body p-3">
-                        <div class="row g-3" id="vd_leadInfo"></div>
-                    </div>
-                </div>
-                <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                    <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom">
-                        <h6 class="fs-12 fw-bold text-primary mb-0 text-uppercase tracking-wider"><i class="feather-map-pin me-1"></i> Address Details</h6>
-                    </div>
-                    <div class="card-body p-3">
-                        <div class="row g-3" id="vd_addressInfo"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer border-top bg-white px-4 py-2.5">
-                <button type="button" class="btn btn-light text-secondary border px-4 fs-13 fw-semibold" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- Comments & History Modal --}}
-<div class="modal fade" id="commentsModal" tabindex="-1" aria-labelledby="commentsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
-            <div class="modal-header border-0 px-4 py-3 text-white" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%);">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25" style="width: 38px; height: 38px;">
-                        <i class="feather-message-square fs-5 text-white"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title fw-bold text-white mb-0 fs-15" id="cm_leadName">Comments & History</h5>
-                        <small class="text-white opacity-75 fs-11">All Activity Logs & Remarks</small>
-                    </div>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-3.5" style="background: #f8fafc;" id="cm_body">
-                <div class="text-center py-4 text-muted fs-13"><i class="feather-loader spinner-border spinner-border-sm me-2"></i> Loading comments...</div>
-            </div>
-            <div class="modal-footer border-top bg-white px-4 py-2.5">
-                <button type="button" class="btn btn-light text-secondary border px-4 fs-13 fw-semibold" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- Shared To-Do Offcanvas --}}
-<div class="offcanvas offcanvas-end" tabindex="-1" id="todoOffcanvas" style="width: 420px;">
-    <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title fw-bold text-dark" style="font-size: 18px;">To-Do Task</h5>
-        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body p-0">
-        <div class="p-4" style="background-color: #f8fafc;">
-            <h6 class="fw-bold mb-3 text-dark" style="font-size: 15px;">Add New To-Do Task:</h6>
-            <form id="sharedTodoForm" action="" method="POST">
+            <form id="nextFollowupForm">
                 @csrf
-                <div class="mb-3">
-                    <label class="form-label text-muted mb-1" style="font-size: 13px;">Summary:</label>
-                    <textarea class="form-control" name="summary" rows="3" placeholder="Write Your Summary" required style="font-size: 14px; border-color: #cbd5e1;"></textarea>
-                </div>
-                @if(auth()->check() && auth()->user()->role_id == 1)
+                <input type="hidden" id="next-followup-id">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label text-muted mb-1" style="font-size: 13px;">Assign To</label>
-                        <select class="form-select" name="assign_to" required style="font-size: 14px; border-color: #cbd5e1;">
-                            <option value="" disabled selected>Select User</option>
-                            @if(isset($owners))
-                                @foreach($owners as $owner)
-                                    <option value="{{ $owner->id }}">{{ $owner->name }}</option>
-                                @endforeach
-                            @endif
-                        </select>
+                        <label class="form-label text-dark fw-semibold fs-12 mb-1">Next Follow-up Date & Time <span class="text-danger">*</span></label>
+                        <input type="datetime-local" class="form-control" name="next_followup_date" id="next-followup-date" required style="border-radius: 8px; border-color: #cbd5e1;">
                     </div>
-                @endif
-                <div class="mb-3">
-                    <label class="form-label text-muted mb-1" style="font-size: 13px;">Due Date</label>
-                    <input type="datetime-local" class="form-control" name="due_date" required style="font-size: 14px; border-color: #cbd5e1;">
+                    <div class="mb-3">
+                        <label class="form-label text-dark fw-semibold fs-12 mb-1">Follow-up Message / Remark</label>
+                        <textarea class="form-control" name="message" id="next-followup-message" rows="3" placeholder="Remark for next follow-up..." style="border-radius: 8px; border-color: #cbd5e1; font-size: 13px;"></textarea>
+                    </div>
                 </div>
-                <div class="text-end mt-2">
-                    <button type="submit" class="btn btn-warning fw-bold px-4 py-2" style="font-size: 13px;">SAVE TO-DO</button>
+                <div class="modal-footer bg-light px-4 py-2.5">
+                    <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary px-4 fw-semibold">Save & Schedule</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+{{-- Shared Interaction Modals (Edit Lead Modal, Quick Status Offcanvas, Comments, View Details) --}}
+@include('crm.lead.partials.lead-interaction-modals')
+
 @push('scripts')
+@include('crm.lead.partials.lead-interaction-scripts')
+
 <script>
-    const leadStatusMap = @json(
-        (isset($childBuckets) ? $childBuckets : collect())->mapWithKeys(function($b) {
-            return [$b->name => [
-                'id' => $b->id,
-                'children' => $b->children ? $b->children->map(function($c) {
-                    return ['id' => $c->id, 'name' => $c->name];
-                })->values()->toArray() : []
-            ]];
-        })
-    );
-
-    function onOffcanvasMainStatusChange(selectedMainStatus, preselectedSubStatus = '') {
-        const subSelect = document.getElementById('editStatusSubSelect');
-        if (!subSelect) return;
-        subSelect.innerHTML = '';
-        
-        const parentData = leadStatusMap[selectedMainStatus];
-        if (parentData && parentData.children && parentData.children.length > 0) {
-            let defaultOpt = document.createElement('option');
-            defaultOpt.value = '';
-            defaultOpt.textContent = 'Select Sub Status (Optional)';
-            subSelect.appendChild(defaultOpt);
-            
-            parentData.children.forEach(child => {
-                let opt = document.createElement('option');
-                opt.value = child.name;
-                opt.textContent = child.name;
-                opt.dataset.bucketId = child.id;
-                if (preselectedSubStatus && preselectedSubStatus.toLowerCase() === child.name.toLowerCase()) {
-                    opt.selected = true;
-                }
-                subSelect.appendChild(opt);
+    function showFollowupToast(icon, title) {
+        if (window.Swal) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: icon,
+                title: title,
+                showConfirmButton: false,
+                timer: 1600,
+                timerProgressBar: true
             });
-            subSelect.disabled = false;
         } else {
-            let defaultOpt = document.createElement('option');
-            defaultOpt.value = '';
-            defaultOpt.textContent = 'No Sub Status Available';
-            subSelect.appendChild(defaultOpt);
-            subSelect.disabled = true;
+            alert(title);
         }
     }
 
-    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId) {
-        let offcanvasEl = document.getElementById('editStatusOffcanvas');
-        let form = document.getElementById('sharedQuickUpdateForm');
-        form.action = "{{ url('/modern-leads/quick-update') }}/" + leadId;
-        
-        let engSelect = form.querySelector('[name="lead_engagement_status"]');
-        if (engSelect) engSelect.value = (engagementStatus || '').toLowerCase();
-        
-        let mainSelect = document.getElementById('editStatusMainSelect');
-        let subSelect = document.getElementById('editStatusSubSelect');
-        let matchedMainStatus = '';
-        let matchedSubStatus = '';
-
-        for (let mainName in leadStatusMap) {
-            if (mainName.toLowerCase() === (leadStatus || '').toLowerCase()) {
-                matchedMainStatus = mainName;
-                break;
-            }
-            let children = leadStatusMap[mainName].children || [];
-            let foundChild = children.find(c => c.name.toLowerCase() === (leadStatus || '').toLowerCase());
-            if (foundChild) {
-                matchedMainStatus = mainName;
-                matchedSubStatus = foundChild.name;
-                break;
-            }
+    async function markFollowupDone(followupId, button) {
+        if (window.Swal) {
+            const res = await Swal.fire({
+                title: 'Mark this follow-up as done?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Done',
+                cancelButtonText: 'Cancel'
+            });
+            if (!res.isConfirmed) return;
         }
 
-        if (!matchedMainStatus && mainSelect && mainSelect.options.length > 1) {
-            matchedMainStatus = mainSelect.options[1].value;
-        }
-
-        if (mainSelect) mainSelect.value = matchedMainStatus;
-        onOffcanvasMainStatusChange(matchedMainStatus, matchedSubStatus);
-        
-        let bucketInput = form.querySelector('[name="lead_bucket_id"]');
-        if (bucketInput) bucketInput.value = bucketId || 46;
-
-        form.onsubmit = function() {
-            let subVal = subSelect ? subSelect.value : '';
-            let mainVal = mainSelect ? mainSelect.value : '';
-            let finalStatus = subVal ? subVal : mainVal;
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch("{{ url('/followups') }}/" + followupId + "/mark-done", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Action failed');
             
-            let hiddenStatusInput = form.querySelector('input[name="lead_status"]');
-            if (!hiddenStatusInput) {
-                hiddenStatusInput = document.createElement('input');
-                hiddenStatusInput.type = 'hidden';
-                hiddenStatusInput.name = 'lead_status';
-                form.appendChild(hiddenStatusInput);
+            showFollowupToast('success', data.message);
+            const row = document.getElementById('followup-row-' + followupId);
+            if (row) {
+                row.style.transition = 'opacity 0.3s ease';
+                row.style.opacity = '0.3';
+                setTimeout(() => row.remove(), 400);
             }
-            hiddenStatusInput.value = finalStatus;
-
-            if (subSelect && subSelect.selectedIndex >= 0) {
-                let selectedOpt = subSelect.options[subSelect.selectedIndex];
-                if (selectedOpt && selectedOpt.dataset.bucketId) {
-                    if (bucketInput) bucketInput.value = selectedOpt.dataset.bucketId;
-                }
-            }
-        };
-
-        let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
-        bsOffcanvas.show();
+        } catch (error) {
+            if (button) button.disabled = false;
+            showFollowupToast('error', error.message);
+        }
     }
 
-    function openTodoOffcanvas(leadId, leadName) {
-        let form = document.getElementById('sharedTodoForm');
-        form.action = "{{ url('/modern-leads/todo') }}/" + leadId;
-        let offcanvasEl = document.getElementById('todoOffcanvas');
-        let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
-        bsOffcanvas.show();
+    function markFollowupDoneCheckbox(followupId, checkbox) {
+        if (!checkbox.checked) return;
+        markFollowupDone(followupId, checkbox);
     }
 
-    function openViewDetailsModalLazy(leadId) {
-        let modalEl = document.getElementById('viewLeadDetailsModal');
-        let bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        
-        document.getElementById('vd_leadName').textContent = 'Loading Details...';
-        document.getElementById('vd_leadSubtitle').textContent = 'Lead #' + leadId;
-        document.getElementById('vd_badges').innerHTML = '';
-        document.getElementById('vd_personalInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
-        document.getElementById('vd_leadInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
-        document.getElementById('vd_addressInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
-        
-        bsModal.show();
+    function openNextFollowupModal(followupId, currentMessage) {
+        document.getElementById('next-followup-id').value = followupId;
+        document.getElementById('next-followup-message').value = currentMessage || '';
+        document.getElementById('next-followup-date').value = '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('nextFollowupModal')).show();
+    }
 
-        fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    let lead = data.lead || {};
-                    let user = data.user || {};
-                    let owner = data.owner || {};
+    document.getElementById('nextFollowupForm')?.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const followupId = document.getElementById('next-followup-id').value;
+        const submitButton = this.querySelector('[type="submit"]');
+        submitButton.disabled = true;
 
-                    document.getElementById('vd_leadName').textContent = user.name || 'N/A';
-                    document.getElementById('vd_leadSubtitle').textContent = (lead.business_name || 'No Business') + ' • Lead ID: #' + lead.id;
-
-                    let badgesHtml = '';
-                    let bucket = lead.bucket ? lead.bucket.name : 'N/A';
-                    badgesHtml += `<span class="badge bg-primary-subtle text-primary border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-layers me-1"></i> Bucket: ${bucket}</span>`;
-                    if (lead.lead_status) {
-                        badgesHtml += `<span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-flag me-1"></i> Status: ${lead.lead_status}</span>`;
-                    }
-                    let eng = (lead.lead_engagement_status || 'New').toUpperCase();
-                    badgesHtml += `<span class="badge bg-warning-subtle text-warning border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-zap me-1"></i> Engagement: ${eng}</span>`;
-                    document.getElementById('vd_badges').innerHTML = badgesHtml;
-
-                    function fItem(icon, label, value) {
-                        let val = (value && value !== 'null' && value !== 'undefined') ? value : 'N/A';
-                        return `
-                            <div class="col-md-4 col-sm-6">
-                                <div class="p-2 border rounded bg-light">
-                                    <div class="text-muted fs-10 text-uppercase fw-bold mb-0.5"><i class="${icon} me-1 text-primary"></i> ${label}</div>
-                                    <div class="fw-semibold text-dark fs-12 text-truncate" title="${val}">${val}</div>
-                                </div>
-                            </div>`;
-                    }
-
-                    let pInfo = '';
-                    pInfo += fItem('feather-user', 'Full Name', user.name);
-                    pInfo += fItem('feather-phone', 'Contact No.', user.contact_no);
-                    pInfo += fItem('feather-mail', 'Email', user.email);
-                    pInfo += fItem('feather-briefcase', 'Business Name', lead.business_name);
-                    pInfo += fItem('feather-hash', 'GST Number', lead.gst_number);
-                    pInfo += fItem('feather-globe', 'Website', lead.website);
-                    document.getElementById('vd_personalInfo').innerHTML = pInfo;
-
-                    let lInfo = '';
-                    lInfo += fItem('feather-layers', 'Bucket', bucket);
-                    lInfo += fItem('feather-flag', 'Status', lead.lead_status);
-                    lInfo += fItem('feather-zap', 'Engagement', lead.lead_engagement_status);
-                    lInfo += fItem('feather-user-check', 'Owner', owner.name || 'Unassigned');
-                    lInfo += fItem('feather-target', 'Campaign Name', lead.campaign_name);
-                    lInfo += fItem('feather-grid', 'Adset Name', lead.adset_name);
-                    lInfo += fItem('feather-tv', 'Ad Name', lead.ad_name);
-                    lInfo += fItem('feather-file-text', 'Form Name', lead.form_name);
-                    lInfo += fItem('feather-layout', 'Platform', lead.platform);
-                    lInfo += fItem('feather-book', 'Course Study', lead.what_course_are_you_planning_to_study);
-                    lInfo += fItem('feather-dollar-sign', 'Budget', lead.budget);
-                    lInfo += fItem('feather-globe', 'Country Visa', lead.applying_country_for_a_visa);
-                    document.getElementById('vd_leadInfo').innerHTML = lInfo;
-
-                    let aInfo = '';
-                    aInfo += fItem('feather-map-pin', 'City', lead.city);
-                    aInfo += fItem('feather-map', 'State', lead.state);
-                    aInfo += fItem('feather-hash', 'Pincode', lead.pincode);
-                    aInfo += fItem('feather-home', 'Address', lead.address);
-                    document.getElementById('vd_addressInfo').innerHTML = aInfo;
-                }
-            })
-            .catch(err => {
-                document.getElementById('vd_personalInfo').innerHTML = '<div class="col-12 text-danger py-2 fs-12">Failed to load lead details.</div>';
+        try {
+            const response = await fetch("{{ url('/followups') }}/" + followupId + "/reschedule", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new FormData(this)
             });
+            const data = await response.json();
+            if (!response.ok || !data.status) {
+                const validationMessage = data.errors ? Object.values(data.errors).flat()[0] : data.message;
+                throw new Error(validationMessage || 'Unable to schedule follow-up');
+            }
+            bootstrap.Modal.getInstance(document.getElementById('nextFollowupModal'))?.hide();
+            showFollowupToast('success', data.message);
+            setTimeout(() => window.location.reload(), 600);
+        } catch (error) {
+            showFollowupToast('error', error.message);
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+
+    async function convertFollowupToDeal(followupId, button) {
+        if (window.Swal) {
+            const result = await Swal.fire({
+                title: 'Convert lead to deal?',
+                text: 'This follow-up lead will be converted to Deal immediately.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Convert',
+                cancelButtonText: 'Cancel'
+            });
+            if (!result.isConfirmed) return;
+        }
+
+        button.disabled = true;
+        try {
+            const response = await fetch("{{ url('/followups') }}/" + followupId + "/convert-deal", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Lead conversion failed');
+            showFollowupToast('success', data.message);
+            setTimeout(() => window.location.reload(), 700);
+        } catch (error) {
+            button.disabled = false;
+            showFollowupToast('error', error.message);
+        }
     }
 
-    function openCommentsModal(leadId, leadName) {
-        let modalEl = document.getElementById('commentsModal');
-        let bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        
-        document.getElementById('cm_leadName').textContent = leadName + ' - Comments';
-        document.getElementById('cm_body').innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading comments...</div>';
-        
-        bsModal.show();
+    // Live Search Suggestions Script
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById('lead-live-search');
+        const suggestionsBox = document.getElementById('search-suggestions-box');
+        const searchIcon = document.getElementById('search-icon');
+        const searchSpinner = document.getElementById('search-spinner');
+        const followupForm = document.getElementById('followupSearchForm');
 
-        fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    let messages = data.messages || [];
-                    if (messages.length === 0) {
-                        document.getElementById('cm_body').innerHTML = `
-                            <div class="text-center py-5 bg-white rounded-3 border">
-                                <i class="feather-message-square text-muted fs-1 mb-2 opacity-50 d-block"></i>
-                                <p class="text-muted fs-13 mb-0">No comments or activity logs found for this lead.</p>
-                            </div>`;
-                        return;
-                    }
+        if (!searchInput || !suggestionsBox) return;
 
-                    let html = `<div class="d-flex flex-column gap-2.5">`;
-                    messages.forEach(msg => {
-                        html += `
-                            <div class="card border shadow-2xs rounded-3 bg-white">
-                                <div class="card-body p-3">
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <div class="d-flex align-items-center gap-1.5 fs-12 fw-bold text-dark">
-                                            <i class="feather-user text-primary fs-11"></i>
-                                            <span>${msg.user_name || 'System User'}</span>
-                                        </div>
-                                        <span class="text-muted fs-10"><i class="feather-clock me-1"></i>${msg.created_at_formatted || ''}</span>
+        let debounceTimer;
+        let selectedIndex = -1;
+
+        function showSpinner() {
+            if (searchIcon) searchIcon.classList.add('d-none');
+            if (searchSpinner) searchSpinner.classList.remove('d-none');
+        }
+
+        function hideSpinner() {
+            if (searchSpinner) searchSpinner.classList.add('d-none');
+            if (searchIcon) searchIcon.classList.remove('d-none');
+        }
+
+        function getItems() {
+            return suggestionsBox.querySelectorAll('.search-suggestion-item');
+        }
+
+        function updateActiveItem() {
+            const items = getItems();
+            items.forEach((item, idx) => {
+                if (idx === selectedIndex) {
+                    item.classList.add('active');
+                    item.style.backgroundColor = '#f1f5f9';
+                    item.style.borderLeft = '4px solid #006FC9';
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('active');
+                    item.style.backgroundColor = '';
+                    item.style.borderLeft = '';
+                }
+            });
+        }
+
+        searchInput.addEventListener('keydown', function(e) {
+            if (suggestionsBox.style.display === 'none') return;
+            const items = getItems();
+            if (!items || items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedIndex = (selectedIndex + 1) < items.length ? selectedIndex + 1 : 0;
+                updateActiveItem();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedIndex = (selectedIndex - 1) >= 0 ? selectedIndex - 1 : items.length - 1;
+                updateActiveItem();
+            } else if (e.key === 'Enter') {
+                if (selectedIndex >= 0 && items[selectedIndex]) {
+                    e.preventDefault();
+                    items[selectedIndex].click();
+                }
+            } else if (e.key === 'Escape') {
+                suggestionsBox.style.display = 'none';
+                selectedIndex = -1;
+            }
+        });
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            selectedIndex = -1;
+            const query = this.value.trim();
+
+            if (query.length < 1) {
+                hideSpinner();
+                suggestionsBox.innerHTML = '';
+                suggestionsBox.style.display = 'none';
+                return;
+            }
+
+            showSpinner();
+            suggestionsBox.innerHTML = `
+                <div class="dropdown-item text-muted small p-2.5 text-center">
+                    <span class="spinner-border spinner-border-sm me-2 text-primary" role="status" style="width: 13px; height: 13px;"></span> Searching matching leads...
+                </div>`;
+            suggestionsBox.style.display = 'block';
+
+            debounceTimer = setTimeout(() => {
+                fetch(`{{ route('modern.leads.search.suggestions') }}?search=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        hideSpinner();
+                        selectedIndex = -1;
+                        if (!data || data.length === 0) {
+                            suggestionsBox.innerHTML = '<div class="dropdown-item text-muted small p-2.5"><i class="feather-info me-1 text-warning"></i> No matching leads found</div>';
+                            suggestionsBox.style.display = 'block';
+                            return;
+                        }
+
+                        let html = '';
+                        data.forEach(item => {
+                            const selectVal = (item.contact_no && item.contact_no !== 'N/A' && item.contact_no.trim() !== '') 
+                                ? item.contact_no 
+                                : ((item.email && item.email.trim() !== '') ? item.email : item.name);
+
+                            html += `
+                                <a href="javascript:void(0);" class="dropdown-item py-2 px-3 border-bottom search-suggestion-item text-decoration-none" data-value="${selectVal}">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <strong class="text-dark fs-13">${item.name}</strong>
+                                        <span class="badge ${item.is_converted ? 'bg-warning-subtle text-warning' : 'bg-primary-subtle text-primary'} border fs-10">${item.is_converted ? 'Deal' : 'Lead'}</span>
                                     </div>
-                                    ${(msg.bucket || msg.status) ? `
-                                        <div class="p-1.5 px-2 bg-light rounded border d-flex align-items-center gap-2 mb-2 flex-wrap fs-11">
-                                            <span class="fw-bold text-muted fs-10">Stage:</span>
-                                            ${msg.bucket ? `<span class="badge bg-white text-dark border fw-medium px-2 py-0.5"><i class="feather-layers text-primary me-1"></i> ${msg.bucket}</span>` : ''}
-                                            ${msg.status ? `<span class="badge bg-white text-dark border fw-medium px-2 py-0.5"><i class="feather-flag text-success me-1"></i> ${msg.status}</span>` : ''}
-                                        </div>
-                                    ` : ''}
-                                    ${msg.message ? `<p class="text-dark mb-1.5 fs-13" style="line-height: 1.5;">${msg.message}</p>` : ''}
-                                    ${(msg.followup_type || msg.followup_status) ? `
-                                        <div class="d-flex align-items-center gap-2 fs-11 text-muted">
-                                            ${msg.followup_type ? `<span><i class="feather-phone me-1 text-primary"></i> ${msg.followup_type}</span>` : ''}
-                                            ${msg.followup_status ? `<span class="badge bg-info-subtle text-info border px-2 py-0.5">${msg.followup_status}</span>` : ''}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>`;
+                                    <div class="d-flex align-items-center gap-3 text-muted fs-11">
+                                        ${item.contact_no ? `<span><i class="feather-phone me-1 text-primary"></i>${item.contact_no}</span>` : ''}
+                                        ${item.email ? `<span><i class="feather-mail me-1 text-primary"></i>${item.email}</span>` : ''}
+                                        ${item.business_name ? `<span><i class="feather-briefcase me-1 text-secondary"></i>${item.business_name}</span>` : ''}
+                                    </div>
+                                </a>`;
+                        });
+                        suggestionsBox.innerHTML = html;
+                        suggestionsBox.style.display = 'block';
+
+                        suggestionsBox.querySelectorAll('.search-suggestion-item').forEach(item => {
+                            item.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                searchInput.value = this.dataset.value || '';
+                                suggestionsBox.style.display = 'none';
+                                if (followupForm) followupForm.submit();
+                            });
+                        });
+                    })
+                    .catch(() => {
+                        hideSpinner();
+                        suggestionsBox.style.display = 'none';
                     });
-                    html += `</div>`;
-                    document.getElementById('cm_body').innerHTML = html;
-                }
-            })
-            .catch(err => {
-                document.getElementById('cm_body').innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load comments.</div>';
-            });
-    }
+            }, 300);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+                suggestionsBox.style.display = 'none';
+                selectedIndex = -1;
+            }
+        });
+    });
 </script>
 @endpush
 @endsection

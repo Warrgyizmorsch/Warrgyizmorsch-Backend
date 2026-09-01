@@ -212,6 +212,28 @@
                                     <div class="d-flex flex-column gap-1.5">
                                         <div class="fw-bold text-dark fs-13 d-flex align-items-center gap-1.5 mb-0.5">
                                             <span>{{ optional($lead->user)->name ?? 'N/A' }}</span>
+                                            <div class="dropdown d-inline-block">
+                                                <button type="button" class="btn btn-xs btn-light border rounded-pill px-1.5 py-0.5 text-primary d-inline-flex align-items-center gap-1 shadow-2xs" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Manage Tags" style="font-size: 11px; line-height: 1;">
+                                                    <i class="fas fa-tag"></i>
+                                                    <span class="badge bg-primary text-white rounded-pill px-1 py-0 {{ ($lead->tags && $lead->tags->count() > 0) ? '' : 'd-none' }}" data-lead-tag-btn-badge="{{ $lead->id }}" style="font-size: 9px;">{{ $lead->tags ? $lead->tags->count() : 0 }}</span>
+                                                </button>
+                                                <div class="dropdown-menu p-2 shadow-lg border-0" style="min-width:220px;max-height:260px;overflow-y:auto;border-radius:10px;z-index:1050;">
+                                                    <div class="d-flex align-items-center justify-content-between px-2 py-1 border-bottom mb-1">
+                                                        <span class="small fw-bold text-dark fs-11 text-uppercase"><i class="fas fa-tags text-primary me-1"></i>Select Tags</span>
+                                                        <a href="{{ route('tags.index') }}" target="_blank" class="text-primary text-decoration-none fs-10 fw-semibold" title="Tag Master">+ Manage</a>
+                                                    </div>
+                                                    @forelse(($allTags ?? collect()) as $tagOption)
+                                                        <button type="button" class="dropdown-item rounded d-flex align-items-center justify-content-between py-1.5 px-2 mb-0.5" onclick="toggleLeadTag(event, {{ $lead->id }}, {{ $tagOption->id }}, this)" data-tag-name="{{ $tagOption->name }}" data-tag-color="{{ $tagOption->color }}">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <input class="form-check-input m-0 pe-none" type="checkbox" {{ $lead->tags->contains('id', $tagOption->id) ? 'checked' : '' }}>
+                                                                <span class="badge rounded-pill text-white fs-11" style="background-color: {{ $tagOption->color }}">{{ $tagOption->name }}</span>
+                                                            </div>
+                                                        </button>
+                                                    @empty
+                                                        <span class="dropdown-item-text text-muted small py-2 text-center d-block">No tags in Tag Master.</span>
+                                                    @endforelse
+                                                </div>
+                                            </div>
                                             @if($lead->duplicate_count > 0)
                                                 <span class="badge bg-danger-subtle text-danger rounded-pill fs-10" title="Duplicate Lead">
                                                     Dup ({{ $lead->duplicate_count }})
@@ -234,6 +256,14 @@
                                                 <span class="text-truncate" style="max-width: 220px;" title="{{ $lead->business_name }}">{{ $lead->business_name }}</span>
                                             </div>
                                         @endif
+                                        <div class="d-flex flex-wrap gap-1 mt-1" data-lead-tags-container="{{ $lead->id }}">
+                                                @foreach($lead->tags as $tag)
+                                                    <span class="badge rounded-pill text-white fs-10 d-inline-flex align-items-center gap-1 shadow-2xs" style="background-color:{{ $tag->color }}" data-lead-tag="{{ $lead->id }}-{{ $tag->id }}">
+                                                        {{ $tag->name }}
+                                                        <button type="button" class="border-0 bg-transparent text-white p-0 d-inline-flex align-items-center" style="font-size:11px;line-height:1;opacity:0.85;" title="Remove tag" onclick="removeLeadTag(event, {{ $lead->id }}, {{ $tag->id }}, this)"><i class="fas fa-times-circle"></i></button>
+                                                    </span>
+                                                @endforeach
+                                        </div>
                                     </div>
                                 </td>
                                 <td>
@@ -879,6 +909,89 @@
             .catch(err => {
                 document.getElementById('cm_body').innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load comments.</div>';
             });
+    }
+
+    async function toggleLeadTag(event, leadId, tagId, optionButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        const checkbox = optionButton.querySelector('input[type="checkbox"]');
+        optionButton.disabled = true;
+        try {
+            const response = await fetch(`{{ url('/leads') }}/${leadId}/tags/${tagId}/toggle`, {
+                method: 'POST',
+                headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept':'application/json'}
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || 'Tag update nahi hua.');
+            checkbox.checked = result.attached;
+            const container = document.querySelector(`[data-lead-tags-container="${leadId}"]`);
+            const existing = document.querySelector(`[data-lead-tag="${leadId}-${tagId}"]`);
+            if (result.attached && container && !existing) {
+                const badge = document.createElement('span');
+                badge.className = 'badge rounded-pill text-white fs-10 d-inline-flex align-items-center gap-1 shadow-2xs';
+                badge.style.backgroundColor = result.tag.color;
+                badge.dataset.leadTag = `${leadId}-${tagId}`;
+                badge.innerHTML = `${result.tag.name} <button type="button" class="border-0 bg-transparent text-white p-0 d-inline-flex align-items-center" style="font-size:11px;line-height:1;opacity:0.85;" title="Remove tag" onclick="removeLeadTag(event, ${leadId}, ${tagId}, this)"><i class="fas fa-times-circle"></i></button>`;
+                container.appendChild(badge);
+            } else if (!result.attached && existing) existing.remove();
+            
+            const tagBtnBadge = document.querySelector(`[data-lead-tag-btn-badge="${leadId}"]`);
+            if (tagBtnBadge) {
+                const currentCount = container ? container.querySelectorAll('[data-lead-tag]').length : 0;
+                if (currentCount > 0) {
+                    tagBtnBadge.textContent = currentCount;
+                    tagBtnBadge.classList.remove('d-none');
+                } else {
+                    tagBtnBadge.textContent = '0';
+                    tagBtnBadge.classList.add('d-none');
+                }
+            }
+        } catch (error) {
+            if (window.Swal) Swal.fire({icon:'error', title:'Error', text:error.message}); else alert(error.message);
+        } finally {
+            optionButton.disabled = false;
+        }
+    }
+
+    async function removeLeadTag(event, leadId, tagId, button) {
+        event.preventDefault();
+        event.stopPropagation();
+        const badge = button.closest('[data-lead-tag]');
+        button.disabled = true;
+        try {
+            const response = await fetch(`{{ url('/leads') }}/${leadId}/tags/${tagId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || 'Tag remove nahi hua.');
+            if (badge) badge.remove();
+            const dropdownOption = document.querySelector(`[onclick*="toggleLeadTag(event, ${leadId}, ${tagId},"]`);
+            const checkbox = dropdownOption ? dropdownOption.querySelector('input[type="checkbox"]') : null;
+            if (checkbox) checkbox.checked = false;
+            
+            const container = document.querySelector(`[data-lead-tags-container="${leadId}"]`);
+            const tagBtnBadge = document.querySelector(`[data-lead-tag-btn-badge="${leadId}"]`);
+            if (tagBtnBadge) {
+                const currentCount = container ? container.querySelectorAll('[data-lead-tag]').length : 0;
+                if (currentCount > 0) {
+                    tagBtnBadge.textContent = currentCount;
+                    tagBtnBadge.classList.remove('d-none');
+                } else {
+                    tagBtnBadge.textContent = '0';
+                    tagBtnBadge.classList.add('d-none');
+                }
+            }
+
+            if (window.Swal) Swal.fire({icon:'success', title:'Tag Removed', text:result.message, timer:1200, showConfirmButton:false});
+        } catch (error) {
+            button.disabled = false;
+            if (window.Swal) Swal.fire({icon:'error', title:'Error', text:error.message});
+            else alert(error.message);
+        }
     }
 </script>
 @endpush
