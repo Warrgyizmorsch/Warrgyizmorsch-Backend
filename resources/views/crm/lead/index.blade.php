@@ -689,7 +689,7 @@ $exportColumns = [
                                                 @endphp
                                                 @if($lead->lastMessage)
                                                     <strong>{{ $lead->lastMessage->user->name ?? 'Unknown' }}</strong>
-                                                    <small class="text-muted">: {{ $lead->lastMessage->created_at->format('d M Y, h:i A') }}</small><br>
+                                                    <small class="text-muted">: {{ optional($lead->lastMessage->created_at)->format('d M Y, h:i A') ?? '' }}</small><br>
                                                     <!-- <span style="text-wrap: auto; font-size: 0.7rem;">{{ Str::limit($lead->lastMessage->message ?? '', 80) }}</span> -->
                                                      <p class="mb-1 fw-medium text-dark comment-text"
                                                         id="comment-{{ $lead->id }}">

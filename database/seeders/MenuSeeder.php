@@ -3,8 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\Menu;
+use App\Models\Role;
+use App\Models\RolePermission;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class MenuSeeder extends Seeder
 {
@@ -13,8 +16,17 @@ class MenuSeeder extends Seeder
         DB::transaction(function () {
             $now = now();
 
-            // 1. Delete Order Master & standalone Pipeline Lead from menus & role_permissions
-            $deleteTitles = ['%Order Master%', '%Pipeline Lead%'];
+            // 1. Guarantee that all routes exist in the database first
+            (new RouteSeeder())->run();
+
+            // Helper to get route ID by route_name
+            $getRouteId = function (string $routeName) {
+                return DB::table('routes')->where('route_name', $routeName)->where('is_deleted', 0)->value('id')
+                    ?? DB::table('routes')->where('route_name', $routeName)->value('id');
+            };
+
+            // 2. Delete obsolete menus
+            $deleteTitles = ['%Order Master%', '%Pipeline Lead%', '%Old Leads%'];
             foreach ($deleteTitles as $titlePattern) {
                 $menuIds = DB::table('menus')->where('title', 'LIKE', $titlePattern)->pluck('id')->toArray();
                 if (!empty($menuIds)) {
@@ -24,10 +36,7 @@ class MenuSeeder extends Seeder
                 }
             }
 
-            // Helper to get route ID by route_name
-            $getRouteId = function (string $routeName) {
-                return DB::table('routes')->where('route_name', $routeName)->value('id');
-            };
+            // 3. Upsert Menus
 
             // 1. Dashboard (Lead Pipeline Dashboard)
             $dashboardRouteId = $getRouteId('dashboard');
@@ -35,16 +44,12 @@ class MenuSeeder extends Seeder
 
             // 2. Management (Parent)
             $managementId = $this->upsertMenu('Management', null, 'feather-settings', null, 2, $now);
-
-            // Management -> Submenus
             $this->upsertMenu('Roles', $managementId, 'feather-user-check', null, 1, $now);
             $this->upsertMenu('Routes', $managementId, 'feather-git-commit', null, 2, $now);
             $this->upsertMenu('Menus', $managementId, 'feather-menu', null, 3, $now);
 
             // 3. Users (Parent)
             $usersId = $this->upsertMenu('Users', null, 'feather-users', null, 3, $now);
-
-            // Users -> Submenus
             $this->upsertMenu('Add User', $usersId, 'feather-user-plus', null, 1, $now);
             $this->upsertMenu('List Users', $usersId, 'feather-list', null, 2, $now);
 
@@ -53,8 +58,6 @@ class MenuSeeder extends Seeder
 
             // 5. Master (Parent)
             $masterId = $this->upsertMenu('Master', null, 'feather-database', null, 5, $now);
-
-            // Master -> Submenus
             $masterChildren = [
                 ['title' => 'Status Master', 'route' => 'bucket.index', 'icon' => 'feather-layers', 'sort' => 1],
                 ['title' => 'Attribute', 'route' => 'lead_questions.index', 'icon' => 'feather-sliders', 'sort' => 2],
@@ -62,23 +65,26 @@ class MenuSeeder extends Seeder
                 ['title' => 'Service', 'route' => 'category.index', 'icon' => 'feather-grid', 'sort' => 4],
                 ['title' => 'Tag Master', 'route' => 'tags.index', 'icon' => 'feather-tag', 'sort' => 5],
             ];
-
             foreach ($masterChildren as $child) {
                 $routeId = $getRouteId($child['route']);
                 $this->upsertMenu($child['title'], $masterId, $child['icon'], $routeId, $child['sort'], $now);
             }
 
-            // 6. Lead (Table View)
+            // 6. Lead (Direct Table View - MUST have NO children)
             $leadRouteId = $getRouteId('leads.table.index');
-            $this->upsertMenu('Lead', null, 'feather-users', $leadRouteId, 6, $now);
+            $leadMenuId = $this->upsertMenu('Lead', null, 'feather-users', $leadRouteId, 6, $now);
+            // Clean any stale child menus that had parent_id = leadMenuId
+            DB::table('menus')->where('parent_id', $leadMenuId)->update(['is_deleted' => 1, 'parent_id' => null]);
 
-            // 7. Deal
+            // 7. Deal (Direct View - MUST have NO children)
             $dealRouteId = $getRouteId('created.deals.index');
-            $this->upsertMenu('Deal', null, 'feather-briefcase', $dealRouteId, 7, $now);
+            $dealMenuId = $this->upsertMenu('Deal', null, 'feather-briefcase', $dealRouteId, 7, $now);
+            DB::table('menus')->where('parent_id', $dealMenuId)->update(['is_deleted' => 1, 'parent_id' => null]);
 
-            // 8. Follow-ups
+            // 8. Follow-ups (Direct View - MUST have NO children)
             $followupRouteId = $getRouteId('followups.index');
-            $this->upsertMenu('Follow-ups', null, 'feather-calendar', $followupRouteId, 8, $now);
+            $followupMenuId = $this->upsertMenu('Follow-ups', null, 'feather-calendar', $followupRouteId, 8, $now);
+            DB::table('menus')->where('parent_id', $followupMenuId)->update(['is_deleted' => 1, 'parent_id' => null]);
 
             // 9. Archive (Parent Menu - Placed directly below Follow-ups)
             $archiveId = $this->upsertMenu('Archive', null, 'feather-archive', null, 9, $now);
@@ -107,9 +113,10 @@ class MenuSeeder extends Seeder
                 $this->upsertMenu($child['title'], $reportId, $child['icon'], $routeId, $child['sort'], $now);
             }
 
-            // 11. Modern Lead (Placed directly above SEO)
+            // 11. Modern Lead
             $modernLeadRouteId = $getRouteId('modern.leads.index');
-            $this->upsertMenu('Modern Lead', null, 'feather-layout', $modernLeadRouteId, 11, $now);
+            $modernMenuId = $this->upsertMenu('Modern Lead', null, 'feather-layout', $modernLeadRouteId, 11, $now);
+            DB::table('menus')->where('parent_id', $modernMenuId)->update(['is_deleted' => 1, 'parent_id' => null]);
 
             // 12. SEO (Parent)
             $seoId = $this->upsertMenu('SEO', null, 'feather-globe', null, 12, $now);
@@ -147,7 +154,27 @@ class MenuSeeder extends Seeder
                 $this->upsertMenu($child['title'], $warrCrudId, $child['icon'], $routeId, $child['sort'], $now);
             }
 
+            // 4. Role Permissions Auto-Assignment
+            $allActiveMenus = DB::table('menus')->where('is_deleted', 0)->get();
+            $roles = DB::table('roles')->where('is_deleted', 0)->pluck('id')->toArray();
+
+            foreach ($roles as $rId) {
+                foreach ($allActiveMenus as $m) {
+                    $isAllowed = 1;
+                    // Role 3 (Agent) restrictions if desired
+                    if ($rId == 3 && in_array($m->title, ['Management', 'Roles', 'Routes', 'Menus', 'Users', 'Add User', 'List Users', 'Permissions'])) {
+                        $isAllowed = 0;
+                    }
+
+                    DB::table('role_permissions')->updateOrInsert(
+                        ['role_id' => $rId, 'menu_id' => $m->id],
+                        ['is_allowed' => $isAllowed, 'updated_at' => $now, 'created_at' => $now]
+                    );
+                }
+            }
+
             Menu::bumpMenuVersion();
+            Cache::flush();
         });
     }
 
@@ -175,3 +202,4 @@ class MenuSeeder extends Seeder
         ]));
     }
 }
+

@@ -1,4 +1,40 @@
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    async function appConfirm(title, text, confirmButtonText = 'Yes', confirmButtonColor = '#10b981', icon = 'warning') {
+        if (window.Swal && typeof Swal.fire === 'function') {
+            try {
+                const result = await Swal.fire({
+                    title: title,
+                    text: text,
+                    icon: icon,
+                    showCancelButton: true,
+                    confirmButtonText: confirmButtonText,
+                    confirmButtonColor: confirmButtonColor,
+                    cancelButtonColor: '#64748b'
+                });
+                return Boolean(result && (result.isConfirmed || result === true));
+            } catch (e) {
+                console.warn('Swal error, falling back to confirm:', e);
+            }
+        }
+        return window.confirm(title + (text ? '\n' + text : ''));
+    }
+
+    function appToast(type, title) {
+        if (window.Swal && typeof Swal.fire === 'function') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'success'),
+                title: title,
+                showConfirmButton: false,
+                timer: 2400,
+                timerProgressBar: true
+            });
+        } else {
+            console.log('[Notification]', type, title);
+        }
+    }
     document.addEventListener('DOMContentLoaded', function () {
         const statusScroller = document.getElementById('lead-status-scroll');
         const previousButton = document.querySelector('[data-status-scroll="prev"]');
@@ -272,49 +308,90 @@
     }
 
     async function convertLeadToDeal(leadId, button) {
-        const result = await Swal.fire({
-            title: 'Convert lead to deal?',
-            text: 'Lead New Leads se remove hokar Created Deals mein chali jayegi.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, Convert',
-            confirmButtonColor: '#d97706'
-        });
-        if (!result.isConfirmed) return;
+        const confirmed = await appConfirm(
+            'Convert lead to deal?',
+            'Lead New Leads se remove hokar Created Deals & Deal Pipeline mein "Deal Created" status ke sath chali jayegi.',
+            'Yes, Convert',
+            '#10b981',
+            'question'
+        );
+        if (!confirmed) return;
 
-        button.disabled = true;
+        if (button) button.disabled = true;
         try {
             const response = await fetch("{{ url('/new-leads-table') }}/" + leadId + "/convert-deal", {
                 method: 'POST',
                 headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
-                }
+                },
+                body: new URLSearchParams({ _token: '{{ csrf_token() }}' })
             });
             const data = await response.json();
             if (!response.ok || !data.status) throw new Error(data.message || 'Lead conversion failed');
 
-            document.getElementById('lead-row-' + leadId)?.remove();
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: data.message,
-                showConfirmButton: false,
-                timer: 2300,
-                timerProgressBar: true
-            });
+            const row = document.getElementById('lead-row-' + leadId) || (button ? button.closest('tr') : null);
+            if (row) {
+                row.style.transition = 'all 0.35s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(30px)';
+                setTimeout(() => { row.remove(); updateBulkActionsState(); }, 350);
+            }
+
+            appToast('success', data.message || 'Lead converted to deal successfully');
         } catch (error) {
-            button.disabled = false;
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'error',
-                title: error.message || 'Lead conversion failed',
-                showConfirmButton: false,
-                timer: 2800
+            if (button) button.disabled = false;
+            appToast('error', error.message || 'Lead conversion failed');
+        }
+    }
+
+    async function executeBulkConvertToDeal() {
+        const ids = getSelectedLeadIds();
+        if (!ids.length) return;
+
+        const confirmed = await appConfirm(
+            `Convert ${ids.length} selected lead(s) to deals?`,
+            'Selected leads New Leads se move hokar Created Deals & Pipeline mein "Deal Created" status ke sath add ho jayengi.',
+            `Yes, Convert (${ids.length})`,
+            '#10b981',
+            'question'
+        );
+        if (!confirmed) return;
+
+        try {
+            const params = new URLSearchParams();
+            params.append('_token', '{{ csrf_token() }}');
+            ids.forEach(id => params.append('ids[]', id));
+
+            const response = await fetch("{{ url('/new-leads-table/bulk-convert-deal') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: params
             });
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Could not convert selected leads');
+
+            ids.forEach(id => {
+                const row = document.getElementById('lead-row-' + id);
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+                }
+            });
+            setTimeout(() => deselectAllRows(), 350);
+
+            appToast('success', data.message || `${ids.length} lead(s) converted to deals`);
+        } catch (error) {
+            appToast('error', error.message || 'Could not convert selected leads');
         }
     }
 
@@ -809,53 +886,6 @@
        ========================================================================= */
     const isDealViewMode = {{ ($isDealView ?? false) ? 'true' : 'false' }};
     const isArchiveViewMode = {{ ($isArchiveView ?? false) ? 'true' : 'false' }};
-    const CSRF_TOKEN_VAL = '{{ csrf_token() }}';
-
-    const ARCHIVE_ROUTES = {
-        archiveSingleLead: "{{ route('archive.leads.archive', ':id', false) }}",
-        archiveSingleDeal: "{{ route('archive.deals.archive', ':id', false) }}",
-        bulkArchiveLeads: "{{ route('archive.leads.bulkArchive', [], false) }}",
-        bulkArchiveDeals: "{{ route('archive.deals.bulkArchive', [], false) }}",
-        restoreSingleLead: "{{ route('archive.leads.restore', ':id', false) }}",
-        restoreSingleDeal: "{{ route('archive.deals.restore', ':id', false) }}",
-        bulkRestoreLeads: "{{ route('archive.leads.bulkRestore', [], false) }}",
-        bulkRestoreDeals: "{{ route('archive.deals.bulkRestore', [], false) }}",
-        bulkDeleteArchiveLeads: "{{ route('archive.leads.bulkDelete', [], false) }}",
-        bulkDeleteArchiveDeals: "{{ route('archive.deals.bulkDelete', [], false) }}",
-        bulkDeleteActiveLeads: "{{ route('leads.bulkDelete', [], false) }}",
-    };
-
-    async function showConfirmDialog(title, text, confirmText, icon = 'warning', confirmBtnColor = '#f59e0b') {
-        if (window.Swal) {
-            const res = await Swal.fire({
-                title: title,
-                text: text,
-                icon: icon,
-                showCancelButton: true,
-                confirmButtonColor: confirmBtnColor,
-                cancelButtonColor: '#64748b',
-                confirmButtonText: confirmText
-            });
-            return res.isConfirmed;
-        }
-        return window.confirm(`${title}\n${text}`);
-    }
-
-    function showNoticeDialog(icon, title, message) {
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: icon,
-                title: message || title,
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
-            });
-        } else {
-            alert(`${title}: ${message}`);
-        }
-    }
 
     function getSelectedLeadIds() {
         const checkboxes = document.querySelectorAll('.lead-checkbox:checked');
@@ -908,7 +938,6 @@
             });
         }
 
-        // Delegate listener on table body for dynamic rows
         const tableBody = document.getElementById('lead-table-body');
         if (tableBody) {
             tableBody.addEventListener('change', function (e) {
@@ -920,50 +949,52 @@
     });
 
     // SINGLE ARCHIVE
-    async function archiveSingleLead(leadId, btn) {
-        const confirmed = await showConfirmDialog(
-            'Move to Archive?',
-            'This item will be moved to Archive and removed from active tables & pipeline.',
+    async function archiveSingleLead(leadId, button) {
+        const isDeal = typeof isDealViewMode !== 'undefined' && isDealViewMode;
+        const confirmed = await appConfirm(
+            isDeal ? 'Move Deal to Archive?' : 'Move Lead to Archive?',
+            isDeal 
+                ? 'This deal will be moved to Archive and hidden from active Deals table & pipeline.'
+                : 'This lead will be moved to Archive and hidden from active Leads table & pipeline.',
             'Yes, Archive it!',
-            'warning',
-            '#f59e0b'
+            '#f59e0b',
+            'warning'
         );
         if (!confirmed) return;
 
-        if (btn) btn.disabled = true;
-
-        const endpoint = isDealViewMode 
-            ? ARCHIVE_ROUTES.archiveSingleDeal.replace(':id', leadId) 
-            : ARCHIVE_ROUTES.archiveSingleLead.replace(':id', leadId);
+        if (button) button.disabled = true;
 
         try {
-            const resp = await fetch(endpoint, {
+            const endpoint = isDeal 
+                ? ("{{ url('/archive-deals') }}/" + leadId + "/archive") 
+                : ("{{ url('/archive-leads') }}/" + leadId + "/archive");
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN_VAL,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ _token: CSRF_TOKEN_VAL })
+                body: new URLSearchParams({ _token: '{{ csrf_token() }}' })
             });
-            const data = await resp.json();
-            if (data.status) {
-                showNoticeDialog('success', 'Archived!', data.message || 'Item moved to archive');
-                const row = document.getElementById(`lead-row-${leadId}`) || (btn ? btn.closest('tr') : null);
-                if (row) {
-                    row.style.transition = 'all 0.35s ease';
-                    row.style.opacity = '0';
-                    row.style.transform = 'translateX(-30px)';
-                    setTimeout(() => { row.remove(); updateBulkActionsState(); }, 350);
-                }
-            } else {
-                if (btn) btn.disabled = false;
-                showNoticeDialog('error', 'Error', data.message || 'Could not archive lead');
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Could not archive item');
+
+            const row = document.getElementById('lead-row-' + leadId) || (button ? button.closest('tr') : null);
+            if (row) {
+                row.style.transition = 'all 0.35s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(-30px)';
+                setTimeout(() => { row.remove(); updateBulkActionsState(); }, 350);
             }
-        } catch (e) {
-            if (btn) btn.disabled = false;
-            showNoticeDialog('error', 'Error', 'Something went wrong: ' + e.message);
+
+            appToast('success', data.message || 'Moved to archive successfully');
+        } catch (error) {
+            if (button) button.disabled = false;
+            appToast('error', error.message || 'Could not archive item');
         }
     }
 
@@ -972,93 +1003,102 @@
         const ids = getSelectedLeadIds();
         if (!ids.length) return;
 
-        const confirmed = await showConfirmDialog(
+        const isDeal = typeof isDealViewMode !== 'undefined' && isDealViewMode;
+        const confirmed = await appConfirm(
             `Archive ${ids.length} selected items?`,
-            'They will be moved to Archive and hidden from active Pipeline & Tables.',
+            isDeal 
+                ? 'They will be moved to Archive and hidden from active Deals Pipeline & Tables.'
+                : 'They will be moved to Archive and hidden from active Leads Pipeline & Tables.',
             `Yes, Archive (${ids.length})`,
-            'warning',
-            '#f59e0b'
+            '#f59e0b',
+            'warning'
         );
         if (!confirmed) return;
 
-        const endpoint = isDealViewMode ? ARCHIVE_ROUTES.bulkArchiveDeals : ARCHIVE_ROUTES.bulkArchiveLeads;
         try {
-            const resp = await fetch(endpoint, {
+            const endpoint = isDeal 
+                ? "{{ url('/archive-deals/bulk-archive') }}"
+                : "{{ url('/archive-leads/bulk-archive') }}";
+
+            const params = new URLSearchParams();
+            params.append('_token', '{{ csrf_token() }}');
+            ids.forEach(id => params.append('ids[]', id));
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN_VAL,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ ids: ids, _token: CSRF_TOKEN_VAL })
+                body: params
             });
-            const data = await resp.json();
-            if (data.status) {
-                showNoticeDialog('success', 'Archived!', data.message || `${ids.length} items moved to archive`);
-                ids.forEach(id => {
-                    const row = document.getElementById(`lead-row-${id}`);
-                    if (row) {
-                        row.style.transition = 'all 0.3s ease';
-                        row.style.opacity = '0';
-                        row.style.transform = 'scale(0.95)';
-                        setTimeout(() => row.remove(), 300);
-                    }
-                });
-                setTimeout(() => deselectAllRows(), 350);
-            } else {
-                showNoticeDialog('error', 'Error', data.message || 'Could not archive selected items');
-            }
-        } catch (e) {
-            showNoticeDialog('error', 'Error', 'Something went wrong: ' + e.message);
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Could not archive selected items');
+
+            ids.forEach(id => {
+                const row = document.getElementById('lead-row-' + id);
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+                }
+            });
+            setTimeout(() => deselectAllRows(), 350);
+
+            appToast('success', data.message || `${ids.length} items moved to archive`);
+        } catch (error) {
+            appToast('error', error.message || 'Could not archive selected items');
         }
     }
 
     // SINGLE RESTORE
-    async function restoreSingleLead(leadId, btn) {
-        const confirmed = await showConfirmDialog(
-            'Restore this item?',
-            'This will be restored back to the active Lead/Deal Table and Pipeline.',
+    async function restoreSingleLead(leadId, button) {
+        const isDeal = typeof isDealViewMode !== 'undefined' && isDealViewMode;
+        const confirmed = await appConfirm(
+            isDeal ? 'Restore Deal?' : 'Restore Lead?',
+            'This will be restored back to active Table & Pipeline.',
             'Yes, Restore!',
-            'question',
-            '#10b981'
+            '#10b981',
+            'question'
         );
         if (!confirmed) return;
 
-        if (btn) btn.disabled = true;
-
-        const endpoint = isDealViewMode 
-            ? ARCHIVE_ROUTES.restoreSingleDeal.replace(':id', leadId) 
-            : ARCHIVE_ROUTES.restoreSingleLead.replace(':id', leadId);
+        if (button) button.disabled = true;
 
         try {
-            const resp = await fetch(endpoint, {
+            const endpoint = isDeal 
+                ? ("{{ url('/archive-deals') }}/" + leadId + "/restore")
+                : ("{{ url('/archive-leads') }}/" + leadId + "/restore");
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN_VAL,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ _token: CSRF_TOKEN_VAL })
+                body: new URLSearchParams({ _token: '{{ csrf_token() }}' })
             });
-            const data = await resp.json();
-            if (data.status) {
-                showNoticeDialog('success', 'Restored!', data.message || 'Item restored to active list');
-                const row = document.getElementById(`lead-row-${leadId}`) || (btn ? btn.closest('tr') : null);
-                if (row) {
-                    row.style.transition = 'all 0.35s ease';
-                    row.style.opacity = '0';
-                    row.style.transform = 'translateX(30px)';
-                    setTimeout(() => { row.remove(); updateBulkActionsState(); }, 350);
-                }
-            } else {
-                if (btn) btn.disabled = false;
-                showNoticeDialog('error', 'Error', data.message || 'Could not restore lead');
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Could not restore item');
+
+            const row = document.getElementById('lead-row-' + leadId) || (button ? button.closest('tr') : null);
+            if (row) {
+                row.style.transition = 'all 0.35s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(30px)';
+                setTimeout(() => { row.remove(); updateBulkActionsState(); }, 350);
             }
-        } catch (e) {
-            if (btn) btn.disabled = false;
-            showNoticeDialog('error', 'Error', 'Something went wrong: ' + e.message);
+
+            appToast('success', data.message || 'Item restored successfully');
+        } catch (error) {
+            if (button) button.disabled = false;
+            appToast('error', error.message || 'Could not restore item');
         }
     }
 
@@ -1067,44 +1107,51 @@
         const ids = getSelectedLeadIds();
         if (!ids.length) return;
 
-        const confirmed = await showConfirmDialog(
+        const confirmed = await appConfirm(
             `Restore ${ids.length} selected items?`,
             'They will be moved back to the active Table & Pipeline.',
             `Yes, Restore (${ids.length})`,
-            'question',
-            '#10b981'
+            '#10b981',
+            'question'
         );
         if (!confirmed) return;
 
-        const endpoint = isDealViewMode ? ARCHIVE_ROUTES.bulkRestoreDeals : ARCHIVE_ROUTES.bulkRestoreLeads;
         try {
-            const resp = await fetch(endpoint, {
+            const endpoint = isDealViewMode 
+                ? "{{ url('/archive-deals/bulk-restore') }}"
+                : "{{ url('/archive-leads/bulk-restore') }}";
+
+            const params = new URLSearchParams();
+            params.append('_token', '{{ csrf_token() }}');
+            ids.forEach(id => params.append('ids[]', id));
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN_VAL,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ ids: ids, _token: CSRF_TOKEN_VAL })
+                body: params
             });
-            const data = await resp.json();
-            if (data.status) {
-                showNoticeDialog('success', 'Restored!', data.message || `${ids.length} items restored`);
-                ids.forEach(id => {
-                    const row = document.getElementById(`lead-row-${id}`);
-                    if (row) {
-                        row.style.transition = 'all 0.3s ease';
-                        row.style.opacity = '0';
-                        setTimeout(() => row.remove(), 300);
-                    }
-                });
-                setTimeout(() => deselectAllRows(), 350);
-            } else {
-                showNoticeDialog('error', 'Error', data.message || 'Could not restore selected items');
-            }
-        } catch (e) {
-            showNoticeDialog('error', 'Error', 'Something went wrong: ' + e.message);
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Could not restore items');
+
+            ids.forEach(id => {
+                const row = document.getElementById('lead-row-' + id);
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+                }
+            });
+            setTimeout(() => deselectAllRows(), 350);
+
+            appToast('success', data.message || `${ids.length} items restored`);
+        } catch (error) {
+            appToast('error', error.message || 'Could not restore items');
         }
     }
 
@@ -1113,83 +1160,114 @@
         const ids = getSelectedLeadIds();
         if (!ids.length) return;
 
-        const confirmed = await showConfirmDialog(
+        const confirmed = await appConfirm(
             `Delete ${ids.length} selected items permanently?`,
             'This action cannot be undone!',
             'Yes, Delete Permanently',
-            'error',
-            '#ef4444'
+            '#ef4444',
+            'error'
         );
         if (!confirmed) return;
 
-        const endpoint = isArchiveViewMode 
-            ? (isDealViewMode ? ARCHIVE_ROUTES.bulkDeleteArchiveDeals : ARCHIVE_ROUTES.bulkDeleteArchiveLeads)
-            : ARCHIVE_ROUTES.bulkDeleteActiveLeads;
-
         try {
-            const resp = await fetch(endpoint, {
+            const endpoint = isArchiveViewMode 
+                ? (isDealViewMode ? "{{ url('/archive-deals/bulk-delete') }}" : "{{ url('/archive-leads/bulk-delete') }}")
+                : "{{ url('/leads/bulk-delete') }}";
+
+            const params = new URLSearchParams();
+            params.append('_token', '{{ csrf_token() }}');
+            ids.forEach(id => params.append('ids[]', id));
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN_VAL,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ ids: ids, _token: CSRF_TOKEN_VAL })
+                body: params
             });
-            const data = await resp.json();
-            if (data.status) {
-                showNoticeDialog('success', 'Deleted!', data.message || 'Selected items deleted');
-                ids.forEach(id => {
-                    const row = document.getElementById(`lead-row-${id}`);
-                    if (row) row.remove();
-                });
-                deselectAllRows();
-            } else {
-                showNoticeDialog('error', 'Error', data.message || 'Could not delete selected items');
-            }
-        } catch (e) {
-            showNoticeDialog('error', 'Error', 'Something went wrong: ' + e.message);
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Could not delete items');
+
+            ids.forEach(id => {
+                const row = document.getElementById('lead-row-' + id);
+                if (row) row.remove();
+            });
+            deselectAllRows();
+
+            appToast('success', data.message || 'Selected items deleted');
+        } catch (error) {
+            appToast('error', error.message || 'Could not delete items');
         }
     }
 
     // SINGLE PERMANENT DELETE (Archive View)
-    async function deleteSingleLeadPermanently(leadId, btn) {
-        const confirmed = await showConfirmDialog(
-            'Delete Permanently?',
-            'This item will be permanently removed.',
-            'Yes, Delete',
-            'error',
-            '#ef4444'
-        );
-        if (!confirmed) return;
+    async function deleteSingleLeadPermanently(leadId, button) {
+        const result = await Swal.fire({
+            title: 'Delete Permanently?',
+            text: 'This item will be permanently removed.',
+            icon: 'error',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Delete',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b'
+        });
+        if (!result.isConfirmed) return;
 
-        const endpoint = isDealViewMode ? ARCHIVE_ROUTES.bulkDeleteArchiveDeals : ARCHIVE_ROUTES.bulkDeleteArchiveLeads;
+        if (button) button.disabled = true;
+
         try {
-            const resp = await fetch(endpoint, {
+            const endpoint = isDealViewMode 
+                ? "{{ url('/archive-deals/bulk-delete') }}"
+                : "{{ url('/archive-leads/bulk-delete') }}";
+
+            const params = new URLSearchParams();
+            params.append('_token', '{{ csrf_token() }}');
+            params.append('ids[]', leadId);
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN_VAL,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ ids: [leadId], _token: CSRF_TOKEN_VAL })
+                body: params
             });
-            const data = await resp.json();
-            if (data.status) {
-                showNoticeDialog('success', 'Deleted!', data.message || 'Item deleted permanently');
-                const row = document.getElementById(`lead-row-${leadId}`) || (btn ? btn.closest('tr') : null);
-                if (row) {
-                    row.style.transition = 'all 0.3s ease';
-                    row.style.opacity = '0';
-                    setTimeout(() => { row.remove(); updateBulkActionsState(); }, 300);
-                }
-            } else {
-                showNoticeDialog('error', 'Error', data.message || 'Could not delete lead');
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Could not delete lead');
+
+            const row = document.getElementById('lead-row-' + leadId) || (button ? button.closest('tr') : null);
+            if (row) {
+                row.style.transition = 'all 0.3s ease';
+                row.style.opacity = '0';
+                setTimeout(() => { row.remove(); updateBulkActionsState(); }, 300);
             }
-        } catch (e) {
-            showNoticeDialog('error', 'Error', 'Something went wrong: ' + e.message);
+
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: data.message || 'Item deleted permanently',
+                showConfirmButton: false,
+                timer: 2300,
+                timerProgressBar: true
+            });
+        } catch (error) {
+            if (button) button.disabled = false;
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: error.message || 'Could not delete lead',
+                showConfirmButton: false,
+                timer: 2800
+            });
         }
     }
 </script>

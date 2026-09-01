@@ -242,6 +242,7 @@
 
   {{-- Vendor Scripts --}}
   <script src="{{ asset('crm-assets/assets/vendors/js/vendors.min.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="{{ asset('crm-assets/assets/vendors/js/daterangepicker.min.js') }}"></script>
   <script src="{{ asset('crm-assets/assets/vendors/js/apexcharts.min.js') }}"></script>
   <script src="{{ asset('crm-assets/assets/vendors/js/jquery.time-to.min.js') }}"></script>
@@ -251,9 +252,7 @@
 
   {{-- App Scripts --}}
   <script src="{{ asset('crm-assets/assets/js/common-init.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/js/leads-init.min.js') }}"></script>
   <script src="{{ asset('crm-assets/assets/js/theme-customizer-init.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/js/analytics-init.min.js') }}"></script>
 
   {{-- Extra Scripts from child views --}}
   @stack('scripts')

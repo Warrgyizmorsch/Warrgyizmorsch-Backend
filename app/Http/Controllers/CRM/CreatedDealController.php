@@ -135,10 +135,17 @@ class CreatedDealController extends Controller
         $childBuckets->each(function ($bucket) {
             $bucketIds = collect([$bucket->id])->merge($bucket->children->pluck('id'))->all();
             $statusNames = collect([$bucket->name])->merge($bucket->children->pluck('name'))->all();
+            $bName = strtolower(trim($bucket->name));
             $bucket->leads_count = Leads::where('is_converted', 1)
                 ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
-                ->where(function ($q) use ($bucketIds, $statusNames) {
+                ->where(function ($q) use ($bucketIds, $statusNames, $bName) {
                     $q->whereIn('lead_bucket_id', $bucketIds)->orWhereIn('lead_status', $statusNames);
+                    if ($bName === 'deal created') {
+                        $q->orWhereNull('lead_bucket_id')
+                          ->orWhere('lead_bucket_id', 0)
+                          ->orWhereNull('lead_status')
+                          ->orWhere('lead_status', '');
+                    }
                 })
                 ->count();
         });
@@ -274,7 +281,7 @@ class CreatedDealController extends Controller
             if (!empty($childNames)) {
                 $q->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames);
             }
-            if ($bName === 'yet to call') {
+            if ($bName === 'deal created' || $bName === 'yet to call') {
                 $q->orWhereNull('lead_bucket_id')
                   ->orWhere('lead_bucket_id', 0)
                   ->orWhereNull('lead_status')
@@ -330,7 +337,7 @@ class CreatedDealController extends Controller
                 if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) {
                     return true;
                 }
-                if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) {
+                if (($bName === 'deal created' || $bName === 'yet to call') && ($itemStatus === '' || is_null($itemStatus))) {
                     return true;
                 }
                 return false;

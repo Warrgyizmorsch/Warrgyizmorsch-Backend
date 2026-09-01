@@ -38,6 +38,8 @@ class RouteSeeder extends Seeder
             ['name' => 'Bulk Restore Deals', 'route_name' => 'archive.deals.bulkRestore'],
             ['name' => 'Bulk Delete Archive Deals', 'route_name' => 'archive.deals.bulkDelete'],
             ['name' => 'Bulk Delete Leads', 'route_name' => 'leads.bulkDelete'],
+            ['name' => 'Archive Lead Action', 'route_name' => 'lead.archive'],
+            ['name' => 'Restore Lead Action', 'route_name' => 'lead.restore'],
         ];
 
         foreach ($routes as $route) {

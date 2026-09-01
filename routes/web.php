@@ -124,6 +124,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/send-message', [LeadController::class, 'sendMessage'])->name('lead.sendMessage');
             Route::get('/daily-report', [LeadController::class, 'dailyReport'])->name('lead.dailyReport');
             Route::put('/{lead}/engagement-status', [LeadController::class, 'updateEngagementStatus'])->name('lead.updateEngagementStatus');
+            Route::post('/{lead}/archive', [LeadController::class, 'archiveLead'])->name('lead.archive');
+            Route::post('/{lead}/restore', [LeadController::class, 'restoreLead'])->name('lead.restore');
             // Route::get('?bucket_id=15', [LeadController::class, 'index'])->name('lead.application');
             Route::get('/application', [LeadController::class, 'application'])->name('lead.application');
         });
@@ -224,6 +226,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/created-deals/pipeline/drag-update/{lead}', [CreatedDealController::class, 'pipelineDragUpdate'])->name('created.deals.pipeline.dragUpdate');
     Route::get('/new-leads-table', [LeadTableController::class, 'index'])->name('leads.table.index');
     Route::post('/new-leads-table/{lead}/convert-deal', [LeadTableController::class, 'convertToDeal'])->name('leads.table.convertDeal');
+    Route::post('/new-leads-table/bulk-convert-deal', [LeadTableController::class, 'bulkConvertToDeal'])->name('leads.table.bulkConvertDeal');
     Route::get('/new-leads-table/pipeline', [LeadTableController::class, 'pipelineIndex'])->name('leads.table.pipeline');
     Route::get('/new-leads-table/pipeline/cards', [LeadTableController::class, 'pipelineCards'])->name('leads.table.pipeline.cards');
     Route::post('/new-leads-table/pipeline/drag-update/{lead}', [LeadTableController::class, 'pipelineDragUpdate'])->name('leads.table.pipeline.dragUpdate');

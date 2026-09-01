@@ -12,6 +12,7 @@ use App\Models\LeadHistory;
 use App\Models\LeadAttribute;
 use App\Models\LeadSource;
 use App\Models\Category;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -2197,6 +2198,38 @@ class LeadController extends Controller
             }
             return back()->with('error', 'Something went wrong: ' . $e->getMessage());
         }
+    }
+
+    public function archiveLead(Request $request, $id)
+    {
+        $lead = Leads::findOrFail($id);
+        if (auth()->check() && auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
+            return response()->json(['status' => false, 'message' => 'Permission denied'], 403);
+        }
+
+        $lead->update(['is_archived' => 1]);
+        Order::where('lead_id', $lead->id)->update(['is_archived' => 1]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Lead moved to archive successfully',
+        ]);
+    }
+
+    public function restoreLead(Request $request, $id)
+    {
+        $lead = Leads::findOrFail($id);
+        if (auth()->check() && auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
+            return response()->json(['status' => false, 'message' => 'Permission denied'], 403);
+        }
+
+        $lead->update(['is_archived' => 0]);
+        Order::where('lead_id', $lead->id)->update(['is_archived' => 0]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Lead restored successfully',
+        ]);
     }
 
     public function fetchTemplates()

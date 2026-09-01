@@ -446,6 +446,11 @@
                     <i class="feather-trash-2"></i> Delete Permanently
                 </button>
             @else
+                @unless($isDealView ?? false)
+                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkConvertToDeal()">
+                    <i class="feather-check-circle"></i> Convert to Deal
+                </button>
+                @endunless
                 <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 fw-bold text-dark shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkArchive()">
                     <i class="feather-archive"></i> Archive Selected
                 </button>

@@ -16,48 +16,117 @@ use Carbon\Carbon;
 
 class LeadTableController extends Controller
 {
-    public function convertToDeal(Request $request, Leads $lead)
+    public function convertToDeal(Request $request, $lead)
     {
         abort_unless(auth()->check(), 401);
-        if (auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
-            abort(403, 'You are not allowed to convert this lead.');
+        $leadObj = $lead instanceof Leads ? $lead : Leads::findOrFail($lead);
+        if (auth()->user()->role_id == 3 && $leadObj->lead_owner != auth()->id()) {
+            return response()->json(['status' => false, 'message' => 'You are not allowed to convert this lead.'], 403);
         }
 
-        DB::transaction(function () use ($lead) {
+        DB::transaction(function () use ($leadObj) {
             $dealBucket = Bucket::where('is_deleted', 0)
                 ->where('type', 'order')
                 ->whereRaw('LOWER(TRIM(name)) LIKE ?', ['%deal created%'])
                 ->first() ?? Bucket::where('is_deleted', 0)->where('type', 'order')->orderBy('id')->first();
 
             $dealStatus = $dealBucket?->name ?? 'Deal Created';
-            $lead->update([
+            $dealBucketId = $dealBucket?->id ?? 82;
+
+            $leadObj->update([
                 'is_converted' => 1,
                 'lead_status' => $dealStatus,
-                'lead_bucket_id' => $dealBucket?->id ?? $lead->lead_bucket_id,
+                'lead_bucket_id' => $dealBucketId,
             ]);
 
             Order::updateOrCreate(
-                ['lead_id' => $lead->id],
+                ['lead_id' => $leadObj->id],
                 [
-                    'order_number' => 'ORD-' . (10000 + $lead->id),
-                    'uid' => $lead->uid,
-                    'order_bucket_id' => $dealBucket?->id ?? $lead->lead_bucket_id,
+                    'order_number' => 'ORD-' . (10000 + $leadObj->id),
+                    'uid' => $leadObj->uid,
+                    'order_bucket_id' => $dealBucketId,
                     'order_status' => $dealStatus,
-                    'order_engagement_status' => $lead->lead_engagement_status ?? 'hot',
-                    'order_owner' => $lead->lead_owner,
+                    'order_engagement_status' => $leadObj->lead_engagement_status ?? 'hot',
+                    'order_owner' => $leadObj->lead_owner,
                     'converted_by' => auth()->id(),
-                    'category_id' => $lead->category_id,
-                    'product' => $lead->product,
-                    'services' => is_array($lead->services) ? $lead->services : (json_decode($lead->services, true) ?? null),
-                    'pain_points' => $lead->pain_points,
-                    'client_details' => is_array($lead->client_details) ? $lead->client_details : (json_decode($lead->client_details, true) ?? null),
-                    'documents' => is_array($lead->documents) ? $lead->documents : (json_decode($lead->documents, true) ?? null),
+                    'category_id' => $leadObj->category_id,
+                    'product' => $leadObj->product,
+                    'services' => is_array($leadObj->services) ? $leadObj->services : (json_decode($leadObj->services, true) ?? null),
+                    'pain_points' => $leadObj->pain_points,
+                    'client_details' => is_array($leadObj->client_details) ? $leadObj->client_details : (json_decode($leadObj->client_details, true) ?? null),
+                    'documents' => is_array($leadObj->documents) ? $leadObj->documents : (json_decode($leadObj->documents, true) ?? null),
                     'converted_at' => now(),
                 ]
             );
         });
 
         return response()->json(['status' => true, 'message' => 'Lead converted to deal successfully']);
+    }
+
+    public function bulkConvertToDeal(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $rawIds = $request->input('ids', []);
+        $ids = is_array($rawIds) ? $rawIds : (is_string($rawIds) ? explode(',', $rawIds) : []);
+        $ids = array_filter(array_map('intval', $ids));
+
+        if (empty($ids)) {
+            return response()->json(['status' => false, 'message' => 'No leads selected'], 400);
+        }
+
+        $query = Leads::whereIn('id', $ids);
+        if (auth()->user()->role_id == 3) {
+            $query->where('lead_owner', auth()->id());
+        }
+
+        $leadsToConvert = $query->get();
+        if ($leadsToConvert->isEmpty()) {
+            return response()->json(['status' => false, 'message' => 'No matching leads found to convert'], 404);
+        }
+
+        $dealBucket = Bucket::where('is_deleted', 0)
+            ->where('type', 'order')
+            ->whereRaw('LOWER(TRIM(name)) LIKE ?', ['%deal created%'])
+            ->first() ?? Bucket::where('is_deleted', 0)->where('type', 'order')->orderBy('id')->first();
+
+        $dealStatus = $dealBucket?->name ?? 'Deal Created';
+        $dealBucketId = $dealBucket?->id ?? 82;
+
+        DB::transaction(function () use ($leadsToConvert, $dealBucketId, $dealStatus) {
+            foreach ($leadsToConvert as $leadObj) {
+                $leadObj->update([
+                    'is_converted' => 1,
+                    'lead_status' => $dealStatus,
+                    'lead_bucket_id' => $dealBucketId,
+                ]);
+
+                Order::updateOrCreate(
+                    ['lead_id' => $leadObj->id],
+                    [
+                        'order_number' => 'ORD-' . (10000 + $leadObj->id),
+                        'uid' => $leadObj->uid,
+                        'order_bucket_id' => $dealBucketId,
+                        'order_status' => $dealStatus,
+                        'order_engagement_status' => $leadObj->lead_engagement_status ?? 'hot',
+                        'order_owner' => $leadObj->lead_owner,
+                        'converted_by' => auth()->id(),
+                        'category_id' => $leadObj->category_id,
+                        'product' => $leadObj->product,
+                        'services' => is_array($leadObj->services) ? $leadObj->services : (json_decode($leadObj->services, true) ?? null),
+                        'pain_points' => $leadObj->pain_points,
+                        'client_details' => is_array($leadObj->client_details) ? $leadObj->client_details : (json_decode($leadObj->client_details, true) ?? null),
+                        'documents' => is_array($leadObj->documents) ? $leadObj->documents : (json_decode($leadObj->documents, true) ?? null),
+                        'converted_at' => now(),
+                    ]
+                );
+            }
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => count($leadsToConvert) . ' lead(s) converted to deal successfully',
+            'count' => count($leadsToConvert),
+        ]);
     }
 
     public function index(Request $request)

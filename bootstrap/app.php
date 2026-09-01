@@ -17,6 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'check.permission' => CheckPermission::class,
         ]);
+        $middleware->validateCsrfTokens(except: [
+            'save-work-time',
+            'archive-leads/*',
+            'archive-deals/*',
+            'new-leads-table/*',
+            'leads/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
