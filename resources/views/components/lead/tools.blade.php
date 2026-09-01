@@ -236,24 +236,6 @@
                     </select>
                 </div>
 
-                <div class="col-md-3 d-none d-md-block">
-                    <select name="status" class="form-select">
-                        <option value="">All Status</option>
-                        @foreach($filterBucket as $bucket)
-                        @if($bucket->children)
-                        <optgroup label="{{ $bucket->name }}">
-                            @foreach($bucket->children as $child)
-                            <option value="{{ $child->name }}"
-                                {{ request('status') == $child->name ? 'selected' : '' }}>
-                                {{ $child->name }}
-                            </option>
-                            @endforeach
-                        </optgroup>
-                        @endif
-                        @endforeach
-                    </select>
-                </div>
-
                 @unless(request()->routeIs('leads.table.*'))
                 <div class="col-12 col-md-2 d-block d-md-block">
                     <select name="lead_engagement_status" class="form-select">
