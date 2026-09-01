@@ -1276,14 +1276,15 @@
                                     <!-- Last Comment -->
                                     <td class="last-comment-col">
                                         @php
-                                            $message = $lead->latestMessage->message ?? '';
+                                            $latestMsg = $lead->latestMessage ?? null;
+                                            $message = $latestMsg->message ?? '';
                                             $isLong = strlen($message) > 120;
                                         @endphp
 
                                         <div>
                                             <p class="mb-1 fw-medium text-dark comment-text"
                                                 id="comment-{{ $lead->id }}">
-                                                {{ $message }}
+                                                {{ $message ?: 'No comments yet' }}
                                             </p>
 
                                             @if($isLong)
@@ -1293,11 +1294,13 @@
                                             </span>
                                             @endif
 
+                                            @if($latestMsg && $latestMsg->created_at)
                                             <div>
                                                 <small class="text-muted">
-                                                    {{ optional($lead->latestMessage->created_at)->diffForHumans() }}
+                                                    {{ $latestMsg->created_at->diffForHumans() }}
                                                 </small>
                                             </div>
+                                            @endif
                                         </div>
                                     </td>
 
@@ -1307,13 +1310,13 @@
 
                                             <div class="avatar-sm bg-light rounded-circle text-center">
                                                 <span class="fw-semibold">
-                                                    {{ strtoupper(substr($lead->latestMessage->user->name ?? 'S', 0, 1)) }}
+                                                    {{ strtoupper(substr($latestMsg->user->name ?? ($lead->owner->name ?? 'S'), 0, 1)) }}
                                                 </span>
                                             </div>
 
                                             <div>
                                                 <div class="fw-semibold">
-                                                    {{ $lead->latestMessage->user->name ?? 'System' }}
+                                                    {{ $latestMsg->user->name ?? 'System' }}
                                                 </div>
 
                                                 <small class="text-muted">
