@@ -39,18 +39,31 @@
         <div class="d-flex align-items-center gap-2">
 
             @if($showViewSwitcher)
+            @php
+                if (request()->is('created-deals*') || request()->routeIs('created.deals.*')) {
+                    $listRoute = route('created.deals.index', request()->query());
+                    $pipelineRoute = route('created.deals.pipeline', request()->query());
+                    $isPipelineActive = request()->is('created-deals/pipeline*') || request()->routeIs('created.deals.pipeline');
+                } elseif (request()->is('new-leads-table*') || request()->routeIs('leads.table.*')) {
+                    $listRoute = route('leads.table.index', request()->query());
+                    $pipelineRoute = route('leads.table.pipeline', request()->query());
+                    $isPipelineActive = request()->is('new-leads-table/pipeline*') || request()->routeIs('leads.table.pipeline');
+                } else {
+                    $listRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'list']));
+                    $pipelineRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'pipeline']));
+                    $isPipelineActive = request('view') === 'pipeline';
+                }
+            @endphp
             {{-- View Switcher (List / Pipeline) --}}
             <div class="btn-group p-1 bg-light rounded-2 border me-1" role="group" aria-label="View Switcher" style="background: #f1f5f9 !important;">
-                <a href="{{ route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'list'])) }}"
-                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ request('view') !== 'pipeline' ? 'active-view' : '' }}"
-                    id="btn-list-view" 
+                <a href="{{ $listRoute }}"
+                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ !$isPipelineActive ? 'active-view' : '' }}"
                     title="List View">
                     <i class="feather-list fs-14"></i>
                     <span class="d-none d-sm-inline fs-12 fw-semibold">List View</span>
                 </a>
-                <a href="{{ route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'pipeline'])) }}"
-                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ request('view') === 'pipeline' ? 'active-view' : '' }}"
-                    id="btn-pipeline-view" 
+                <a href="{{ $pipelineRoute }}"
+                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ $isPipelineActive ? 'active-view' : '' }}"
                     title="Pipeline View">
                     <i class="feather-columns fs-14"></i>
                     <span class="d-none d-sm-inline fs-12 fw-semibold">Pipeline View</span>
@@ -65,6 +78,15 @@
                 <i class="feather-bar-chart"></i>
             </button>
 
+            @php
+                if (request()->routeIs('created.deals.*')) {
+                    $bucketBaseRoute = 'created.deals.index';
+                } elseif (request()->routeIs('leads.table.*')) {
+                    $bucketBaseRoute = 'leads.table.index';
+                } else {
+                    $bucketBaseRoute = 'modern.leads.index';
+                }
+            @endphp
             {{-- Bucket Dropdown --}}
             <div class="dropdown">
                 <button class="btn btn-icon btn-light-brand" data-bs-toggle="dropdown">
@@ -73,18 +95,18 @@
 
                 <div class="dropdown-menu dropdown-menu-end">
 
-                    <a href="{{ route('modern.leads.index', request()->except('bucket_id', 'converted')) }}"
+                    <a href="{{ route($bucketBaseRoute, request()->except('bucket_id', 'converted')) }}"
                         class="dropdown-item {{ !request('bucket_id') && !request('converted') ? 'active' : '' }}">
                         All Buckets
                     </a>
 
-                    <a href="{{ route('modern.leads.index', array_merge(request()->query(), ['converted' => 1, 'bucket_id' => ''])) }}"
+                    <a href="{{ route($bucketBaseRoute, array_merge(request()->query(), ['converted' => 1, 'bucket_id' => ''])) }}"
                         class="dropdown-item {{ request('converted') == 1 ? 'active' : '' }}">
                         Converted
                     </a>
 
                     @foreach($buckets as $bucket)
-                    <a href="{{ route('modern.leads.index', array_merge(request()->query(), ['bucket_id' => $bucket->id, 'converted' => '', 'lead_status' => ''])) }}"
+                    <a href="{{ route($bucketBaseRoute, array_merge(request()->query(), ['bucket_id' => $bucket->id, 'converted' => '', 'lead_status' => ''])) }}"
                         class="dropdown-item {{ request('bucket_id') == $bucket->id ? 'active' : '' }}">
                         {{ $bucket->name }}
                     </a>

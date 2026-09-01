@@ -206,9 +206,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Modern Leads & Followups
     Route::get('/followups', [FollowupController::class, 'index'])->name('followups.index');
     Route::get('/created-deals', [CreatedDealController::class, 'index'])->name('created.deals.index');
+    Route::get('/created-deals/pipeline', [CreatedDealController::class, 'pipelineIndex'])->name('created.deals.pipeline');
+    Route::get('/created-deals/pipeline/cards', [CreatedDealController::class, 'pipelineCards'])->name('created.deals.pipeline.cards');
+    Route::post('/created-deals/pipeline/drag-update/{lead}', [CreatedDealController::class, 'pipelineDragUpdate'])->name('created.deals.pipeline.dragUpdate');
     Route::get('/new-leads-table', [LeadTableController::class, 'index'])->name('leads.table.index');
+    Route::get('/new-leads-table/pipeline', [LeadTableController::class, 'pipelineIndex'])->name('leads.table.pipeline');
+    Route::get('/new-leads-table/pipeline/cards', [LeadTableController::class, 'pipelineCards'])->name('leads.table.pipeline.cards');
+    Route::post('/new-leads-table/pipeline/drag-update/{lead}', [LeadTableController::class, 'pipelineDragUpdate'])->name('leads.table.pipeline.dragUpdate');
     Route::get('/modern-leads/search-suggestions', [NewleadController::class, 'searchSuggestions'])->name('modern.leads.search.suggestions');
     Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
+    Route::get('/modern-leads/pipeline', [NewleadController::class, 'pipelineIndex'])->name('modern.leads.pipeline');
+    Route::get('/modern-leads/pipeline/cards', [NewleadController::class, 'pipelineCards'])->name('modern.leads.pipeline.cards');
+    Route::post('/modern-leads/pipeline/drag-update/{lead}', [NewleadController::class, 'pipelineDragUpdate'])->name('modern.leads.pipeline.dragUpdate');
     Route::get('/modern-leads/{lead}/details-data', [NewleadController::class, 'getDetailsData'])->name('modern.leads.details.data');
     Route::post('/modern-leads/import/upload', [NewleadController::class, 'uploadImportFile'])->name('modern.leads.import.upload');
     Route::post('/modern-leads/import/process', [NewleadController::class, 'processImport'])->name('modern.leads.import.process');
