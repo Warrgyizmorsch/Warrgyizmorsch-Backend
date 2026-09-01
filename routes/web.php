@@ -28,6 +28,8 @@ use App\Http\Controllers\CRM\LeadTableController;
 use App\Http\Controllers\CRM\CreatedDealController;
 use App\Http\Controllers\CRM\FollowupController;
 use App\Http\Controllers\CRM\TagController;
+use App\Http\Controllers\CRM\ArchiveLeadController;
+use App\Http\Controllers\CRM\ArchiveDealController;
 
 Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
     ->name('send.whatsapp.all');
@@ -225,6 +227,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/new-leads-table/pipeline', [LeadTableController::class, 'pipelineIndex'])->name('leads.table.pipeline');
     Route::get('/new-leads-table/pipeline/cards', [LeadTableController::class, 'pipelineCards'])->name('leads.table.pipeline.cards');
     Route::post('/new-leads-table/pipeline/drag-update/{lead}', [LeadTableController::class, 'pipelineDragUpdate'])->name('leads.table.pipeline.dragUpdate');
+
+    // Archive Leads & Deals
+    Route::get('/archive-leads', [ArchiveLeadController::class, 'index'])->name('archive.leads.index');
+    Route::post('/archive-leads/{id}/archive', [ArchiveLeadController::class, 'archive'])->name('archive.leads.archive');
+    Route::post('/archive-leads/bulk-archive', [ArchiveLeadController::class, 'bulkArchive'])->name('archive.leads.bulkArchive');
+    Route::post('/archive-leads/{id}/restore', [ArchiveLeadController::class, 'restore'])->name('archive.leads.restore');
+    Route::post('/archive-leads/bulk-restore', [ArchiveLeadController::class, 'bulkRestore'])->name('archive.leads.bulkRestore');
+    Route::post('/archive-leads/bulk-delete', [ArchiveLeadController::class, 'bulkDelete'])->name('archive.leads.bulkDelete');
+
+    Route::get('/archive-deals', [ArchiveDealController::class, 'index'])->name('archive.deals.index');
+    Route::post('/archive-deals/{id}/archive', [ArchiveDealController::class, 'archive'])->name('archive.deals.archive');
+    Route::post('/archive-deals/bulk-archive', [ArchiveDealController::class, 'bulkArchive'])->name('archive.deals.bulkArchive');
+    Route::post('/archive-deals/{id}/restore', [ArchiveDealController::class, 'restore'])->name('archive.deals.restore');
+    Route::post('/archive-deals/bulk-restore', [ArchiveDealController::class, 'bulkRestore'])->name('archive.deals.bulkRestore');
+    Route::post('/archive-deals/bulk-delete', [ArchiveDealController::class, 'bulkDelete'])->name('archive.deals.bulkDelete');
+    Route::post('/leads/bulk-delete', [LeadController::class, 'bulkDelete'])->name('leads.bulkDelete');
+
     Route::get('/modern-leads/search-suggestions', [NewleadController::class, 'searchSuggestions'])->name('modern.leads.search.suggestions');
     Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
     Route::get('/modern-leads/pipeline', [NewleadController::class, 'pipelineIndex'])->name('modern.leads.pipeline');

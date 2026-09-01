@@ -2158,27 +2158,43 @@ class LeadController extends Controller
     }
     public function bulkDelete(Request $request)
     {
-        if (!$request->filled('ids')) {
-            return back()->with('error', 'No leads selected');
+        $rawIds = $request->input('ids');
+        if (is_array($rawIds)) {
+            $ids = $rawIds;
+        } elseif (is_string($rawIds) && !empty($rawIds)) {
+            $ids = explode(',', $rawIds);
+        } else {
+            $ids = [];
         }
 
-        $ids = explode(',', $request->ids);
+        if (empty($ids)) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => false, 'message' => 'No leads selected'], 400);
+            }
+            return back()->with('error', 'No leads selected');
+        }
 
         DB::beginTransaction();
 
         try {
-
-            CallBack::whereIn('lead_id', $ids)->delete();
-
+            DB::table('taggables')->where('taggable_type', Leads::class)->whereIn('taggable_id', $ids)->delete();
+            DB::table('callbacks')->whereIn('lead_id', $ids)->delete();
+            DB::table('lead_histories')->whereIn('lead_id', $ids)->delete();
+            Order::whereIn('lead_id', $ids)->delete();
             Leads::whereIn('id', $ids)->delete();
 
             DB::commit();
 
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => true, 'message' => count($ids) . ' lead(s) deleted successfully!']);
+            }
             return back()->with('success', 'Selected leads deleted successfully!');
         } catch (\Exception $e) {
-
             DB::rollBack();
 
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => false, 'message' => 'Something went wrong: ' . $e->getMessage()], 500);
+            }
             return back()->with('error', 'Something went wrong: ' . $e->getMessage());
         }
     }

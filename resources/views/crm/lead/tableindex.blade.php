@@ -1,9 +1,54 @@
+@php
+    $isArchive = $isArchiveView ?? false;
+    $isDeal = $isDealView ?? false;
+    $pageTitle = $isArchive 
+        ? ($isDeal ? 'Archive Deals - CRM' : 'Archive Leads - CRM')
+        : ($isDeal ? 'Created Deals - CRM' : 'New Leads - CRM');
+    $headerTitle = $isArchive
+        ? ($isDeal ? 'Archive Deals' : 'Archive Leads')
+        : ($isDeal ? 'Created Deals' : 'New Leads Table');
+@endphp
+
 @extends('layouts.app')
 
-@section('title', ($isDealView ?? false) ? 'Created Deals - CRM' : 'New Leads - CRM')
+@section('title', $pageTitle)
 
 @push('styles')
 <style>
+    /* Floating Bulk Action Bar */
+    .floating-bulk-actions {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%) translateY(140px);
+        background: #0f172a;
+        color: #ffffff;
+        padding: 10px 22px;
+        border-radius: 50px;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        z-index: 1080;
+        transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .floating-bulk-actions.is-visible {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .floating-bulk-actions .badge-count {
+        background: #006FC9;
+        color: #ffffff;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 13px;
+        box-shadow: 0 2px 6px rgba(0, 111, 201, 0.4);
+    }
+
     /* Duralux Table & Status Tab Styling */
     .lead-tab-strip {
         display: flex;
@@ -375,69 +420,99 @@
 <div class="nxl-content">
     {{-- Header & Tools Component --}}
     <x-lead.tools
-        :title="($isDealView ?? false) ? 'Created Deals' : 'New Leads Table'"
-        :buckets="$childBuckets"
-        :filterBucket="$childBuckets"
+        :title="$headerTitle"
+        :buckets="$childBuckets ?? collect()"
+        :filterBucket="$childBuckets ?? collect()"
         :totalLeadsCount="$systemTotalLeadsCount ?? $totalLeadsCount"
         :owners="$owners"
-        :categories="$categorys"
+        :categories="$categorys ?? $categories ?? collect()"
         :sources="$sources"
+        :showViewSwitcher="!$isArchive"
     />
+
+    {{-- Floating Bulk Action Bar --}}
+    <div id="floatingBulkBar" class="floating-bulk-actions">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge-count" id="bulkSelectedCount">0</span>
+            <span class="fs-13 fw-semibold text-white">selected</span>
+        </div>
+        <div class="vr bg-secondary opacity-50" style="height: 20px;"></div>
+        <div class="d-flex align-items-center gap-2">
+            @if($isArchive)
+                <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkRestore()">
+                    <i class="feather-rotate-ccw"></i> Restore Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkDelete()">
+                    <i class="feather-trash-2"></i> Delete Permanently
+                </button>
+            @else
+                <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 fw-bold text-dark shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkArchive()">
+                    <i class="feather-archive"></i> Archive Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkDelete()">
+                    <i class="feather-trash-2"></i> Delete Selected
+                </button>
+            @endif
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2.5" onclick="deselectAllRows()" title="Deselect All">
+                <i class="feather-x"></i>
+            </button>
+        </div>
+    </div>
 
     <div class="main-content px-3 py-2">
         {{-- Main Status Scroll Bar --}}
+        @if(!empty($childBuckets) && $childBuckets->count())
         <div class="lead-tab-strip">
             <button type="button" class="lead-status-scroll-btn" data-status-scroll="prev" aria-label="Previous statuses">
                 <i class="feather-chevron-left"></i>
             </button>
             <div class="lead-tab-scroll" id="lead-status-scroll">
-                @if($childBuckets->count())
+                @php
+                    $isAllActived = empty(request('lead_status')) && !request('deleted_leads');
+                @endphp
+                <a href="{{ request()->fullUrlWithQuery(['lead_status' => '', 'deleted_leads' => '']) }}"
+                    class="lead-status-tab status-primary {{ $isAllActived ? 'is-active' : '' }}">
+                    <i class="feather-layers"></i>
+                    ALL ({{ $leads->total() }})
+                </a>
+
+                @foreach($childBuckets as $bucket)
                     @php
-                        $isAllActived = empty(request('lead_status')) && !request('deleted_leads');
+                        $childNames = $bucket->children ? $bucket->children->pluck('name')->toArray() : [];
+                        $hasActiveChild = in_array(request('lead_status'), $childNames);
+                        $isActive = (request('lead_status') == $bucket->name || $hasActiveChild) && !request('deleted_leads');
+                        $statusColor = match(true) {
+                            str_contains($bucket->bucket_color ?? '', 'success') => 'status-success',
+                            str_contains($bucket->bucket_color ?? '', 'warning') => 'status-warning',
+                            str_contains($bucket->bucket_color ?? '', 'danger') => 'status-danger',
+                            str_contains($bucket->bucket_color ?? '', 'info') => 'status-info',
+                            str_contains($bucket->bucket_color ?? '', 'dark') => 'status-dark',
+                            default => 'status-primary',
+                        };
                     @endphp
-                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => '', 'deleted_leads' => '']) }}"
-                        class="lead-status-tab status-primary {{ $isAllActived ? 'is-active' : '' }}">
-                        <i class="feather-layers"></i>
-                        ALL ({{ $leads->total() }})
+                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => $bucket->name, 'deleted_leads' => '']) }}"
+                        class="lead-status-tab {{ $statusColor }} {{ $isActive ? 'is-active' : '' }}">
+                        <i class="feather-circle"></i>
+                        {{ $bucket->name }} ({{ $bucket->leads_count }})
                     </a>
+                @endforeach
 
-                    @foreach($childBuckets as $bucket)
-                        @php
-                            $childNames = $bucket->children ? $bucket->children->pluck('name')->toArray() : [];
-                            $hasActiveChild = in_array(request('lead_status'), $childNames);
-                            $isActive = (request('lead_status') == $bucket->name || $hasActiveChild) && !request('deleted_leads');
-                            $statusColor = match(true) {
-                                str_contains($bucket->bucket_color ?? '', 'success') => 'status-success',
-                                str_contains($bucket->bucket_color ?? '', 'warning') => 'status-warning',
-                                str_contains($bucket->bucket_color ?? '', 'danger') => 'status-danger',
-                                str_contains($bucket->bucket_color ?? '', 'info') => 'status-info',
-                                str_contains($bucket->bucket_color ?? '', 'dark') => 'status-dark',
-                                default => 'status-primary',
-                            };
-                        @endphp
-                        <a href="{{ request()->fullUrlWithQuery(['lead_status' => $bucket->name, 'deleted_leads' => '']) }}"
-                            class="lead-status-tab {{ $statusColor }} {{ $isActive ? 'is-active' : '' }}">
-                            <i class="feather-circle"></i>
-                            {{ $bucket->name }} ({{ $bucket->leads_count }})
-                        </a>
-                    @endforeach
-
-                    @if(isset($otherLeadsCount) && $otherLeadsCount > 0)
-                        @php
-                            $isOtherActive = request('deleted_leads') == 1;
-                        @endphp
-                        <a href="{{ request()->fullUrlWithQuery(['deleted_leads' => 1, 'lead_status' => '']) }}"
-                            class="lead-status-tab status-warning {{ $isOtherActive ? 'is-active' : '' }}" title="Leads with unmapped or old buckets">
-                            <i class="feather-archive"></i>
-                            Other ({{ $otherLeadsCount }})
-                        </a>
-                    @endif
+                @if(isset($otherLeadsCount) && $otherLeadsCount > 0)
+                    @php
+                        $isOtherActive = request('deleted_leads') == 1;
+                    @endphp
+                    <a href="{{ request()->fullUrlWithQuery(['deleted_leads' => 1, 'lead_status' => '']) }}"
+                        class="lead-status-tab status-warning {{ $isOtherActive ? 'is-active' : '' }}" title="Leads with unmapped or old buckets">
+                        <i class="feather-archive"></i>
+                        Other ({{ $otherLeadsCount }})
+                    </a>
                 @endif
             </div>
             <button type="button" class="lead-status-scroll-btn" data-status-scroll="next" aria-label="Next statuses">
                 <i class="feather-chevron-right"></i>
             </button>
         </div>
+        @endif
 
         {{-- Sub-Statuses Strip (Displayed below main status bar when parent/child status is active) --}}
         @php
@@ -639,58 +714,87 @@
                                 </td>
                                 <td class="lead-actions-column">
                                     <div class="d-inline-flex align-items-center justify-content-center gap-1">
-                                        {{-- Edit Status Offcanvas Button --}}
-                                        <button type="button" class="table-action-btn text-primary" 
-                                                onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
-                                                title="Edit Status">
-                                            <i class="feather-sliders"></i>
-                                        </button>
+                                        @if($isArchive)
+                                            {{-- Restore from Archive Button --}}
+                                            <button type="button" class="table-action-btn text-success" 
+                                                    onclick="restoreSingleLead({{ $lead->id }}, this)"
+                                                    title="Restore Lead">
+                                                <i class="feather-rotate-ccw"></i>
+                                            </button>
 
-                                        {{-- Edit Lead Button --}}
-                                        <button type="button" class="table-action-btn text-success" title="Edit Lead"
-                                                onclick="openLeadEditModal({{ $lead->id }})">
-                                            <i class="feather-edit"></i>
-                                        </button>
+                                            {{-- View Details Modal --}}
+                                            <button type="button" class="table-action-btn text-info" 
+                                                    onclick="openViewDetailsModalLazy({{ $lead->id }})"
+                                                    title="View Details">
+                                                <i class="feather-eye"></i>
+                                            </button>
 
-                                        {{-- View Details Modal --}}
-                                        <button type="button" class="table-action-btn text-info" 
-                                                onclick="openViewDetailsModalLazy({{ $lead->id }})"
-                                                title="View Details">
-                                            <i class="feather-eye"></i>
-                                        </button>
+                                            {{-- View Comments / Messages --}}
+                                            <button type="button" class="table-action-btn text-warning" 
+                                                    onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
+                                                    title="View Comments & History">
+                                                <i class="feather-message-square"></i>
+                                            </button>
 
-                                        {{-- View Comments / Messages --}}
-                                        <button type="button" class="table-action-btn text-warning" 
-                                                onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
-                                                title="View Comments & History">
-                                            <i class="feather-message-square"></i>
-                                        </button>
-
-                                        @unless($isDealView ?? false)
-                                        {{-- Convert Lead to Deal --}}
-                                        <button type="button" class="table-action-btn text-warning"
-                                                onclick="convertLeadToDeal({{ $lead->id }}, this)"
-                                                title="Convert to Deal">
-                                            <i class="feather-check-circle"></i>
-                                        </button>
-                                        @endunless
-
-                                        {{-- To-Do Task temporarily disabled
-                                        <button type="button" class="table-action-btn text-purple" 
-                                                onclick="openTodoOffcanvas({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
-                                                title="To-Do Task">
-                                            <i class="feather-check-square"></i>
-                                        </button>
-                                        --}}
-
-                                        {{-- Delete Lead --}}
-                                        <form action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this lead?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="table-action-btn text-danger" title="Delete Lead">
+                                            {{-- Delete Permanently --}}
+                                            <button type="button" class="table-action-btn text-danger" 
+                                                    onclick="deleteSingleLeadPermanently({{ $lead->id }}, this)"
+                                                    title="Delete Permanently">
                                                 <i class="feather-trash-2"></i>
                                             </button>
-                                        </form>
+                                        @else
+                                            {{-- Move to Archive Button --}}
+                                            <button type="button" class="table-action-btn text-warning" 
+                                                    onclick="archiveSingleLead({{ $lead->id }}, this)"
+                                                    title="Move to Archive">
+                                                <i class="feather-archive"></i>
+                                            </button>
+
+                                            {{-- Edit Status Offcanvas Button --}}
+                                            <button type="button" class="table-action-btn text-primary" 
+                                                    onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
+                                                    title="Edit Status">
+                                                <i class="feather-sliders"></i>
+                                            </button>
+
+                                            {{-- Edit Lead Button --}}
+                                            <button type="button" class="table-action-btn text-success" title="Edit Lead"
+                                                    onclick="openLeadEditModal({{ $lead->id }})">
+                                                <i class="feather-edit"></i>
+                                            </button>
+
+                                            {{-- View Details Modal --}}
+                                            <button type="button" class="table-action-btn text-info" 
+                                                    onclick="openViewDetailsModalLazy({{ $lead->id }})"
+                                                    title="View Details">
+                                                <i class="feather-eye"></i>
+                                            </button>
+
+                                            {{-- View Comments / Messages --}}
+                                            <button type="button" class="table-action-btn text-warning" 
+                                                    onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
+                                                    title="View Comments & History">
+                                                <i class="feather-message-square"></i>
+                                            </button>
+
+                                            @unless($isDealView ?? false)
+                                            {{-- Convert Lead to Deal --}}
+                                            <button type="button" class="table-action-btn text-warning"
+                                                    onclick="convertLeadToDeal({{ $lead->id }}, this)"
+                                                    title="Convert to Deal">
+                                                <i class="feather-check-circle"></i>
+                                            </button>
+                                            @endunless
+
+                                            {{-- Delete Lead --}}
+                                            <form action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this lead?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="table-action-btn text-danger" title="Delete Lead">
+                                                    <i class="feather-trash-2"></i>
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

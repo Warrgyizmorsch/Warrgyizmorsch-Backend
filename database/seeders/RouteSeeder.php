@@ -25,6 +25,19 @@ class RouteSeeder extends Seeder
             ['name' => 'Created Deals', 'route_name' => 'created.deals.index'],
             ['name' => 'Pipeline Deal', 'route_name' => 'created.deals.pipeline'],
             ['name' => 'Follow-ups', 'route_name' => 'followups.index'],
+            ['name' => 'Archive Leads', 'route_name' => 'archive.leads.index'],
+            ['name' => 'Archive Single Lead', 'route_name' => 'archive.leads.archive'],
+            ['name' => 'Bulk Archive Leads', 'route_name' => 'archive.leads.bulkArchive'],
+            ['name' => 'Restore Single Lead', 'route_name' => 'archive.leads.restore'],
+            ['name' => 'Bulk Restore Leads', 'route_name' => 'archive.leads.bulkRestore'],
+            ['name' => 'Bulk Delete Archive Leads', 'route_name' => 'archive.leads.bulkDelete'],
+            ['name' => 'Archive Deals', 'route_name' => 'archive.deals.index'],
+            ['name' => 'Archive Single Deal', 'route_name' => 'archive.deals.archive'],
+            ['name' => 'Bulk Archive Deals', 'route_name' => 'archive.deals.bulkArchive'],
+            ['name' => 'Restore Single Deal', 'route_name' => 'archive.deals.restore'],
+            ['name' => 'Bulk Restore Deals', 'route_name' => 'archive.deals.bulkRestore'],
+            ['name' => 'Bulk Delete Archive Deals', 'route_name' => 'archive.deals.bulkDelete'],
+            ['name' => 'Bulk Delete Leads', 'route_name' => 'leads.bulkDelete'],
         ];
 
         foreach ($routes as $route) {

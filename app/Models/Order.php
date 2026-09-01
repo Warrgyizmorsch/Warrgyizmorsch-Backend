@@ -25,6 +25,7 @@ class Order extends Model
         'notes',
         'converted_at',
         'is_active',
+        'is_archived',
     ];
 
     protected $casts = [

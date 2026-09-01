@@ -80,8 +80,19 @@ class MenuSeeder extends Seeder
             $followupRouteId = $getRouteId('followups.index');
             $this->upsertMenu('Follow-ups', null, 'feather-calendar', $followupRouteId, 8, $now);
 
-            // 9. Lead Report (Parent)
-            $reportId = $this->upsertMenu('Lead Report', null, 'feather-bar-chart-2', null, 9, $now);
+            // 9. Archive (Parent Menu - Placed directly below Follow-ups)
+            $archiveId = $this->upsertMenu('Archive', null, 'feather-archive', null, 9, $now);
+            $archiveChildren = [
+                ['title' => 'Archive Leads', 'route' => 'archive.leads.index', 'icon' => 'feather-users', 'sort' => 1],
+                ['title' => 'Archive Deals', 'route' => 'archive.deals.index', 'icon' => 'feather-briefcase', 'sort' => 2],
+            ];
+            foreach ($archiveChildren as $child) {
+                $routeId = $getRouteId($child['route']);
+                $this->upsertMenu($child['title'], $archiveId, $child['icon'], $routeId, $child['sort'], $now);
+            }
+
+            // 10. Lead Report (Parent)
+            $reportId = $this->upsertMenu('Lead Report', null, 'feather-bar-chart-2', null, 10, $now);
             $reportChildren = [
                 ['title' => 'Daily Report', 'route' => 'lead.dailyReport', 'icon' => 'feather-file-text', 'sort' => 1],
                 ['title' => 'New Daily Report', 'route' => 'lead.newdailyReport', 'icon' => 'feather-file-plus', 'sort' => 2],
@@ -96,12 +107,12 @@ class MenuSeeder extends Seeder
                 $this->upsertMenu($child['title'], $reportId, $child['icon'], $routeId, $child['sort'], $now);
             }
 
-            // 10. Modern Lead (Placed directly above SEO)
+            // 11. Modern Lead (Placed directly above SEO)
             $modernLeadRouteId = $getRouteId('modern.leads.index');
-            $this->upsertMenu('Modern Lead', null, 'feather-layout', $modernLeadRouteId, 10, $now);
+            $this->upsertMenu('Modern Lead', null, 'feather-layout', $modernLeadRouteId, 11, $now);
 
-            // 11. SEO (Parent)
-            $seoId = $this->upsertMenu('SEO', null, 'feather-globe', null, 11, $now);
+            // 12. SEO (Parent)
+            $seoId = $this->upsertMenu('SEO', null, 'feather-globe', null, 12, $now);
             $seoChildren = [
                 ['title' => 'All Blog', 'route' => 'blog.index', 'icon' => 'feather-book-open', 'sort' => 1],
                 ['title' => 'Add Blog', 'route' => 'blog.create', 'icon' => 'feather-plus-circle', 'sort' => 2],

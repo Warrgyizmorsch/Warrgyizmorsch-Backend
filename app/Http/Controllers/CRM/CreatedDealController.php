@@ -36,8 +36,10 @@ class CreatedDealController extends Controller
             $query->where('lead_owner', auth()->id());
         }
 
-        // Show every converted lead throughout the complete deal lifecycle.
-        $query->where('is_converted', 1);
+        // Show every non-archived converted lead throughout the complete deal lifecycle.
+        $query->where('is_converted', 1)->where(function($q) {
+            $q->where('is_archived', 0)->orWhereNull('is_archived');
+        });
 
         // 4. Search Filter
         $searchUserIds = [];
@@ -192,8 +194,10 @@ class CreatedDealController extends Controller
             $query->where('lead_owner', auth()->id());
         }
 
-        // Keep converted deals visible while they move through order statuses.
-        $query->where('is_converted', 1);
+        // Keep non-archived converted deals visible while they move through order statuses.
+        $query->where('is_converted', 1)->where(function($q) {
+            $q->where('is_archived', 0)->orWhereNull('is_archived');
+        });
 
         // 3. Global Search
         if ($request->filled('search')) {

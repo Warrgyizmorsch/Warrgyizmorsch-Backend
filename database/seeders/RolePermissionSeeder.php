@@ -16,30 +16,31 @@ class RolePermissionSeeder extends Seeder
         $menus = DB::table('menus')->pluck('id');
         $routes = DB::table('routes')->pluck('id');
 
-        $permissions = [];
+        $roleIds = [1, 2, 3]; // Admin, User, Executive
 
-        // Assign all menus
-        foreach ($menus as $menuId) {
-            $permissions[] = [
-                'role_id'    => 1, // Admin
-                'menu_id'    => $menuId,
-                'route_id'   => null,
-                'is_allowed' => 1,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
+        // Assign all menus and routes to active roles
+        foreach ($roleIds as $roleId) {
+            foreach ($menus as $menuId) {
+                $permissions[] = [
+                    'role_id'    => $roleId,
+                    'menu_id'    => $menuId,
+                    'route_id'   => null,
+                    'is_allowed' => 1,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
 
-        // Assign all routes
-        foreach ($routes as $routeId) {
-            $permissions[] = [
-                'role_id'    => 1, // Admin
-                'menu_id'    => null,
-                'route_id'   => $routeId,
-                'is_allowed' => 1,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
+            foreach ($routes as $routeId) {
+                $permissions[] = [
+                    'role_id'    => $roleId,
+                    'menu_id'    => null,
+                    'route_id'   => $routeId,
+                    'is_allowed' => 1,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
         }
 
         // Insert permissions (avoid duplicates)

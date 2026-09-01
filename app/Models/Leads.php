@@ -10,6 +10,7 @@ class Leads extends Model
     protected $fillable = [
         'lead_id',
         'is_converted',
+        'is_archived',
         'lead_bucket_id',
         'lead_status',
         'lead_owner',

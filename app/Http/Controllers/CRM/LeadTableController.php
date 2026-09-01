@@ -77,7 +77,11 @@ class LeadTableController extends Controller
             'tags:id,name,color',
         ]);
 
-        // 2. Role-based restrictions
+        // 2. Role-based restrictions & Exclude Archived
+        $query->where(function($q) {
+            $q->where('is_archived', 0)->orWhereNull('is_archived');
+        });
+
         if (auth()->check() && auth()->user()->role_id == 3) {
             $query->where('lead_owner', auth()->id());
         }
@@ -445,7 +449,11 @@ class LeadTableController extends Controller
 
     private function applyPipelineFilters(Request $request, $query)
     {
-        // 1. Role-based ownership restriction
+        // 1. Role-based ownership restriction & Exclude Archived
+        $query->where(function($q) {
+            $q->where('is_archived', 0)->orWhereNull('is_archived');
+        });
+
         if (auth()->check() && auth()->user()->role_id == 3) {
             $query->where('lead_owner', auth()->id());
         }

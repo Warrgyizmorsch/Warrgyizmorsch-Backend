@@ -29,12 +29,14 @@ class DashboardController extends Controller
             return view('crm.users.dashboard');
         }
 
-        $leadQuery = Leads::query();
-        $totalLeads = Leads::count();
+        $leadQuery = Leads::query()->where(function($q) {
+            $q->where('is_archived', 0)->orWhereNull('is_archived');
+        });
+        $totalLeads = (clone $leadQuery)->count();
 
         if ($currentUser->role_id != 1) {
             $leadQuery->where('lead_owner', $currentUser->id);
-            $totalLeads = Leads::where('lead_owner', $currentUser->id)->count();
+            $totalLeads = (clone $leadQuery)->count();
         }
 
         // Handle date filtering
