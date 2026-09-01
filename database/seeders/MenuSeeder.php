@@ -107,11 +107,33 @@ class MenuSeeder extends Seeder
                 ['title' => 'Add Blog', 'route' => 'blog.create', 'icon' => 'feather-plus-circle', 'sort' => 2],
                 ['title' => 'Author', 'route' => 'author.index', 'icon' => 'feather-user', 'sort' => 3],
                 ['title' => 'Warrgyizmorsch Leads', 'route' => 'warr-leads.index', 'icon' => 'feather-inbox', 'sort' => 4],
-                ['title' => 'Warr Service Pages', 'route' => 'warr-service-pages.index', 'icon' => 'feather-file', 'sort' => 5],
             ];
             foreach ($seoChildren as $child) {
                 $routeId = $getRouteId($child['route']);
                 $this->upsertMenu($child['title'], $seoId, $child['icon'], $routeId, $child['sort'], $now);
+            }
+
+            // Warr Service Pages (Submenu under SEO)
+            $warrServicePagesId = $this->upsertMenu('Warr Service Pages', $seoId, 'feather-file', null, 5, $now);
+            $warrPageChildren = [
+                ['title' => 'All Pages', 'route' => 'warr-service-pages.index', 'icon' => 'feather-list', 'sort' => 1],
+                ['title' => 'Create Page', 'route' => 'warr-service-pages.create', 'icon' => 'feather-plus-circle', 'sort' => 2],
+            ];
+            foreach ($warrPageChildren as $child) {
+                $routeId = $getRouteId($child['route']);
+                $this->upsertMenu($child['title'], $warrServicePagesId, $child['icon'], $routeId, $child['sort'], $now);
+            }
+
+            // Warr Crud (Submenu under SEO)
+            $warrCrudId = $this->upsertMenu('Warr Crud', $seoId, 'feather-database', null, 6, $now);
+            $warrCrudChildren = [
+                ['title' => 'Add Services', 'route' => 'warr-services.index', 'icon' => 'feather-tool', 'sort' => 1],
+                ['title' => 'Add Countries', 'route' => 'warr-countries.index', 'icon' => 'feather-flag', 'sort' => 2],
+                ['title' => 'Add Cities', 'route' => 'warr-cities.index', 'icon' => 'feather-map-pin', 'sort' => 3],
+            ];
+            foreach ($warrCrudChildren as $child) {
+                $routeId = $getRouteId($child['route']);
+                $this->upsertMenu($child['title'], $warrCrudId, $child['icon'], $routeId, $child['sort'], $now);
             }
 
             Menu::bumpMenuVersion();
