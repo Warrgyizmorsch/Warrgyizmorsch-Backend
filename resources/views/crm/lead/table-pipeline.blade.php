@@ -249,11 +249,9 @@
     }
 
     let draggedCard = null;
-    let sourceBucketId = null;
 
     function handleDragStart(e) {
         draggedCard = this;
-        sourceBucketId = this.getAttribute('data-bucket-id');
         this.classList.add('dragging');
         e.dataTransfer.setData('text/plain', this.getAttribute('data-lead-id'));
         e.dataTransfer.effectAllowed = 'move';
@@ -269,28 +267,38 @@
     function handleDragOver(e) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        this.classList.add('drag-over');
+        const col = e.target.closest('.pipeline-column');
+        if (col) {
+            col.classList.add('drag-over');
+        }
     }
 
     function handleDragLeave(e) {
-        this.classList.remove('drag-over');
+        const col = e.target.closest('.pipeline-column');
+        if (col) {
+            col.classList.remove('drag-over');
+        }
     }
 
     function handleDrop(e) {
         e.preventDefault();
-        this.classList.remove('drag-over');
+        const targetCol = e.target.closest('.pipeline-column');
+        if (!targetCol) return;
+        targetCol.classList.remove('drag-over');
 
         const leadId = e.dataTransfer.getData('text/plain');
-        const targetBucketId = this.getAttribute('data-bucket-id');
+        const targetBucketId = targetCol.getAttribute('data-bucket-id');
+        const sourceCol = draggedCard ? draggedCard.closest('.pipeline-column') : null;
+        const sourceBucketId = sourceCol ? sourceCol.getAttribute('data-bucket-id') : null;
 
-        if (!leadId || !targetBucketId || targetBucketId === sourceBucketId || !draggedCard) {
+        if (!leadId || !targetBucketId || targetBucketId === sourceBucketId || !draggedCard || !sourceCol) {
             return;
         }
 
-        const sourceCol = document.querySelector(`.pipeline-column[data-bucket-id="${sourceBucketId}"]`);
-        const targetCol = this;
         const targetCardsList = targetCol.querySelector('.pipeline-cards-list');
         const sourceCardsList = sourceCol.querySelector('.pipeline-cards-list');
+
+        if (!targetCardsList || !sourceCardsList) return;
 
         const emptyMsg = targetCardsList.querySelector('.empty-col-msg');
         if (emptyMsg) {
@@ -300,8 +308,8 @@
         draggedCard.setAttribute('data-bucket-id', targetBucketId);
         targetCardsList.prepend(draggedCard);
 
-        updateColumnCount(sourceBucketId, -1);
-        updateColumnCount(targetBucketId, 1);
+        if (sourceBucketId) updateColumnCount(sourceBucketId, -1);
+        if (targetBucketId) updateColumnCount(targetBucketId, 1);
 
         fetch(`${dragUpdateUrlBase}/${leadId}`, {
             method: 'POST',
@@ -317,19 +325,23 @@
         .then(res => res.json())
         .then(data => {
             if (!data.success) {
-                draggedCard.setAttribute('data-bucket-id', sourceBucketId);
+                if (sourceBucketId) {
+                    draggedCard.setAttribute('data-bucket-id', sourceBucketId);
+                }
                 sourceCardsList.prepend(draggedCard);
-                updateColumnCount(sourceBucketId, 1);
-                updateColumnCount(targetBucketId, -1);
+                if (sourceBucketId) updateColumnCount(sourceBucketId, 1);
+                if (targetBucketId) updateColumnCount(targetBucketId, -1);
                 alert(data.message || 'Failed to update lead status');
             }
         })
         .catch(err => {
             console.error('Drag update error:', err);
-            draggedCard.setAttribute('data-bucket-id', sourceBucketId);
+            if (sourceBucketId) {
+                draggedCard.setAttribute('data-bucket-id', sourceBucketId);
+            }
             sourceCardsList.prepend(draggedCard);
-            updateColumnCount(sourceBucketId, 1);
-            updateColumnCount(targetBucketId, -1);
+            if (sourceBucketId) updateColumnCount(sourceBucketId, 1);
+            if (targetBucketId) updateColumnCount(targetBucketId, -1);
         });
     }
 
