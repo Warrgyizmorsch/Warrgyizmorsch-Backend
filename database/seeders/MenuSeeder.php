@@ -44,17 +44,20 @@ class MenuSeeder extends Seeder
 
             // 2. Management (Parent)
             $managementId = $this->upsertMenu('Management', null, 'feather-settings', null, 2, $now);
-            $this->upsertMenu('Roles', $managementId, 'feather-user-check', null, 1, $now);
-            $this->upsertMenu('Routes', $managementId, 'feather-git-commit', null, 2, $now);
-            $this->upsertMenu('Menus', $managementId, 'feather-menu', null, 3, $now);
+            $this->upsertMenu('Roles', $managementId, 'feather-user-check', $getRouteId('roles.index'), 1, $now);
+            $this->upsertMenu('Routes', $managementId, 'feather-git-commit', $getRouteId('routes.index'), 2, $now);
+            $this->upsertMenu('Menus', $managementId, 'feather-menu', $getRouteId('menus.index'), 3, $now);
 
             // 3. Users (Parent)
             $usersId = $this->upsertMenu('Users', null, 'feather-users', null, 3, $now);
-            $this->upsertMenu('Add User', $usersId, 'feather-user-plus', null, 1, $now);
-            $this->upsertMenu('List Users', $usersId, 'feather-list', null, 2, $now);
+            $this->upsertMenu('Add User', $usersId, 'feather-user-plus', $getRouteId('users.create'), 1, $now);
+            $this->upsertMenu('List Users', $usersId, 'feather-list', $getRouteId('users.index'), 2, $now);
+            $this->upsertMenu('Login History', $usersId, 'feather-clock', $getRouteId('users.session'), 3, $now);
 
             // 4. Permissions (Parent)
-            $this->upsertMenu('Permissions', null, 'feather-lock', null, 4, $now);
+            $permissionsId = $this->upsertMenu('Permissions', null, 'feather-lock', null, 4, $now);
+            $this->upsertMenu('Role Permissions', $permissionsId, 'feather-shield', $getRouteId('role-permissions.index'), 1, $now);
+            $this->upsertMenu('User Overrides', $permissionsId, 'feather-user-check', $getRouteId('user-permissions.index'), 2, $now);
 
             // 5. Master (Parent)
             $masterId = $this->upsertMenu('Master', null, 'feather-database', null, 5, $now);
