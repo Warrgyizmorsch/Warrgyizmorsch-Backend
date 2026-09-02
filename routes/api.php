@@ -12,6 +12,8 @@ Route::get('/blogs/{slug}', [BlogApiController::class, 'show']);
 Route::post('/warr-leads', [WarrLeadController::class, 'store']);
 
 Route::get('/warr-service-pages', [WarrServicePageApiController::class, 'serviceSlugSitemap']);
+Route::get('/warr-service-pages/sitemap', [WarrServicePageApiController::class, 'serviceSlugSitemap']);
+Route::get('/warr-service-pages/all', [WarrServicePageApiController::class, 'index']);
 Route::get('/warr-service-pages/{slug}', [WarrServicePageApiController::class, 'showBySlug']);
 
 Route::get('/meta/webhook', [MetaWebhookController::class, 'verify']);
