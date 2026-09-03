@@ -948,7 +948,20 @@
             setValue('#inp_address', lead.address || user.address);
             setValue('#inp_platform', lead.platform);
             setValue('#inp_owner', lead.lead_owner);
-            setValue('#inp_budget', lead.budget);
+            if (lead.budget) {
+                let rawBudget = String(lead.budget).trim();
+                let detectedCurrency = '₹';
+                if (rawBudget.startsWith('$')) detectedCurrency = '$';
+                else if (rawBudget.startsWith('€')) detectedCurrency = '€';
+                else if (rawBudget.startsWith('£')) detectedCurrency = '£';
+                else if (rawBudget.startsWith('₹')) detectedCurrency = '₹';
+                if (typeof changeBudgetCurrency === 'function') changeBudgetCurrency(detectedCurrency);
+                let cleanVal = rawBudget.replace(/^[₹$€£]\s*/, '');
+                setValue('#inp_budget', cleanVal);
+            } else {
+                if (typeof changeBudgetCurrency === 'function') changeBudgetCurrency('₹');
+                setValue('#inp_budget', '');
+            }
             setValue('#inp_employee_strength', lead.employee_strength);
             setValue('#inp_industry', lead.industry);
             setValue('#inp_website', lead.website);

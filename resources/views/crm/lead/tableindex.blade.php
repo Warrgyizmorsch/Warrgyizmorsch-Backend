@@ -1152,6 +1152,21 @@
             setVal('#inp_platform', lead.platform);
             setVal('#inp_owner', lead.lead_owner);
 
+            if (lead.budget) {
+                let rawBudget = String(lead.budget).trim();
+                let detectedCurrency = '₹';
+                if (rawBudget.startsWith('$')) detectedCurrency = '$';
+                else if (rawBudget.startsWith('€')) detectedCurrency = '€';
+                else if (rawBudget.startsWith('£')) detectedCurrency = '£';
+                else if (rawBudget.startsWith('₹')) detectedCurrency = '₹';
+                if (typeof changeBudgetCurrency === 'function') changeBudgetCurrency(detectedCurrency);
+                let cleanVal = rawBudget.replace(/^[₹$€£]\s*/, '');
+                setVal('#inp_budget', cleanVal);
+            } else {
+                if (typeof changeBudgetCurrency === 'function') changeBudgetCurrency('₹');
+                setVal('#inp_budget', '');
+            }
+
             const title = modalElement.querySelector('#leadModalTitle span');
             if (title) title.textContent = 'Edit Lead: ' + (user.name || 'N/A');
             const btn = modalElement.querySelector('#btnSubmit');
@@ -1178,6 +1193,7 @@
             form.action = "{{ route('lead.store') }}";
             form.reset();
         }
+        if (typeof changeBudgetCurrency === 'function') changeBudgetCurrency('₹');
         const methodInput = document.getElementById('formMethod');
         if (methodInput) methodInput.value = 'POST';
 
