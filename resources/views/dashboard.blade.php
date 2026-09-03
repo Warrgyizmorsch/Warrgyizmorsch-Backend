@@ -561,6 +561,9 @@
                             <span class="fs-12 text-muted">Drag & drop leads across stages with real-time status update</span>
                         </div>
                         <div class="d-flex align-items-center gap-2">
+                            <button type="button" onclick="openArrangeColumnsModal()" class="btn btn-outline-secondary btn-sm rounded-2 d-flex align-items-center gap-1" title="Arrange / Reorder Stages">
+                                <i class="feather-sliders"></i> Arrange Columns
+                            </button>
                             <a href="{{ route('leads.table.index') }}" class="btn btn-outline-primary btn-sm rounded-2 d-flex align-items-center gap-1">
                                 <i class="feather-list"></i> Table View
                             </a>
@@ -621,6 +624,7 @@
                     </div>
                 </div>
             </div>{{-- /col-12 Pipeline Board --}}
+            @include('crm.lead.partials.pipeline-column-manager', ['storageKey' => 'pipeline_col_order_leads'])
 
             <!-- [Lead Engagement Progress] -->
             <div class="col-xxl-4 col-xl-4 col-lg-5 col-12 mb-4">

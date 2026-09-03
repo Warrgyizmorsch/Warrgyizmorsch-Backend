@@ -634,7 +634,7 @@
                 </form>
             @endif
 
-            <div class="d-flex flex-wrap gap-2">
+            <!-- <div class="d-flex flex-wrap gap-2">
 
                 <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => '']) }}"
                     class="btn btn-sm {{ request('lead_engagement_status') == '' ? 'btn-primary' : 'btn-light' }}">
@@ -661,7 +661,7 @@
                     <i class="fas fa-ban me-1 engagement-dead-icon"></i> Dead
                 </a>
 
-            </div>
+            </div> -->
 
             <div class="d-flex flex-wrap gap-3">
                 <a href="javascript:void(0);" class="bulk-whatsapp" style="color: #006FC9;">

@@ -573,7 +573,7 @@
         </div>
         @endif
 
-        {{-- Engagement Filters --}}
+        <!-- {{-- Engagement Filters --}}
         <div class="engagement-filter-bar">
             <div class="engagement-filter-list">
                 <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => '', 'page' => null]) }}" class="engagement-filter filter-all {{ empty(request('lead_engagement_status')) ? 'is-active' : '' }}"><i class="feather-layers"></i> ALL</a>
@@ -582,7 +582,7 @@
                 <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => 'cold', 'page' => null]) }}" class="engagement-filter filter-cold {{ request('lead_engagement_status') == 'cold' ? 'is-active' : '' }}"><i class="fa-regular fa-snowflake"></i> COLD</a>
                 <a href="{{ request()->fullUrlWithQuery(['lead_engagement_status' => 'dead', 'page' => null]) }}" class="engagement-filter filter-dead {{ request('lead_engagement_status') == 'dead' ? 'is-active' : '' }}"><i class="fa-solid fa-ban"></i> DEAD</a>
             </div>
-        </div>
+        </div> -->
 
         {{-- Table Container --}}
         <div class="lead-table-card">
@@ -840,9 +840,462 @@
 </div>
 
 @include('crm.lead.partials.lead-interaction-modals')
-@include('crm.lead.custom-import-modal')
 
 @push('scripts')
+<script>
+    const leadStatusMap = @json(
+        (isset($childBuckets) ? $childBuckets : collect())->mapWithKeys(function($b) {
+            return [$b->name => [
+                'id' => $b->id,
+                'children' => $b->children ? $b->children->map(function($c) {
+                    return ['id' => $c->id, 'name' => $c->name];
+                })->values()->toArray() : []
+            ]];
+        })
+    );
+
+    function onOffcanvasMainStatusChange(selectedMainStatus, preselectedSubStatus = '') {
+        const subSelect = document.getElementById('editStatusSubSelect');
+        if (!subSelect) return;
+        subSelect.innerHTML = '';
+        
+        const parentData = leadStatusMap[selectedMainStatus];
+        if (parentData && parentData.children && parentData.children.length > 0) {
+            let defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = 'Select Sub Status (Optional)';
+            subSelect.appendChild(defaultOpt);
+            
+            parentData.children.forEach(child => {
+                let opt = document.createElement('option');
+                opt.value = child.name;
+                opt.textContent = child.name;
+                opt.dataset.bucketId = child.id;
+                if (preselectedSubStatus && preselectedSubStatus.toLowerCase() === child.name.toLowerCase()) {
+                    opt.selected = true;
+                }
+                subSelect.appendChild(opt);
+            });
+            subSelect.disabled = false;
+        } else {
+            let defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = 'No Sub Status Available';
+            subSelect.appendChild(defaultOpt);
+            subSelect.disabled = true;
+        }
+    }
+
+    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId) {
+        let offcanvasEl = document.getElementById('editStatusOffcanvas');
+        let form = document.getElementById('sharedQuickUpdateForm');
+        if (!offcanvasEl || !form) return;
+        form.action = "{{ url('/modern-leads/quick-update') }}/" + leadId;
+        
+        let engSelect = form.querySelector('[name="lead_engagement_status"]');
+        if (engSelect) engSelect.value = (engagementStatus || '').toLowerCase();
+        
+        let mainSelect = document.getElementById('editStatusMainSelect');
+        let subSelect = document.getElementById('editStatusSubSelect');
+        let matchedMainStatus = '';
+        let matchedSubStatus = '';
+
+        for (let mainName in leadStatusMap) {
+            if (mainName.toLowerCase() === (leadStatus || '').toLowerCase()) {
+                matchedMainStatus = mainName;
+                break;
+            }
+            let children = leadStatusMap[mainName].children || [];
+            let foundChild = children.find(c => c.name.toLowerCase() === (leadStatus || '').toLowerCase());
+            if (foundChild) {
+                matchedMainStatus = mainName;
+                matchedSubStatus = foundChild.name;
+                break;
+            }
+        }
+
+        if (!matchedMainStatus && mainSelect && mainSelect.options.length > 1) {
+            matchedMainStatus = mainSelect.options[1].value;
+        }
+
+        if (mainSelect) mainSelect.value = matchedMainStatus;
+        onOffcanvasMainStatusChange(matchedMainStatus, matchedSubStatus);
+        
+        let bucketInput = form.querySelector('[name="lead_bucket_id"]');
+        if (bucketInput) bucketInput.value = bucketId || 46;
+
+        form.onsubmit = function() {
+            let subVal = subSelect ? subSelect.value : '';
+            let mainVal = mainSelect ? mainSelect.value : '';
+            let finalStatus = subVal ? subVal : mainVal;
+            
+            let hiddenStatusInput = form.querySelector('input[name="lead_status"]');
+            if (!hiddenStatusInput) {
+                hiddenStatusInput = document.createElement('input');
+                hiddenStatusInput.type = 'hidden';
+                hiddenStatusInput.name = 'lead_status';
+                form.appendChild(hiddenStatusInput);
+            }
+            hiddenStatusInput.value = finalStatus;
+
+            if (subSelect && subSelect.selectedIndex >= 0) {
+                let selectedOpt = subSelect.options[subSelect.selectedIndex];
+                if (selectedOpt && selectedOpt.dataset.bucketId) {
+                    if (bucketInput) bucketInput.value = selectedOpt.dataset.bucketId;
+                }
+            }
+        };
+
+        if (window.bootstrap && window.bootstrap.Offcanvas) {
+            bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).show();
+        }
+    }
+
+    function openViewDetailsModalLazy(leadId) {
+        let modalEl = document.getElementById('viewLeadDetailsModal');
+        if (!modalEl) return;
+        
+        document.getElementById('vd_leadName').textContent = 'Loading Details...';
+        document.getElementById('vd_leadSubtitle').textContent = 'Lead #' + leadId;
+        document.getElementById('vd_badges').innerHTML = '';
+        document.getElementById('vd_personalInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
+        document.getElementById('vd_leadInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
+        document.getElementById('vd_addressInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
+        
+        if (window.bootstrap && window.bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        } else if (window.jQuery) {
+            window.jQuery(modalEl).modal('show');
+        }
+
+        fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    let lead = data.lead || {};
+                    let user = data.user || {};
+                    let category = data.category || {};
+                    let bucket = data.bucket || {};
+
+                    document.getElementById('vd_leadName').textContent = user.name || 'Lead Details';
+                    document.getElementById('vd_leadSubtitle').textContent = 'Lead #' + lead.id + (lead.created_at ? ' • ' + new Date(lead.created_at).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' }) : '');
+
+                    let badgesHtml = `
+                        <span class="badge bg-soft-primary text-primary px-2.5 py-1.5 fs-12 fw-semibold"><i class="feather-flag me-1"></i>${lead.lead_status || bucket.name || 'Yet to Call'}</span>
+                        <span class="badge bg-soft-warning text-warning px-2.5 py-1.5 fs-12 fw-semibold text-capitalize"><i class="feather-activity me-1"></i>${lead.lead_engagement_status || 'New'}</span>
+                        ${category.category_name ? `<span class="badge bg-soft-success text-success px-2.5 py-1.5 fs-12 fw-semibold"><i class="feather-tag me-1"></i>${category.category_name}</span>` : ''}
+                    `;
+                    document.getElementById('vd_badges').innerHTML = badgesHtml;
+
+                    document.getElementById('vd_personalInfo').innerHTML = `
+                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Full Name</span><span class="fw-semibold text-dark fs-13">${user.name || 'N/A'}</span></div></div>
+                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Contact No</span><span class="fw-semibold text-dark fs-13"><a href="tel:${user.contact_no}" class="text-dark text-decoration-none">${user.contact_no || 'N/A'}</a></span></div></div>
+                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Email Address</span><span class="fw-semibold text-dark fs-13">${user.email || 'N/A'}</span></div></div>
+                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Business Name</span><span class="fw-semibold text-dark fs-13">${lead.business_name || 'N/A'}</span></div></div>
+                    `;
+
+                    document.getElementById('vd_leadInfo').innerHTML = `
+                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Lead Source</span><span class="fw-semibold text-dark fs-13">${lead.platform || 'N/A'}</span></div></div>
+                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Assigned Owner</span><span class="fw-semibold text-dark fs-13">${lead.owner ? lead.owner.name : 'Unassigned'}</span></div></div>
+                        <div class="col-md-12"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Requirements / Pain Points</span><span class="text-dark fs-12">${lead.pain_points || 'None specified.'}</span></div></div>
+                    `;
+
+                    document.getElementById('vd_addressInfo').innerHTML = `
+                        <div class="col-md-4"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">City</span><span class="fw-semibold text-dark fs-13">${lead.city || user.city || 'N/A'}</span></div></div>
+                        <div class="col-md-4"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">State</span><span class="fw-semibold text-dark fs-13">${lead.state || user.state || 'N/A'}</span></div></div>
+                        <div class="col-md-4"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Pincode</span><span class="fw-semibold text-dark fs-13">${lead.pincode || user.pincode || 'N/A'}</span></div></div>
+                    `;
+                }
+            })
+            .catch(err => {
+                document.getElementById('vd_personalInfo').innerHTML = '<div class="col-12 text-danger p-3 text-center">Failed to load lead details.</div>';
+            });
+    }
+
+    function openCommentsModal(leadId, leadName) {
+        let offcanvasEl = document.getElementById('commentsOffcanvas');
+        if (!offcanvasEl) return;
+        let commentsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+        
+        document.getElementById('cm_leadName').textContent = leadName + ' - Comments';
+        document.getElementById('cm_body').innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading comments...</div>';
+        
+        commentsOffcanvas.show();
+
+        fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    let messages = data.messages || [];
+                    if (messages.length === 0) {
+                        document.getElementById('cm_body').innerHTML = `
+                            <div class="text-center py-5 bg-white rounded-3 border">
+                                <i class="feather-message-square text-muted fs-1 mb-2 opacity-50 d-block"></i>
+                                <h6 class="fs-13 fw-semibold text-muted">No Comments Available</h6>
+                                <p class="fs-11 text-muted mb-0">There are no remarks or chat notes recorded for this lead yet.</p>
+                            </div>
+                        `;
+                    } else {
+                        let html = '<div class="d-flex flex-column gap-2">';
+                        messages.forEach(m => {
+                            html += `
+                                <div class="bg-white p-3 rounded-3 border shadow-2xs">
+                                    <div class="d-flex align-items-center justify-content-between mb-1 pb-1 border-bottom">
+                                        <span class="badge bg-light text-primary fs-11 fw-semibold"><i class="feather-user me-1"></i>${m.sender_name || 'System / Agent'}</span>
+                                        <span class="fs-10 text-muted">${m.created_at || ''}</span>
+                                    </div>
+                                    <p class="fs-12 text-dark mb-0 mt-1" style="white-space: pre-wrap; line-height: 1.5;">${m.message || ''}</p>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                        document.getElementById('cm_body').innerHTML = html;
+                    }
+                }
+            })
+            .catch(err => {
+                document.getElementById('cm_body').innerHTML = '<div class="text-danger p-3 fs-12 text-center">Failed to load comments.</div>';
+            });
+    }
+
+    async function convertLeadToDeal(leadId, button) {
+        if (!confirm('Convert lead to deal? The lead will be moved to Created Deals.')) return;
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch("{{ url('/new-leads-table') }}/" + leadId + "/convert-deal", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({ _token: '{{ csrf_token() }}' })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Lead conversion failed');
+
+            const row = document.getElementById('lead-row-' + leadId) || (button ? button.closest('tr') : null);
+            if (row) {
+                row.style.transition = 'all 0.35s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(30px)';
+                setTimeout(() => { row.remove(); updateBulkActionsState(); }, 350);
+            }
+
+            if (window.Swal) Swal.fire({ icon: 'success', title: 'Converted!', text: data.message || 'Lead converted successfully', timer: 1500, showConfirmButton: false });
+            else alert(data.message || 'Lead converted successfully');
+        } catch (error) {
+            if (button) button.disabled = false;
+            if (window.Swal) Swal.fire('Error', error.message, 'error');
+            else alert(error.message);
+        }
+    }
+
+    async function archiveSingleLead(leadId, button) {
+        if (!confirm('Are you sure you want to move this lead to Archive?')) return;
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch("{{ url('/archive-leads') }}/" + leadId + "/archive", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({ _token: '{{ csrf_token() }}' })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || 'Archive failed');
+
+            const row = document.getElementById('lead-row-' + leadId) || (button ? button.closest('tr') : null);
+            if (row) {
+                row.style.transition = 'all 0.35s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(30px)';
+                setTimeout(() => { row.remove(); updateBulkActionsState(); }, 350);
+            }
+
+            if (window.Swal) Swal.fire({ icon: 'success', title: 'Archived!', text: data.message || 'Lead archived', timer: 1500, showConfirmButton: false });
+            else alert(data.message || 'Lead archived');
+        } catch (error) {
+            if (button) button.disabled = false;
+            if (window.Swal) Swal.fire('Error', error.message, 'error');
+            else alert(error.message);
+        }
+    }
+
+    async function openLeadEditModal(leadId) {
+        const modalElement = document.getElementById('leadModal');
+        if (!modalElement) {
+            window.location.href = "{{ url('/lead') }}/" + leadId + "/edit";
+            return;
+        }
+        try {
+            const res = await fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data");
+            const data = await res.json();
+            if (data.status !== 'success') throw new Error('Lead data unavailable');
+            const lead = data.lead || {};
+            const user = data.user || {};
+            const form = modalElement.querySelector('#leadForm');
+            if (form) form.action = "{{ url('/lead/update') }}/" + leadId;
+            const setVal = (sel, val) => { const el = modalElement.querySelector(sel); if (el) el.value = val == null ? '' : val; };
+            setVal('#formMethod', 'PUT');
+            setVal('#inp_name', user.name);
+            setVal('#inp_mobile', user.contact_no);
+            setVal('#inp_email', user.email);
+            setVal('#inp_city', lead.city || user.city);
+            setVal('#inp_state', lead.state || user.state);
+            setVal('#inp_pincode', lead.pincode || user.pincode);
+            setVal('#inp_address', lead.address || user.address);
+            setVal('#inp_platform', lead.platform);
+            setVal('#inp_owner', lead.lead_owner);
+
+            const title = modalElement.querySelector('#leadModalTitle span');
+            if (title) title.textContent = 'Edit Lead: ' + (user.name || 'N/A');
+            const btn = modalElement.querySelector('#btnSubmit');
+            if (btn) btn.textContent = 'Update Lead';
+
+            if (window.bootstrap && window.bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalElement).show();
+            } else if (window.jQuery) {
+                window.jQuery(modalElement).modal('show');
+            }
+        } catch(e) {
+            window.location.href = "{{ url('/lead') }}/" + leadId + "/edit";
+        }
+    }
+
+    function openCreateModal() {
+        const modalElement = document.getElementById('leadModal');
+        if (!modalElement) {
+            window.location.href = "{{ route('lead.create') }}";
+            return;
+        }
+        const form = document.getElementById('leadForm');
+        if (form) {
+            form.action = "{{ route('lead.store') }}";
+            form.reset();
+        }
+        const methodInput = document.getElementById('formMethod');
+        if (methodInput) methodInput.value = 'POST';
+
+        const title = modalElement.querySelector('#leadModalTitle span');
+        if (title) title.textContent = 'Create New Lead';
+        const btn = modalElement.querySelector('#btnSubmit');
+        if (btn) { btn.textContent = 'Create Lead'; btn.disabled = false; }
+
+        if (window.bootstrap && window.bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        } else if (window.jQuery) {
+            window.jQuery(modalElement).modal('show');
+        }
+    }
+
+    function updateBulkActionsState() {
+        const checked = document.querySelectorAll('.lead-checkbox:checked');
+        const allBoxes = document.querySelectorAll('.lead-checkbox');
+        const checkAll = document.getElementById('checkAll');
+        const floatingBar = document.getElementById('floatingBulkBar');
+        const countSpan = document.getElementById('bulkSelectedCount');
+
+        const count = checked.length;
+        if (countSpan) countSpan.textContent = count;
+        if (checkAll && allBoxes.length > 0) {
+            checkAll.checked = (checked.length === allBoxes.length);
+        }
+        if (floatingBar) {
+            if (count > 0) floatingBar.classList.add('is-visible');
+            else floatingBar.classList.remove('is-visible');
+        }
+    }
+
+    function deselectAllRows() {
+        document.querySelectorAll('.lead-checkbox').forEach(cb => cb.checked = false);
+        const checkAll = document.getElementById('checkAll');
+        if (checkAll) checkAll.checked = false;
+        updateBulkActionsState();
+    }
+
+    async function executeBulkConvertToDeal() {
+        const checked = document.querySelectorAll('.lead-checkbox:checked');
+        const ids = Array.from(checked).map(cb => cb.value);
+        if (!ids.length) {
+            if (window.Swal) Swal.fire('No Selection', 'Please select at least one lead using the checkboxes.', 'warning');
+            else alert('Please select at least one lead using the checkboxes.');
+            return;
+        }
+
+        if (!confirm(`Convert ${ids.length} selected lead(s) to deals?`)) return;
+
+        try {
+            const params = new URLSearchParams();
+            params.append('_token', '{{ csrf_token() }}');
+            ids.forEach(id => params.append('ids[]', id));
+
+            const response = await fetch("{{ url('/new-leads-table/bulk-convert-deal') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: params
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Conversion failed');
+
+            ids.forEach(id => {
+                const row = document.getElementById('lead-row-' + id);
+                if (row) row.remove();
+            });
+            deselectAllRows();
+
+            if (window.Swal) Swal.fire({ icon: 'success', title: 'Converted!', text: data.message, timer: 1500, showConfirmButton: false });
+            else alert(data.message || 'Leads converted successfully');
+        } catch (error) {
+            if (window.Swal) Swal.fire('Error', error.message, 'error');
+            else alert(error.message);
+        }
+    }
+
+    // Expose all globally on window
+    window.archiveSingleLead = archiveSingleLead;
+    window.openEditStatusOffcanvas = openEditStatusOffcanvas;
+    window.openLeadEditModal = openLeadEditModal;
+    window.openViewDetailsModalLazy = openViewDetailsModalLazy;
+    window.openCommentsModal = openCommentsModal;
+    window.convertLeadToDeal = convertLeadToDeal;
+    window.openCreateModal = openCreateModal;
+    window.executeBulkConvertToDeal = executeBulkConvertToDeal;
+    window.updateBulkActionsState = updateBulkActionsState;
+    window.deselectAllRows = deselectAllRows;
+    window.onOffcanvasMainStatusChange = onOffcanvasMainStatusChange;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const checkAll = document.getElementById('checkAll');
+        if (checkAll) {
+            checkAll.addEventListener('change', function () {
+                const isChecked = this.checked;
+                document.querySelectorAll('.lead-checkbox').forEach(cb => cb.checked = isChecked);
+                updateBulkActionsState();
+            });
+        }
+
+        const tableBody = document.getElementById('lead-table-body');
+        if (tableBody) {
+            tableBody.addEventListener('change', function (e) {
+                if (e.target && e.target.classList.contains('lead-checkbox')) {
+                    updateBulkActionsState();
+                }
+            });
+        }
+    });
+</script>
 @include('crm.lead.partials.lead-interaction-scripts')
+@include('crm.lead.custom-import-modal')
 @endpush
 @endsection

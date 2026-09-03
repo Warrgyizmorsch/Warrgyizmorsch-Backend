@@ -652,6 +652,9 @@ class LeadTableController extends Controller
         // 2. Fetch Top-Level Lead Buckets (Excluding Deal Created)
         $mainStatuses = [
             'yet to call',
+            'new lead',
+            'call done',
+            'lead qualification',
             'connected / in conversation',
             'hot lead',
             'warm lead',
@@ -668,7 +671,7 @@ class LeadTableController extends Controller
             })
             ->where(DB::raw('LOWER(TRIM(name))'), 'NOT LIKE', '%deal created%')
             ->with('children')
-            ->orderByRaw("FIELD(LOWER(name), '" . implode("','", $mainStatuses) . "')")
+            ->orderByRaw("FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "') = 0, FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "'), id ASC")
             ->get();
 
         // 3. Fast Aggregated Count Query matching both lead_status and lead_bucket_id

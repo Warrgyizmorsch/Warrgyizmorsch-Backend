@@ -3,11 +3,21 @@
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow-lg">
 
-                <div class="modal-header bg-light border-bottom">
-                    <h5 class="modal-title fw-bold text-dark" id="leadModalTitle">
-                        <i class="feather-user text-primary me-2"></i> <span>Create New Lead</span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header bg-light border-bottom d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="leadModalTitle">
+                            <i class="feather-user text-primary me-1"></i> <span>Create New Lead</span>
+                        </h5>
+                        <!-- <span id="leadDraftBadge" class="badge bg-success-subtle text-success fs-11 fw-medium d-none">
+                            <i class="feather-check-circle me-1"></i>Draft restored
+                        </span> -->
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-danger btn-xs py-1 px-2 fs-11 rounded d-none" id="btnClearDraft" onclick="clearLeadFormDraft(true)" title="Clear all fields">
+                            <i class="feather-trash-2 me-1"></i>Clear Form
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
                 </div>
 
                 <form id="leadForm" method="POST" enctype="multipart/form-data" action="{{ route('lead.store') }}">
@@ -146,7 +156,7 @@
                                                 @endforeach
                                             </select>
                                         </div>
-                                        <small class="text-muted fs-11 mt-1 d-block">Dropdown se multiple tags select kar sakte hain.</small>
+                                        <small class="text-muted fs-11 mt-1 d-block">You can select multiple tags from the dropdown.</small>
                                     </div>
                                 </div>
 
@@ -192,7 +202,19 @@
                                 <div class="row g-2 mb-2">
                                     <div class="col-md-6">
                                         <label class="form-label-sm">Budget</label>
-                                        <input type="text" name="budget" id="inp_budget" class="form-control form-control-sm">
+                                        <div class="input-group input-group-sm">
+                                            <button class="btn btn-outline-secondary dropdown-toggle px-2.5 fw-bold d-flex align-items-center gap-1 shadow-2xs" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="budgetCurrencyBtn" style="border-color: #cbd5e1; background-color: #f8fafc; min-width: 48px; color: #1e293b;">
+                                                <span id="budgetCurrencySymbol">₹</span>
+                                            </button>
+                                            <ul class="dropdown-menu shadow-sm py-1 border-0" style="min-width: 130px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 1060;">
+                                                <li><a class="dropdown-item py-1.5 fs-12 fw-semibold d-flex align-items-center gap-2" href="javascript:void(0);" onclick="changeBudgetCurrency('₹')"><span class="badge bg-light text-dark fw-bold" style="width: 22px;">₹</span> Rupee (INR)</a></li>
+                                                <li><a class="dropdown-item py-1.5 fs-12 fw-semibold d-flex align-items-center gap-2" href="javascript:void(0);" onclick="changeBudgetCurrency('$')"><span class="badge bg-light text-dark fw-bold" style="width: 22px;">$</span> Dollar (USD)</a></li>
+                                                <li><a class="dropdown-item py-1.5 fs-12 fw-semibold d-flex align-items-center gap-2" href="javascript:void(0);" onclick="changeBudgetCurrency('€')"><span class="badge bg-light text-dark fw-bold" style="width: 22px;">€</span> Euro (EUR)</a></li>
+                                                <li><a class="dropdown-item py-1.5 fs-12 fw-semibold d-flex align-items-center gap-2" href="javascript:void(0);" onclick="changeBudgetCurrency('£')"><span class="badge bg-light text-dark fw-bold" style="width: 22px;">£</span> Pound (GBP)</a></li>
+                                            </ul>
+                                            <input type="hidden" name="budget_currency" id="inp_budget_currency" value="₹">
+                                            <input type="text" name="budget" id="inp_budget" class="form-control form-control-sm" placeholder="e.g. 50,000" style="border-color: #cbd5e1;">
+                                        </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label-sm">Choose Product</label>
@@ -449,6 +471,33 @@
                     </div>
                 </div>
             </div>
-        </div>
     </div>
+</div>
+
+<script>
+    function changeBudgetCurrency(symbol) {
+        const btnText = document.getElementById('budgetCurrencySymbol');
+        const currInp = document.getElementById('inp_budget_currency');
+        if (btnText) btnText.textContent = symbol;
+        if (currInp) currInp.value = symbol;
+    }
+    window.changeBudgetCurrency = changeBudgetCurrency;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('leadForm');
+        if (form) {
+            form.addEventListener('submit', function() {
+                const budgetInp = document.getElementById('inp_budget');
+                const currInp = document.getElementById('inp_budget_currency');
+                if (budgetInp && budgetInp.value.trim() !== '') {
+                    const symbol = currInp ? currInp.value : '₹';
+                    const rawVal = budgetInp.value.trim();
+                    if (!rawVal.startsWith('₹') && !rawVal.startsWith('$') && !rawVal.startsWith('€') && !rawVal.startsWith('£')) {
+                        budgetInp.value = symbol + ' ' + rawVal;
+                    }
+                }
+            });
+        }
+    });
+</script>
 

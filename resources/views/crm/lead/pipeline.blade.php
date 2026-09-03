@@ -91,7 +91,10 @@
                 </div>
 
                 {{-- Action / Add Lead Button --}}
-                <div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" onclick="openArrangeColumnsModal()" class="btn btn-outline-secondary btn-sm rounded-2 d-flex align-items-center gap-1" title="Arrange / Reorder Stages">
+                        <i class="ti ti-adjustments-horizontal"></i> Arrange Columns
+                    </button>
                     <a href="{{ route('lead.create') }}" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
                         <i class="ti ti-plus"></i> Add New Lead
                     </a>
@@ -109,9 +112,21 @@
                         </div>
                     </div>
 
-                    {{-- Lead Owner Filter --}}
+                    {{-- Bucket / Stage Filter --}}
                     <div class="col-md-2 col-sm-6">
-                        <select name="owner_id" class="form-select form-select-sm fs-13 pipeline-filter-control">
+                        <select name="bucket_id" id="pipelineBucketSelect" class="form-select form-select-sm bg-light fs-13">
+                            <option value="">All Stages</option>
+                            @foreach($buckets as $b)
+                                <option value="{{ $b->id }}" {{ request('bucket_id') == $b->id ? 'selected' : '' }}>
+                                    {{ $b->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    
+                    {{-- Owner Filter --}}
+                    <div class="col-md-2 col-sm-6">
+                        <select name="owner_id" id="pipelineOwnerSelect" class="form-select form-select-sm bg-light fs-13">
                             <option value="">All Owners</option>
                             <option value="null" {{ request('owner_id') === 'null' ? 'selected' : '' }}>Unassigned</option>
                             @foreach($owners as $owner)
@@ -124,7 +139,7 @@
 
                     {{-- Category Filter --}}
                     <div class="col-md-2 col-sm-6">
-                        <select name="category_id" class="form-select form-select-sm fs-13 pipeline-filter-control">
+                        <select name="category_id" id="pipelineCategorySelect" class="form-select form-select-sm bg-light fs-13">
                             <option value="">All Categories</option>
                             @foreach($categories as $cat)
                                 <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>
@@ -134,26 +149,11 @@
                         </select>
                     </div>
 
-                    {{-- Source Filter --}}
-                    <div class="col-md-2 col-sm-6">
-                        <select name="source" class="form-select form-select-sm fs-13 pipeline-filter-control">
-                            <option value="">All Sources</option>
-                            @foreach($sources as $src)
-                                <option value="{{ $src }}" {{ request('source') == $src ? 'selected' : '' }}>
-                                    {{ $src }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Date From --}}
-                    <div class="col-md-1.5 col-sm-6">
-                        <input type="date" name="from" class="form-control form-control-sm fs-13 pipeline-filter-control" placeholder="From Date" value="{{ request('from') }}">
-                    </div>
-
-                    {{-- Date To --}}
-                    <div class="col-md-1.5 col-sm-6">
-                        <input type="date" name="to" class="form-control form-control-sm fs-13 pipeline-filter-control" placeholder="To Date" value="{{ request('to') }}">
+                    {{-- Quick Reset Filters --}}
+                    <div class="col-md-1 col-sm-6">
+                        <button type="button" id="btnResetFilters" class="btn btn-light btn-sm w-100 text-muted border" title="Reset Filters">
+                            <i class="ti ti-rotate-clockwise"></i> Reset
+                        </button>
                     </div>
                 </div>
             </form>
@@ -190,7 +190,7 @@
                             @include('crm.lead.pipeline-card', ['lead' => $leadItem])
                         @empty
                             <div class="text-center py-4 text-muted empty-col-msg fs-13">
-                                <i class="ti ti-inbox fs-24 d-block mb-1"></i> No leads found
+                                <i class="feather-inbox fs-24 d-block mb-1"></i> No leads found
                             </div>
                         @endforelse
                     </div>
@@ -212,6 +212,8 @@
         @endforeach
     </div>
 </div>
+
+@include('crm.lead.partials.pipeline-column-manager', ['storageKey' => 'pipeline_col_order_leads'])
 
 @endsection
 

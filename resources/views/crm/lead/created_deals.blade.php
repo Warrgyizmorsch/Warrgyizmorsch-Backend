@@ -933,7 +933,7 @@
                 headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept':'application/json'}
             });
             const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.message || 'Tag update nahi hua.');
+            if (!response.ok || !result.success) throw new Error(result.message || 'Failed to update tag.');
             checkbox.checked = result.attached;
             const container = document.querySelector(`[data-lead-tags-container="${leadId}"]`);
             const existing = document.querySelector(`[data-lead-tag="${leadId}-${tagId}"]`);
@@ -978,7 +978,7 @@
                 }
             });
             const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.message || 'Tag remove nahi hua.');
+            if (!response.ok || !result.success) throw new Error(result.message || 'Failed to remove tag.');
             if (badge) badge.remove();
             const dropdownOption = document.querySelector(`[onclick*="toggleLeadTag(event, ${leadId}, ${tagId},"]`);
             const checkbox = dropdownOption ? dropdownOption.querySelector('input[type="checkbox"]') : null;

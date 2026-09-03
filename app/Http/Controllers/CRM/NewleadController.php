@@ -1745,6 +1745,9 @@ class NewleadController extends Controller
 
         $mainStatuses = [
             'yet to call',
+            'new lead',
+            'call done',
+            'lead qualification',
             'connected / in conversation',
             'hot lead',
             'warm lead',
@@ -1760,7 +1763,7 @@ class NewleadController extends Controller
                 $q->where('type', 'lead')->orWhereNull('type');
             })
             ->with('children')
-            ->orderByRaw("FIELD(LOWER(name), '" . implode("','", $mainStatuses) . "')")
+            ->orderByRaw("FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "') = 0, FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "'), id ASC")
             ->get();
 
         $statusCountsQuery = Leads::query();

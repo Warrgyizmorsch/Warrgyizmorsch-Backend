@@ -310,7 +310,7 @@
     async function convertLeadToDeal(leadId, button) {
         const confirmed = await appConfirm(
             'Convert lead to deal?',
-            'Lead New Leads se remove hokar Created Deals & Deal Pipeline mein "Deal Created" status ke sath chali jayegi.',
+            'The lead will be moved from New Leads to Created Deals & Deal Pipeline with "Deal Created" status.',
             'Yes, Convert',
             '#10b981',
             'question'
@@ -353,7 +353,7 @@
 
         const confirmed = await appConfirm(
             `Convert ${ids.length} selected lead(s) to deals?`,
-            'Selected leads New Leads se move hokar Created Deals & Pipeline mein "Deal Created" status ke sath add ho jayengi.',
+            'Selected leads will be moved from New Leads to Created Deals & Pipeline with "Deal Created" status.',
             `Yes, Convert (${ids.length})`,
             '#10b981',
             'question'
@@ -573,19 +573,155 @@
         } catch (error) {
             selectElement.disabled = false;
             selectElement.value = '';
-            alert('Lead owner update nahi ho paya. Please try again.');
+            alert('Failed to update lead owner. Please try again.');
         }
     }
 
-    function openCreateModal() {
+    const LEAD_FORM_DRAFT_KEY = 'crm_create_lead_draft_v1';
+    let draftSaveTimeout = null;
+
+    function saveLeadFormDraft() {
+        const form = document.getElementById('leadForm');
+        if (!form) return;
+        const methodInput = document.getElementById('formMethod');
+        if (methodInput && methodInput.value !== 'POST') return;
+
+        const data = {
+            name: form.querySelector('#inp_name')?.value || '',
+            mobile: form.querySelector('#inp_mobile')?.value || '',
+            country_code: form.querySelector('#inp_country_code')?.value || '',
+            email: form.querySelector('#inp_email')?.value || '',
+            business_name: form.querySelector('#inp_business')?.value || '',
+            city: form.querySelector('#inp_city')?.value || '',
+            state: form.querySelector('#inp_state')?.value || '',
+            pincode: form.querySelector('#inp_pincode')?.value || '',
+            address: form.querySelector('#inp_address')?.value || '',
+            employee_strength: form.querySelector('#inp_employee_strength')?.value || '',
+            industry: form.querySelector('#inp_industry')?.value || '',
+            website: form.querySelector('#inp_website')?.value || '',
+            gst_number: form.querySelector('#inp_gst')?.value || '',
+            lead_source: form.querySelector('#inp_lead_source')?.value || '',
+            lead_owner: form.querySelector('#inp_lead_owner')?.value || '',
+            budget: form.querySelector('#inp_budget')?.value || '',
+            product: form.querySelector('#inp_product')?.value || '',
+            services: Array.from(form.querySelector('#inp_services')?.selectedOptions || []).map(o => o.value),
+            pain_points: window.painPointsQuill ? window.painPointsQuill.root.innerHTML : (form.querySelector('#inp_pain_points')?.value || ''),
+            tags: (function() {
+                const wrap = document.getElementById('leadTagMultiSelectWrap');
+                if (!wrap) return [];
+                return Array.from(wrap.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
+            })(),
+            modalOpen: true,
+            savedAt: Date.now()
+        };
+
+        const hasAnyContent = Boolean(data.name || data.mobile || data.email || data.business_name || data.city || data.address || data.website || data.budget);
+        if (hasAnyContent) {
+            localStorage.setItem(LEAD_FORM_DRAFT_KEY, JSON.stringify(data));
+            const draftBadge = document.getElementById('leadDraftBadge');
+            const clearBtn = document.getElementById('btnClearDraft');
+            if (draftBadge) draftBadge.classList.remove('d-none');
+            if (clearBtn) clearBtn.classList.remove('d-none');
+        }
+    }
+
+    function restoreLeadFormDraft() {
+        try {
+            const raw = localStorage.getItem(LEAD_FORM_DRAFT_KEY);
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            if (!data || typeof data !== 'object') return false;
+
+            const form = document.getElementById('leadForm');
+            if (!form) return false;
+
+            const setVal = (id, val) => {
+                const el = form.querySelector(id);
+                if (el && val !== undefined && val !== null) el.value = val;
+            };
+
+            setVal('#inp_name', data.name);
+            setVal('#inp_mobile', data.mobile);
+            setVal('#inp_country_code', data.country_code);
+            setVal('#inp_email', data.email);
+            setVal('#inp_business', data.business_name);
+            setVal('#inp_city', data.city);
+            setVal('#inp_state', data.state);
+            setVal('#inp_pincode', data.pincode);
+            setVal('#inp_address', data.address);
+            setVal('#inp_employee_strength', data.employee_strength);
+            setVal('#inp_industry', data.industry);
+            setVal('#inp_website', data.website);
+            setVal('#inp_gst', data.gst_number);
+            setVal('#inp_lead_source', data.lead_source);
+            setVal('#inp_lead_owner', data.lead_owner);
+            setVal('#inp_budget', data.budget);
+            setVal('#inp_product', data.product);
+
+            if (Array.isArray(data.services) && data.services.length) {
+                const servicesSelect = form.querySelector('#inp_services');
+                if (servicesSelect) {
+                    Array.from(servicesSelect.options).forEach(opt => {
+                        opt.selected = data.services.includes(opt.value);
+                    });
+                    if (window.jQuery) window.jQuery(servicesSelect).trigger('change');
+                }
+            }
+
+            if (Array.isArray(data.tags)) {
+                setTagSelection('leadModal', data.tags);
+            }
+
+            if (data.pain_points) {
+                const painPointsInput = form.querySelector('#inp_pain_points');
+                if (painPointsInput) painPointsInput.value = data.pain_points;
+                if (window.painPointsQuill) window.painPointsQuill.root.innerHTML = data.pain_points;
+            }
+
+            const draftBadge = document.getElementById('leadDraftBadge');
+            const clearBtn = document.getElementById('btnClearDraft');
+            if (draftBadge) draftBadge.classList.remove('d-none');
+            if (clearBtn) clearBtn.classList.remove('d-none');
+
+            return true;
+        } catch (e) {
+            console.warn('Could not restore lead draft:', e);
+            return false;
+        }
+    }
+
+    function clearLeadFormDraft(andResetForm = false) {
+        localStorage.removeItem(LEAD_FORM_DRAFT_KEY);
+        const draftBadge = document.getElementById('leadDraftBadge');
+        const clearBtn = document.getElementById('btnClearDraft');
+        if (draftBadge) draftBadge.classList.add('d-none');
+        if (clearBtn) clearBtn.classList.add('d-none');
+
+        if (andResetForm) {
+            const form = document.getElementById('leadForm');
+            if (form) {
+                form.reset();
+                const servicesSelect = form.querySelector('#inp_services');
+                if (servicesSelect) {
+                    Array.from(servicesSelect.options).forEach(opt => opt.selected = false);
+                    if (window.jQuery) window.jQuery(servicesSelect).trigger('change');
+                }
+                setTagSelection('leadModal', []);
+                const painPointsInput = form.querySelector('#inp_pain_points');
+                if (painPointsInput) painPointsInput.value = '';
+                if (window.painPointsQuill) window.painPointsQuill.root.innerHTML = '';
+            }
+        }
+    }
+
+    function openCreateModal(forceReset = false) {
         const modalElement = document.getElementById('leadModal');
         const form = document.getElementById('leadForm');
         if (!modalElement || !form) {
-            alert('Lead form load nahi ho paya. Please refresh and try again.');
+            alert('Failed to load lead form. Please refresh and try again.');
             return;
         }
 
-        form.reset();
         form.action = "{{ route('lead.store') }}";
 
         const methodInput = document.getElementById('formMethod');
@@ -595,7 +731,10 @@
         if (title) title.textContent = 'Create New Lead';
 
         const submitButton = modalElement.querySelector('#btnSubmit');
-        if (submitButton) submitButton.textContent = 'Create Lead';
+        if (submitButton) {
+            submitButton.textContent = 'Create Lead';
+            submitButton.disabled = false;
+        }
 
         const clonedContacts = modalElement.querySelector('#clonedContactsContainer');
         if (clonedContacts) clonedContacts.innerHTML = '';
@@ -603,24 +742,172 @@
         const contactCount = modalElement.querySelector('#contactCountBadge');
         if (contactCount) contactCount.textContent = '0';
 
-        const servicesSelect = modalElement.querySelector('#inp_services');
-        if (servicesSelect) {
-            Array.from(servicesSelect.options).forEach(option => option.selected = false);
-            if (window.jQuery) window.jQuery(servicesSelect).trigger('change');
+        if (forceReset) {
+            clearLeadFormDraft(true);
+        } else {
+            const hasRestored = restoreLeadFormDraft();
+            if (!hasRestored) {
+                form.reset();
+                const servicesSelect = modalElement.querySelector('#inp_services');
+                if (servicesSelect) {
+                    Array.from(servicesSelect.options).forEach(option => option.selected = false);
+                    if (window.jQuery) window.jQuery(servicesSelect).trigger('change');
+                }
+                setTagSelection('leadModal', []);
+
+                const documentsInput = modalElement.querySelector('#inp_documents');
+                if (documentsInput) documentsInput.value = '';
+
+                const existingDocuments = modalElement.querySelector('#existing_documents_container');
+                if (existingDocuments) existingDocuments.innerHTML = '';
+
+                const painPointsInput = modalElement.querySelector('#inp_pain_points');
+                if (painPointsInput) painPointsInput.value = '';
+                if (window.painPointsQuill) window.painPointsQuill.root.innerHTML = '';
+            }
         }
-        setTagSelection('leadModal', []);
-
-        const documentsInput = modalElement.querySelector('#inp_documents');
-        if (documentsInput) documentsInput.value = '';
-
-        const existingDocuments = modalElement.querySelector('#existing_documents_container');
-        if (existingDocuments) existingDocuments.innerHTML = '';
-
-        const painPointsInput = modalElement.querySelector('#inp_pain_points');
-        if (painPointsInput) painPointsInput.value = '';
-        if (window.painPointsQuill) window.painPointsQuill.root.innerHTML = '';
 
         bootstrap.Modal.getOrCreateInstance(modalElement).show();
+    }
+
+    async function handleLeadFormSubmit(e) {
+        const form = e.target;
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        e.preventDefault();
+        const submitButton = form.querySelector('#btnSubmit');
+        const originalText = submitButton ? submitButton.textContent : 'Save';
+
+        if (window.painPointsQuill) {
+            const html = window.painPointsQuill.root.innerHTML;
+            const painPointsInput = form.querySelector('#inp_pain_points');
+            if (painPointsInput) {
+                painPointsInput.value = (html === '<p><br></p>' || !html.trim()) ? '' : html;
+            }
+        }
+
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status"></span> Saving...';
+        }
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.status !== 'success') {
+                let errorMsg = data.message || 'Failed to save lead.';
+                if (data.errors) {
+                    const firstKey = Object.keys(data.errors)[0];
+                    if (firstKey && data.errors[firstKey].length) {
+                        errorMsg = data.errors[firstKey][0];
+                    }
+                }
+                throw new Error(errorMsg);
+            }
+
+            // SUCCESS!
+            clearLeadFormDraft(false);
+
+            const modalElement = document.getElementById('leadModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) modalInstance.hide();
+
+            form.reset();
+            appToast('success', data.message || 'Lead saved successfully');
+
+            // Real-time background refresh without full page reload
+            await refreshActiveLeadView();
+
+        } catch (error) {
+            // Keep modal open and all fields intact!
+            appToast('error', error.message || 'An error occurred while saving.');
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = originalText;
+            }
+        }
+    }
+
+    async function refreshActiveLeadView() {
+        try {
+            const currentUrl = window.location.href;
+            const response = await fetch(currentUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) return;
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const currentTableBody = document.getElementById('lead-table-body');
+            const currentBoard = document.getElementById('pipelineBoard');
+
+            // Fallback for any other page: reload page cleanly
+            if (!currentTableBody && !currentBoard) {
+                window.location.reload();
+                return;
+            }
+
+            // 1. Table view: update #lead-table-body
+            const newTableBody = doc.getElementById('lead-table-body');
+            if (newTableBody && currentTableBody) {
+                currentTableBody.innerHTML = newTableBody.innerHTML;
+            }
+
+            // Status bar (scroll tabs)
+            const newStatusScroll = doc.getElementById('lead-status-scroll');
+            const currentStatusScroll = document.getElementById('lead-status-scroll');
+            if (newStatusScroll && currentStatusScroll) {
+                currentStatusScroll.innerHTML = newStatusScroll.innerHTML;
+            }
+
+            // Total counter if present
+            const newTotalBadge = doc.querySelector('.system-total-badge');
+            const currentTotalBadge = document.querySelector('.system-total-badge');
+            if (newTotalBadge && currentTotalBadge) {
+                currentTotalBadge.textContent = newTotalBadge.textContent;
+            }
+
+            // 2. Pipeline view: update columns
+            const newBoard = doc.getElementById('pipelineBoard');
+            const currentBoard = document.getElementById('pipelineBoard');
+            if (newBoard && currentBoard) {
+                newBoard.querySelectorAll('.pipeline-column').forEach(newCol => {
+                    const bId = newCol.getAttribute('data-bucket-id');
+                    const curCol = currentBoard.querySelector(`.pipeline-column[data-bucket-id="${bId}"]`);
+                    if (curCol) {
+                        const newCount = newCol.querySelector('.col-count-badge');
+                        const curCount = curCol.querySelector('.col-count-badge');
+                        if (newCount && curCount) curCount.textContent = newCount.textContent;
+
+                        const newCards = newCol.querySelector('.pipeline-cards-list');
+                        const curCards = curCol.querySelector('.pipeline-cards-list');
+                        if (newCards && curCards) {
+                            curCards.innerHTML = newCards.innerHTML;
+                        }
+                    }
+                });
+            }
+
+            if (typeof updateBulkActionsState === 'function') {
+                updateBulkActionsState();
+            }
+        } catch (e) {
+            console.warn('Real-time background refresh error:', e);
+        }
     }
 
     async function openLeadEditModal(leadId) {
@@ -642,6 +929,10 @@
 
             form.action = "{{ url('/lead/update') }}/" + leadId;
             setValue('#formMethod', 'PUT');
+            const draftBadge = document.getElementById('leadDraftBadge');
+            const clearBtn = document.getElementById('btnClearDraft');
+            if (draftBadge) draftBadge.classList.add('d-none');
+            if (clearBtn) clearBtn.classList.add('d-none');
             const title = modalElement.querySelector('#leadModalTitle span');
             if (title) title.textContent = 'Edit Lead: ' + (user.name || 'N/A');
             const submitButton = modalElement.querySelector('#btnSubmit');
@@ -686,7 +977,7 @@
 
             bootstrap.Modal.getOrCreateInstance(modalElement).show();
         } catch (error) {
-            alert('Modern Leads edit modal load nahi ho paya. Please try again.');
+            alert('Failed to load lead edit modal. Please try again.');
         }
     }
 
@@ -787,7 +1078,7 @@
                 headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept':'application/json'}
             });
             const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.message || 'Tag update nahi hua.');
+            if (!response.ok || !result.success) throw new Error(result.message || 'Failed to update tag.');
             checkbox.checked = result.attached;
             
             // Update sharedLeadTagsMap in memory
@@ -847,7 +1138,7 @@
                 }
             });
             const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.message || 'Tag remove nahi hua.');
+            if (!response.ok || !result.success) throw new Error(result.message || 'Failed to remove tag.');
             if (badge) badge.remove();
             
             // Update in-memory map
@@ -1270,4 +1561,50 @@
             });
         }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const leadFormEl = document.getElementById('leadForm');
+        if (leadFormEl) {
+            leadFormEl.addEventListener('input', function() {
+                clearTimeout(draftSaveTimeout);
+                draftSaveTimeout = setTimeout(saveLeadFormDraft, 250);
+            });
+            leadFormEl.addEventListener('change', function() {
+                clearTimeout(draftSaveTimeout);
+                draftSaveTimeout = setTimeout(saveLeadFormDraft, 100);
+            });
+            leadFormEl.addEventListener('submit', handleLeadFormSubmit);
+        }
+
+        // When lead modal is closed, if it was submitted or reset, update draft
+        const modalEl = document.getElementById('leadModal');
+        if (modalEl) {
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                const methodInput = document.getElementById('formMethod');
+                if (methodInput && methodInput.value === 'POST') {
+                    // Update draft modalOpen state to false
+                    const raw = localStorage.getItem(LEAD_FORM_DRAFT_KEY);
+                    if (raw) {
+                        try {
+                            const d = JSON.parse(raw);
+                            d.modalOpen = false;
+                            localStorage.setItem(LEAD_FORM_DRAFT_KEY, JSON.stringify(d));
+                        } catch(e) {}
+                    }
+                }
+            });
+        }
+
+        // Check if a draft was in progress when the page was refreshed
+        const existingDraft = localStorage.getItem(LEAD_FORM_DRAFT_KEY);
+        if (existingDraft) {
+            try {
+                const parsedDraft = JSON.parse(existingDraft);
+                if (parsedDraft && parsedDraft.modalOpen && (parsedDraft.name || parsedDraft.mobile || parsedDraft.email || parsedDraft.business_name || parsedDraft.city)) {
+                    // Automatically re-open the modal with all user's fields restored!
+                    openCreateModal(false);
+                }
+            } catch (e) {}
+        }
+    });
 </script>

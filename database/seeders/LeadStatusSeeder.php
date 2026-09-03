@@ -10,8 +10,8 @@ class LeadStatusSeeder extends Seeder
     public function run(): void
     {
         $leadStatuses = [
-            'New Lead' => 'bg-info text-dark',
             'Yet to Call' => 'bg-primary text-white',
+            'New Lead' => 'bg-info text-dark',
             'Call Done' => 'bg-secondary text-white',
             'Lead Qualification' => 'bg-warning text-dark',
         ];

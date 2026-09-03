@@ -352,7 +352,7 @@
                 groupName: "✨ System Custom Attributes (lead_questions)",
                 fields: [
                     @foreach(\App\Models\LeadQuestion::where('is_active', 1)->get() as $q)
-                    { key: "{{ $q->field_name }}", label: "{{ $q->label }}", keywords: ["{{ strtolower($q->field_name) }}", "{{ strtolower($q->label) }}"] },
+                    { key: {!! json_encode($q->field_name) !!}, label: {!! json_encode($q->label) !!}, keywords: [{!! json_encode(strtolower($q->field_name)) !!}, {!! json_encode(strtolower($q->label)) !!}] },
                     @endforeach
                 ]
             }

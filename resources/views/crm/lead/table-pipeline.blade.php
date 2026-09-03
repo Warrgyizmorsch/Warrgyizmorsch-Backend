@@ -88,7 +88,10 @@
                 </div>
 
                 {{-- Action / Add Lead Button --}}
-                <div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" onclick="openArrangeColumnsModal()" class="btn btn-outline-secondary btn-sm rounded-2 d-flex align-items-center gap-1" title="Arrange / Reorder Stages">
+                        <i class="feather-sliders"></i> Arrange Columns
+                    </button>
                     <button type="button" onclick="openCreateModal()" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
                         <i class="feather-plus"></i> Add New Lead
                     </button>
@@ -150,6 +153,8 @@
         @endforeach
     </div>
 </div>
+
+@include('crm.lead.partials.pipeline-column-manager', ['storageKey' => 'pipeline_col_order_leads'])
 
 @php
     $childBuckets = $buckets;

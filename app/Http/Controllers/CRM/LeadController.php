@@ -403,6 +403,15 @@ class LeadController extends Controller
             ]
         ]);
 
+        if ($request->ajax() || $request->wantsJson()) {
+            $lead->load(['user', 'owner', 'bucket', 'category', 'tags']);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead created successfully.',
+                'lead' => $lead,
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Lead created successfully.');
     }
 
@@ -642,6 +651,15 @@ class LeadController extends Controller
                     ]);
                 }
             }
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $lead->load(['user', 'owner', 'bucket', 'category', 'tags']);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead updated successfully.',
+                'lead' => $lead,
+            ]);
         }
 
         return redirect()->back()->with('success', 'Lead updated successfully.');
