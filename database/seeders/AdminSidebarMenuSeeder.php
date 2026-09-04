@@ -19,6 +19,7 @@ class AdminSidebarMenuSeeder extends Seeder
                 ['name' => 'Created Deals', 'route_name' => 'created.deals.index'],
                 ['name' => 'Follow-ups', 'route_name' => 'followups.index'],
                 ['name' => 'Tag Master', 'route_name' => 'tags.index'],
+                ['name' => 'Project Master', 'route_name' => 'projects.index'],
             ] as $route) {
                 DB::table('routes')->updateOrInsert(
                     ['route_name' => $route['route_name']],
@@ -59,6 +60,7 @@ class AdminSidebarMenuSeeder extends Seeder
                 ['existing' => 'Lead Sources', 'title' => 'Lead Source', 'route' => 'lead_sources.index', 'icon' => 'feather-share-2', 'sort' => 3],
                 ['existing' => 'Services', 'title' => 'Service', 'route' => 'category.index', 'icon' => 'feather-grid', 'sort' => 4],
                 ['existing' => 'Tag Master', 'title' => 'Tag Master', 'route' => 'tags.index', 'icon' => 'feather-tag', 'sort' => 5],
+                ['existing' => 'Project Master', 'title' => 'Project Master', 'route' => 'projects.index', 'icon' => 'feather-briefcase', 'sort' => 6],
             ];
 
             foreach ($masterChildren as $child) {

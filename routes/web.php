@@ -30,6 +30,7 @@ use App\Http\Controllers\CRM\FollowupController;
 use App\Http\Controllers\CRM\TagController;
 use App\Http\Controllers\CRM\ArchiveLeadController;
 use App\Http\Controllers\CRM\ArchiveDealController;
+use App\Http\Controllers\CRM\ProjectController;
 
 Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
     ->name('send.whatsapp.all');
@@ -139,6 +140,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         Route::resource('tags', TagController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::prefix('projects')->name('projects.')->group(function () {
+            Route::get('/', [ProjectController::class, 'index'])->name('index');
+            Route::post('/', [ProjectController::class, 'store'])->name('store');
+            Route::get('/{project}', [ProjectController::class, 'show'])->name('show');
+            Route::put('/{project}', [ProjectController::class, 'update'])->name('update');
+            Route::delete('/{project}', [ProjectController::class, 'destroy'])->name('destroy');
+            Route::patch('/{project}/status', [ProjectController::class, 'toggleStatus'])->name('toggle-status');
+        });
 
         Route::prefix('lead-questions')->group(function () {
             Route::get('/', [LeadQuestionController::class, 'index'])->name('lead_questions.index');
