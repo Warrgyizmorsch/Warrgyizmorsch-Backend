@@ -62,6 +62,31 @@
         border-color: #cbd5e1;
     }
 
+    .date-sort-btn {
+        width: 22px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #64748b;
+        font-size: 11px;
+        transition: all 0.15s ease;
+        text-decoration: none !important;
+    }
+    .date-sort-btn:hover {
+        background: #f1f5f9;
+        color: #006FC9;
+        border-color: #94a3b8;
+    }
+    .date-sort-btn.active-sort {
+        background: #006FC9;
+        color: #ffffff;
+        border-color: #006FC9;
+    }
+
     .lead-table-card {
         border-radius: 14px;
         border: 1px solid #e2e8f0;
@@ -229,7 +254,26 @@
                             <th style="min-width: 240px;">Lead / Deal Info</th>
                             <th style="min-width: 170px;">Company</th>
                             <th style="min-width: 260px;">Comment</th>
-                            <th style="min-width: 180px;">Follow-up Date</th>
+                            <th style="min-width: 195px;">
+                                @php
+                                    $currentSort = request('sort_dir', $tab === 'missed' ? 'desc' : 'asc');
+                                @endphp
+                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                    <span>Follow-up Date</span>
+                                    <div class="d-inline-flex align-items-center gap-1">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort_dir' => 'asc']) }}" 
+                                           class="date-sort-btn {{ $currentSort === 'asc' ? 'active-sort' : '' }}" 
+                                           title="Sort Ascending (Oldest First)">
+                                            <i class="feather-arrow-up"></i>
+                                        </a>
+                                        <a href="{{ request()->fullUrlWithQuery(['sort_dir' => 'desc']) }}" 
+                                           class="date-sort-btn {{ $currentSort === 'desc' ? 'active-sort' : '' }}" 
+                                           title="Sort Descending (Newest First)">
+                                            <i class="feather-arrow-down"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </th>
                             <th class="text-center followup-action-cell">Actions</th>
                         </tr>
                     </thead>
