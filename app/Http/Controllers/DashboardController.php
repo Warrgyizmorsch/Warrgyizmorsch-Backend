@@ -13,6 +13,9 @@ use App\Models\Tag;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Models\Blog;
+use App\Models\WarrLead;
+use App\Models\WarrServicePage;
 
 class DashboardController extends Controller
 {
@@ -24,6 +27,16 @@ class DashboardController extends Controller
         @session_write_close();
 
         $currentUser = Auth::user();
+
+        if (strcasecmp(optional($currentUser->role)->name ?? '', 'SEO') === 0) {
+            return view('seo.dashboard', [
+                'totalBlogs' => Blog::count(),
+                'totalWarrLeads' => WarrLead::count(),
+                'totalServicePages' => WarrServicePage::count(),
+                'recentBlogs' => Blog::latest('id')->take(5)->get(),
+                'recentWarrLeads' => WarrLead::latest('id')->take(5)->get(),
+            ]);
+        }
 
         if ($currentUser->role_id == 2) {
             return view('crm.users.dashboard');

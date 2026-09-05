@@ -40,24 +40,22 @@ class MenuSeeder extends Seeder
 
             // 1. Dashboard (Lead Pipeline Dashboard)
             $dashboardRouteId = $getRouteId('dashboard');
-            $this->upsertMenu('Dashboard', null, 'feather-home', $dashboardRouteId, 1, $now);
+            $dashboardMenuId = $this->upsertMenu('Dashboard', null, 'feather-home', $dashboardRouteId, 1, $now);
 
             // 2. Management (Parent)
             $managementId = $this->upsertMenu('Management', null, 'feather-settings', null, 2, $now);
             $this->upsertMenu('Roles', $managementId, 'feather-user-check', $getRouteId('roles.index'), 1, $now);
             $this->upsertMenu('Routes', $managementId, 'feather-git-commit', $getRouteId('routes.index'), 2, $now);
             $this->upsertMenu('Menus', $managementId, 'feather-menu', $getRouteId('menus.index'), 3, $now);
+            $permissionsId = $this->upsertMenu('Permissions', $managementId, 'feather-lock', null, 4, $now);
+            $this->upsertMenu('Role Permissions', $permissionsId, 'feather-shield', $getRouteId('role-permissions.index'), 1, $now);
+            $this->upsertMenu('User Overrides', $permissionsId, 'feather-user-check', $getRouteId('user-permissions.index'), 2, $now);
 
             // 3. Users (Parent)
             $usersId = $this->upsertMenu('Users', null, 'feather-users', null, 3, $now);
             $this->upsertMenu('Add User', $usersId, 'feather-user-plus', $getRouteId('users.create'), 1, $now);
             $this->upsertMenu('List Users', $usersId, 'feather-list', $getRouteId('users.index'), 2, $now);
             $this->upsertMenu('Login History', $usersId, 'feather-clock', $getRouteId('users.session'), 3, $now);
-
-            // 4. Permissions (Parent)
-            $permissionsId = $this->upsertMenu('Permissions', null, 'feather-lock', null, 4, $now);
-            $this->upsertMenu('Role Permissions', $permissionsId, 'feather-shield', $getRouteId('role-permissions.index'), 1, $now);
-            $this->upsertMenu('User Overrides', $permissionsId, 'feather-user-check', $getRouteId('user-permissions.index'), 2, $now);
 
             // 5. Master (Parent)
             $masterId = $this->upsertMenu('Master', null, 'feather-database', null, 5, $now);
@@ -159,11 +157,19 @@ class MenuSeeder extends Seeder
 
             // 4. Role Permissions Auto-Assignment
             $allActiveMenus = DB::table('menus')->where('is_deleted', 0)->get();
-            $roles = DB::table('roles')->where('is_deleted', 0)->pluck('id')->toArray();
+            $roles = DB::table('roles')->where('is_deleted', 0)->get(['id', 'name']);
+            $seoMenuIds = $this->menuTreeIds($seoId);
 
-            foreach ($roles as $rId) {
+            foreach ($roles as $role) {
                 foreach ($allActiveMenus as $m) {
                     $isAllowed = 1;
+                    $rId = $role->id;
+                    if (strcasecmp($role->name, 'SEO') === 0) {
+                        $isAllowed = ($m->id === $dashboardMenuId || in_array($m->id, $seoMenuIds, true)) ? 1 : 0;
+                    }
+                    if (strcasecmp($role->name, 'Admin') === 0 && in_array($m->id, $seoMenuIds, true)) {
+                        $isAllowed = 0;
+                    }
                     // Role 3 (Agent) restrictions if desired
                     if ($rId == 3 && in_array($m->title, ['Management', 'Roles', 'Routes', 'Menus', 'Users', 'Add User', 'List Users', 'Permissions'])) {
                         $isAllowed = 0;
@@ -179,6 +185,18 @@ class MenuSeeder extends Seeder
             Menu::bumpMenuVersion();
             Cache::flush();
         });
+    }
+
+    private function menuTreeIds(int $rootId): array
+    {
+        $ids = [$rootId];
+        $parents = [$rootId];
+        while ($parents) {
+            $children = DB::table('menus')->whereIn('parent_id', $parents)->where('is_deleted', 0)->pluck('id')->map(fn ($id) => (int) $id)->all();
+            $ids = array_merge($ids, $children);
+            $parents = $children;
+        }
+        return array_values(array_unique($ids));
     }
 
     private function upsertMenu(string $title, ?int $parentId, string $icon, ?int $routeId, int $sortOrder, $now): int
@@ -205,4 +223,3 @@ class MenuSeeder extends Seeder
         ]));
     }
 }
-
