@@ -35,6 +35,15 @@ class FollowupController extends Controller
 
         $now = Carbon::now();
 
+        // Pre-fetch latest callback IDs for active followups using index for speed
+        $latestCallbackIds = DB::table('callback_messages')
+            ->where('is_done', 0)
+            ->whereNotNull('next_followup_date')
+            ->groupBy('lead_id')
+            ->selectRaw('MAX(id) as id')
+            ->pluck('id')
+            ->toArray();
+
         // Base Query for CallBack / callback_messages with Lead, User, and Tags relations
         $query = CallBack::with([
             'user:id,name',
@@ -49,13 +58,7 @@ class FollowupController extends Controller
         ])->whereHas('lead')
           ->where('is_done', 0)
           ->whereNotNull('next_followup_date')
-          ->whereIn('id', function ($subQuery) {
-              $subQuery->selectRaw('MAX(id)')
-                  ->from('callback_messages')
-                  ->where('is_done', 0)
-                  ->whereNotNull('next_followup_date')
-                  ->groupBy('lead_id');
-          });
+          ->whereIn('id', !empty($latestCallbackIds) ? $latestCallbackIds : [0]);
 
         // Role 3 restriction (Sales executive sees only their assigned leads)
         if (auth()->check() && auth()->user()->role_id == 3) {
@@ -120,36 +123,27 @@ class FollowupController extends Controller
             $query->where('next_followup_date', '<=', $to);
         }
 
-        // Calculate Counts for all 3 Tabs (Lead, Deal, Missed)
-        $baseCountQuery = CallBack::whereHas('lead')
-            ->where('is_done', 0)
-            ->whereNotNull('next_followup_date')
-            ->whereIn('id', function ($subQuery) {
-                $subQuery->selectRaw('MAX(id)')
-                    ->from('callback_messages')
-                    ->where('is_done', 0)
-                    ->whereNotNull('next_followup_date')
-                    ->groupBy('lead_id');
-            });
-        if (auth()->check() && auth()->user()->role_id == 3) {
-            $baseCountQuery->whereHas('lead', function ($q) {
-                $q->where('lead_owner', auth()->id());
-            });
+        // Calculate Counts for all 3 Tabs (Lead, Deal, Missed) in 1 fast query
+        if (!empty($latestCallbackIds)) {
+            $tabCounts = DB::table('callback_messages as cb')
+                ->join('leads as l', 'cb.lead_id', '=', 'l.id')
+                ->whereIn('cb.id', $latestCallbackIds)
+                ->when(auth()->check() && auth()->user()->role_id == 3, fn($q) => $q->where('l.lead_owner', auth()->id()))
+                ->selectRaw("
+                    SUM(CASE WHEN cb.next_followup_date >= ? AND (l.is_converted = 0 OR l.is_converted IS NULL) THEN 1 ELSE 0 END) as lead_cnt,
+                    SUM(CASE WHEN cb.next_followup_date >= ? AND l.is_converted = 1 THEN 1 ELSE 0 END) as deal_cnt,
+                    SUM(CASE WHEN cb.next_followup_date < ? THEN 1 ELSE 0 END) as missed_cnt
+                ", [$now, $now, $now])
+                ->first();
+
+            $leadCount = (int) ($tabCounts->lead_cnt ?? 0);
+            $dealCount = (int) ($tabCounts->deal_cnt ?? 0);
+            $missedCount = (int) ($tabCounts->missed_cnt ?? 0);
+        } else {
+            $leadCount = 0;
+            $dealCount = 0;
+            $missedCount = 0;
         }
-
-        $leadCount = (clone $baseCountQuery)
-            ->where('next_followup_date', '>=', $now)
-            ->whereHas('lead', fn($q) => $q->where('is_converted', 0))
-            ->count();
-
-        $dealCount = (clone $baseCountQuery)
-            ->where('next_followup_date', '>=', $now)
-            ->whereHas('lead', fn($q) => $q->where('is_converted', 1))
-            ->count();
-
-        $missedCount = (clone $baseCountQuery)
-            ->where('next_followup_date', '<', $now)
-            ->count();
 
         $allCount = $leadCount + $dealCount + $missedCount;
 

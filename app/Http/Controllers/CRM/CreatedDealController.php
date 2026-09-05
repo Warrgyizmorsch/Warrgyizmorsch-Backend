@@ -110,21 +110,23 @@ class CreatedDealController extends Controller
         if ($request->filled('campaign_name')) {
             $query->where('campaign_name', 'like', '%' . $request->campaign_name . '%');
         }
+        if ($request->filled('adset_name')) {
+            $query->where('adset_name', 'like', '%' . $request->adset_name . '%');
+        }
+        if ($request->filled('ad_name')) {
+            $query->where('ad_name', 'like', '%' . $request->ad_name . '%');
+        }
         $dealStatusFilter = $request->input('lead_status', $request->input('status'));
         if (!empty($dealStatusFilter)) {
             $query->where('lead_status', $dealStatusFilter);
         }
 
-        // Clone query for total count calculation
-        $countQuery = clone $query;
-        $totalDealsCount = $countQuery->count();
-
         // 5. Sorting & Pagination
         $perPage = (int) $request->get('per_page', 20);
         $perPage = in_array($perPage, [20, 50, 100, 250, 500]) ? $perPage : 20;
 
-        // $leads = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends($request->query());
         $leads = $query->orderBy('updated_at', 'desc')->paginate($perPage)->appends($request->query());
+        $totalDealsCount = $leads->total();
 
         // Fetch parent/child buckets for offcanvas status change
         $childBuckets = Bucket::with('children')
@@ -133,22 +135,27 @@ class CreatedDealController extends Controller
             ->where('type', 'order')
             ->get();
 
-        $childBuckets->each(function ($bucket) {
+        // Pre-aggregate deal counts in 1 fast query instead of N queries in loop
+        $dealCounts = Leads::where('is_converted', 1)
+            ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_id')
+            ->get();
+
+        $childBuckets->each(function ($bucket) use ($dealCounts) {
             $bucketIds = collect([$bucket->id])->merge($bucket->children->pluck('id'))->all();
-            $statusNames = collect([$bucket->name])->merge($bucket->children->pluck('name'))->all();
+            $statusNames = collect([$bucket->name])->merge($bucket->children->pluck('name'))->map(fn($n) => strtolower(trim($n)))->all();
             $bName = strtolower(trim($bucket->name));
-            $bucket->leads_count = Leads::where('is_converted', 1)
-                ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
-                ->where(function ($q) use ($bucketIds, $statusNames, $bName) {
-                    $q->whereIn('lead_bucket_id', $bucketIds)->orWhereIn('lead_status', $statusNames);
-                    if ($bName === 'deal created') {
-                        $q->orWhereNull('lead_bucket_id')
-                          ->orWhere('lead_bucket_id', 0)
-                          ->orWhereNull('lead_status')
-                          ->orWhere('lead_status', '');
-                    }
-                })
-                ->count();
+
+            $bucket->leads_count = $dealCounts->filter(function ($item) use ($bucketIds, $statusNames, $bName) {
+                if (in_array($item->lead_bucket_id, $bucketIds) || in_array($item->status_name, $statusNames)) {
+                    return true;
+                }
+                if ($bName === 'deal created' && (empty($item->lead_bucket_id) || empty($item->status_name))) {
+                    return true;
+                }
+                return false;
+            })->sum('cnt');
         });
 
         $owners = User::whereIn('role_id', [1, 3])
@@ -261,6 +268,22 @@ class CreatedDealController extends Controller
         // 7. Category Filter
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
+        }
+
+        // 8. Company Filter
+        if ($request->filled('company')) {
+            $query->where('business_name', 'like', '%' . $request->company . '%');
+        }
+
+        // 9. Campaign, Adset, Ad Name Filters
+        if ($request->filled('campaign_name')) {
+            $query->where('campaign_name', 'like', '%' . $request->campaign_name . '%');
+        }
+        if ($request->filled('adset_name')) {
+            $query->where('adset_name', 'like', '%' . $request->adset_name . '%');
+        }
+        if ($request->filled('ad_name')) {
+            $query->where('ad_name', 'like', '%' . $request->ad_name . '%');
         }
     }
 

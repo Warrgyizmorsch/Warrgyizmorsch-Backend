@@ -33,6 +33,34 @@
         color: #1e293b !important;
         background-color: rgba(255,255,255,0.6) !important;
     }
+    .lead-filter-form .form-control,
+    .lead-filter-form .form-select {
+        border-color: #d1d5db;
+        font-size: 13px;
+        padding-top: 0.42rem;
+        padding-bottom: 0.42rem;
+        border-radius: 6px;
+        color: #1f2937;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    .lead-filter-form .form-control:focus,
+    .lead-filter-form .form-select:focus {
+        border-color: #006FC9;
+        box-shadow: 0 0 0 3px rgba(0, 111, 201, 0.12);
+    }
+    .lead-filter-form .input-group-text {
+        border-color: #d1d5db;
+        border-radius: 6px 0 0 6px;
+    }
+    #moreFiltersToggleBtn {
+        transition: all 0.2s ease;
+        background-color: #f8fafc;
+    }
+    #moreFiltersToggleBtn:hover {
+        background-color: #f1f5f9;
+        border-color: #cbd5e1 !important;
+        color: #006FC9 !important;
+    }
 </style>
 
     <div class="page-header-right ms-auto">
@@ -180,11 +208,18 @@
     }
     $actualFilterQueryParams = request()->except($ignoredFilterParams);
     $hasActiveFilters = !empty(array_filter($actualFilterQueryParams, fn($val) => $val !== null && $val !== ''));
+
+    $hasActiveMoreFilters = !empty(request('company')) || 
+                            !empty(request('campaign_name')) || 
+                            !empty(request('adset_name')) || 
+                            !empty(request('ad_name')) || 
+                            !empty(request('category_id')) ||
+                            (!request()->routeIs('leads.table.*') && !empty(request('lead_engagement_status')));
 @endphp
 <div id="collapseOne" class="collapse mt-3 {{ $hasActiveFilters ? 'show' : '' }}">
-    <div class="card card-body shadow-sm">
+    <div class="card card-body shadow-sm border-0" style="border-radius: 12px; border: 1px solid #e2e8f0 !important; background: #ffffff;">
 
-        <form method="GET" action="{{ route($filterPageRoute) }}">
+        <form method="GET" action="{{ route($filterPageRoute) }}" class="lead-filter-form">
 
             {{-- ✅ Preserve bucket --}}
             @if(request('bucket_id'))
@@ -200,31 +235,38 @@
             {{-- Hidden input for exact selected User ID --}}
             <input type="hidden" name="search_uid" id="search-uid-input" value="{{ request('search_uid') }}">
 
-            <div class="row g-3">
-                <div class="col-12 col-md-3 position-relative">
+            {{-- 🌟 MAIN FILTERS (Always Visible) --}}
+            <div class="row g-2.5 align-items-center">
+                {{-- 1. Search Name, Email, Phone --}}
+                <div class="col-12 col-md-4 col-xl-3 position-relative">
                     <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0">
-                            <i class="feather-search text-muted" id="search-icon"></i>
+                        <span class="input-group-text bg-white border-end-0 text-muted">
+                            <i class="feather-search fs-14" id="search-icon"></i>
                             <span class="spinner-border spinner-border-sm text-primary d-none" id="search-spinner" role="status" style="width: 14px; height: 14px;"></span>
                         </span>
-                        <input type="text" name="search" id="lead-live-search" class="form-control border-start-0"
+                        <input type="text" name="search" id="lead-live-search" class="form-control border-start-0 ps-1"
                             placeholder="Search Name, Email, Phone..."
                             value="{{ request('search') }}" autocomplete="off">
                     </div>
                     <div id="search-suggestions-box" class="dropdown-menu shadow-lg w-100 mt-1 overflow-auto" style="max-height: 320px; display: none; z-index: 1050; border-radius: 8px;"></div>
                 </div>
 
-                <div class="col-md-2 d-none d-md-block">
+                {{-- 2. Date From --}}
+                <div class="col-6 col-md-2 col-xl-2">
                     <input type="date" name="from" class="form-control"
+                        title="From Date"
                         value="{{ request('from') }}">
                 </div>
 
-                <div class="col-md-2 d-none d-md-block">
+                {{-- 3. Date To --}}
+                <div class="col-6 col-md-2 col-xl-2">
                     <input type="date" name="to" class="form-control"
+                        title="To Date"
                         value="{{ request('to') }}">
                 </div>
 
-                <div class="col-md-2 d-none d-md-block">
+                {{-- 4. All Sources --}}
+                <div class="col-12 col-sm-6 col-md-2 col-xl-2">
                     <select name="source" class="form-select">
                         <option value="">All Sources</option>
                         @foreach($sources ?? [] as $source)
@@ -236,20 +278,8 @@
                     </select>
                 </div>
 
-                @unless(request()->routeIs('leads.table.*'))
-                <div class="col-12 col-md-2 d-block d-md-block">
-                    <select name="lead_engagement_status" class="form-select">
-                        <option value="">All Engagement</option>
-                        <option value="hot" {{ request('lead_engagement_status') == 'hot' ? 'selected' : '' }}>Hot</option>
-                        <option value="warm" {{ request('lead_engagement_status') == 'warm' ? 'selected' : '' }}>Warm</option>
-                        <option value="cold" {{ request('lead_engagement_status') == 'cold' ? 'selected' : '' }}>Cold</option>
-                        <option value="dead" {{ request('lead_engagement_status') == 'dead' ? 'selected' : '' }}>Dead</option>
-                    </select>
-                </div>
-                @endunless
-
-
-                <div class="col-md-3 d-none d-md-block">
+                {{-- 5. All Owners --}}
+                <div class="col-12 col-sm-6 col-md-2 col-xl-3">
                     <select name="owner_id" class="form-select">
                         <option value="">All Owners</option>
                         <option value="null" {{ old('owner_id', request('owner_id')) == 'null' ? 'selected' : '' }}>Unknown</option>
@@ -261,88 +291,96 @@
                         @endforeach
                     </select>
                 </div>
-
-                <div class="col-md-3 d-none d-md-block">
-                    <input type="text" name="company" class="form-control"
-                        placeholder="Search Company..."
-                        value="{{ request('company') }}">
-                </div>
-
-                <div class="col-md-2 d-none d-md-block">
-                    <input type="text" name="campaign_name" class="form-control"
-                        placeholder="Campaign"
-                        value="{{ request('campaign_name') }}">
-                </div>
-
-                <div class="col-md-2 d-none d-md-block">
-                    <input type="text" name="adset_name" class="form-control"
-                        placeholder="Adset"
-                        value="{{ request('adset_name') }}">
-                </div>
-
-                <div class="col-md-2 d-none d-md-block">
-                    <input type="text" name="ad_name" class="form-control"
-                        placeholder="Ad Name"
-                        value="{{ request('ad_name') }}">
-                </div>
-
-                <div class="col-md-2 d-none d-md-block">
-                    <select name="category_id" class="form-select">
-                        <option value="">All Categories</option>
-
-                        @foreach($categories ?? [] as $category)
-                        <option value="{{ $category->id }}"
-                            {{ request('category_id') == $category->id ? 'selected' : '' }}>
-                            {{ $category->category_name }}
-                        </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <!-- <div class="col-12 col-md-6 p-2 d-flex gap-2 flex-wrap">
-
-                    <button type="submit" name="lead_engagement_status" value=""
-                        class="btn btn-sm  {{ request('lead_engagement_status') == '' ? 'btn-primary' : 'btn-light' }}">
-                        All
-                    </button>
-
-                    <button type="submit" name="lead_engagement_status" value="hot"
-                        class="btn btn-sm {{ request('lead_engagement_status') == 'hot' ? 'btn-danger' : 'btn-light' }}">
-                         Hot
-                    </button>
-
-                    <button type="submit" name="lead_engagement_status" value="warm"
-                        class="btn btn-sm {{ request('lead_engagement_status') == 'warm' ? 'btn-warning' : 'btn-light' }}">
-                         Warm
-                    </button>
-
-                    <button type="submit" name="lead_engagement_status" value="cold"
-                        class="btn btn-sm {{ request('lead_engagement_status') == 'cold' ? 'btn-info' : 'btn-light' }}">
-                         Cold
-                    </button>
-
-                    <button type="submit" name="lead_engagement_status" value="dead"
-                        class="btn btn-sm {{ request('lead_engagement_status') == 'dead' ? 'btn-dark' : 'btn-light' }}">
-                         Dead
-                    </button>
-
-                </div> -->
-
-
             </div>
 
-            {{-- ✅ BUTTONS SAME LINE --}}
-            <div class="d-flex justify-content-start gap-2 mt-4 border-top pt-3">
+            {{-- 🌟 MORE FILTERS (Hidden by default, shown on Load More) --}}
+            <div class="collapse {{ $hasActiveMoreFilters ? 'show' : '' }} mt-3 pt-3 border-top" id="moreFiltersCollapse">
+                <div class="row g-2.5 align-items-center">
+                    {{-- Search Company --}}
+                    <div class="col-12 col-sm-6 col-md-3">
+                        <input type="text" name="company" class="form-control"
+                            placeholder="Search Company..."
+                            value="{{ request('company') }}">
+                    </div>
 
-                <a href="{{ route($filterPageRoute) }}"
-                    class="btn btn-light border text-danger">
-                    Reset
-                </a>
+                    {{-- Campaign --}}
+                    <div class="col-12 col-sm-6 col-md-2">
+                        <input type="text" name="campaign_name" class="form-control"
+                            placeholder="Campaign"
+                            value="{{ request('campaign_name') }}">
+                    </div>
 
-                <button type="submit" class="btn btn-primary">
-                    Filter
-                </button>
+                    {{-- Adset --}}
+                    <div class="col-12 col-sm-6 col-md-2">
+                        <input type="text" name="adset_name" class="form-control"
+                            placeholder="Adset"
+                            value="{{ request('adset_name') }}">
+                    </div>
 
+                    {{-- Ad Name --}}
+                    <div class="col-12 col-sm-6 col-md-2">
+                        <input type="text" name="ad_name" class="form-control"
+                            placeholder="Ad Name"
+                            value="{{ request('ad_name') }}">
+                    </div>
+
+                    {{-- All Categories --}}
+                    <div class="col-12 col-sm-6 col-md-3">
+                        <select name="category_id" class="form-select">
+                            <option value="">All Categories</option>
+                            @foreach($categories ?? [] as $category)
+                            <option value="{{ $category->id }}"
+                                {{ request('category_id') == $category->id ? 'selected' : '' }}>
+                                {{ $category->category_name }}
+                            </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Engagement Status (for views that support it) --}}
+                    @unless(request()->routeIs('leads.table.*'))
+                    <div class="col-12 col-sm-6 col-md-2 mt-2">
+                        <select name="lead_engagement_status" class="form-select">
+                            <option value="">All Engagement</option>
+                            <option value="hot" {{ request('lead_engagement_status') == 'hot' ? 'selected' : '' }}>Hot</option>
+                            <option value="warm" {{ request('lead_engagement_status') == 'warm' ? 'selected' : '' }}>Warm</option>
+                            <option value="cold" {{ request('lead_engagement_status') == 'cold' ? 'selected' : '' }}>Cold</option>
+                            <option value="dead" {{ request('lead_engagement_status') == 'dead' ? 'selected' : '' }}>Dead</option>
+                        </select>
+                    </div>
+                    @endunless
+                </div>
+            </div>
+
+            {{-- 🌟 ACTION BUTTONS (Filter, Reset, Load More) --}}
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-3 border-top">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="submit" class="btn btn-primary px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-sm fw-medium fs-13">
+                        <i class="feather-filter fs-14"></i>
+                        <span>Filter</span>
+                    </button>
+
+                    <a href="{{ route($filterPageRoute) }}"
+                        class="btn btn-light border px-3 py-1.5 d-inline-flex align-items-center gap-1.5 text-danger fw-medium fs-13">
+                        <i class="feather-rotate-ccw fs-14"></i>
+                        <span>Reset</span>
+                    </a>
+                </div>
+
+                <div>
+                    <button type="button" 
+                        class="btn btn-light border px-3 py-1.5 d-inline-flex align-items-center gap-2 text-dark shadow-sm rounded-2" 
+                        id="moreFiltersToggleBtn" 
+                        data-bs-toggle="collapse" 
+                        data-bs-target="#moreFiltersCollapse" 
+                        aria-expanded="{{ $hasActiveMoreFilters ? 'true' : 'false' }}">
+                        <i class="feather-{{ $hasActiveMoreFilters ? 'minus-circle' : 'plus-circle' }} text-primary fs-14" id="moreFiltersIcon"></i>
+                        <span id="moreFiltersBtnText" class="fw-semibold fs-13">{{ $hasActiveMoreFilters ? 'Show Less' : 'Load More' }}</span>
+                        @if($hasActiveMoreFilters)
+                            <span class="badge bg-primary text-white rounded-pill px-2 py-0.5 fs-10">Active</span>
+                        @endif
+                    </button>
+                </div>
             </div>
 
         </form>
@@ -437,6 +475,28 @@ document.addEventListener("DOMContentLoaded", function() {
         });
         filterCollapse.addEventListener('hidden.bs.collapse', function () {
             localStorage.setItem('lead_filter_collapse_state', 'closed');
+        });
+    }
+
+    // Toggle "Load More" / "Show Less" state
+    const moreFiltersCollapse = document.getElementById('moreFiltersCollapse');
+    const moreFiltersBtnText = document.getElementById('moreFiltersBtnText');
+    const moreFiltersIcon = document.getElementById('moreFiltersIcon');
+
+    if (moreFiltersCollapse) {
+        moreFiltersCollapse.addEventListener('show.bs.collapse', function () {
+            if (moreFiltersBtnText) moreFiltersBtnText.textContent = 'Show Less';
+            if (moreFiltersIcon) {
+                moreFiltersIcon.classList.remove('feather-plus-circle');
+                moreFiltersIcon.classList.add('feather-minus-circle');
+            }
+        });
+        moreFiltersCollapse.addEventListener('hide.bs.collapse', function () {
+            if (moreFiltersBtnText) moreFiltersBtnText.textContent = 'Load More';
+            if (moreFiltersIcon) {
+                moreFiltersIcon.classList.remove('feather-minus-circle');
+                moreFiltersIcon.classList.add('feather-plus-circle');
+            }
         });
     }
 

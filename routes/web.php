@@ -227,6 +227,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Modern Leads & Followups
     Route::get('/followups', [FollowupController::class, 'index'])->name('followups.index');
+    Route::post('/followups/{followup}/mark-done', [FollowupController::class, 'markDone'])->name('followups.markDone');
     Route::post('/followups/{followup}/done', [FollowupController::class, 'markDone'])->name('followups.done');
     Route::post('/followups/{followup}/reschedule', [FollowupController::class, 'reschedule'])->name('followups.reschedule');
     Route::post('/followups/{followup}/convert-deal', [FollowupController::class, 'convertToDeal'])->name('followups.convertDeal');
@@ -235,6 +236,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/created-deals/pipeline/cards', [CreatedDealController::class, 'pipelineCards'])->name('created.deals.pipeline.cards');
     Route::post('/created-deals/pipeline/drag-update/{lead}', [CreatedDealController::class, 'pipelineDragUpdate'])->name('created.deals.pipeline.dragUpdate');
     Route::get('/new-leads-table', [LeadTableController::class, 'index'])->name('leads.table.index');
+    Route::post('/new-leads-table/{lead}/update-status', [LeadTableController::class, 'updateStatus'])->name('leads.table.updateStatus');
+    Route::post('/new-leads-table/bulk-update-status', [LeadTableController::class, 'bulkUpdateStatus'])->name('leads.table.bulkUpdateStatus');
     Route::post('/new-leads-table/{lead}/convert-deal', [LeadTableController::class, 'convertToDeal'])->name('leads.table.convertDeal');
     Route::post('/new-leads-table/bulk-convert-deal', [LeadTableController::class, 'bulkConvertToDeal'])->name('leads.table.bulkConvertDeal');
     Route::get('/new-leads-table/pipeline', [LeadTableController::class, 'pipelineIndex'])->name('leads.table.pipeline');

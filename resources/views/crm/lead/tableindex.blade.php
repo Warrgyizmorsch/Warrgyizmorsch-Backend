@@ -446,6 +446,24 @@
                     <i class="feather-trash-2"></i> Delete Permanently
                 </button>
             @else
+            {{-- BULK STATUS DROPDOWN --}}
+                @unless($isDealView ?? false)
+                <div class="dropdown">
+                    <button class="btn btn-sm rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5 dropdown-toggle text-white" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #6366f1;">
+                        <i class="feather-sliders"></i> Change Status
+                    </button>
+                    <ul class="dropdown-menu shadow-lg fs-12 p-1 mb-2 border-0" style="max-height: 280px; overflow-y: auto; border-radius: 10px;">
+                        @foreach(($childBuckets ?? collect()) as $bucket)
+                            <li><a class="dropdown-item fw-bold text-primary rounded-2 mb-1 py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $bucket->id }}, '{{ addslashes($bucket->name) }}')">{{ $bucket->name }}</a></li>
+                            @if($bucket->children)
+                                @foreach($bucket->children as $child)
+                                    <li><a class="dropdown-item ms-2 rounded-2 mb-1 text-dark py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $child->id }}, '{{ addslashes($child->name) }}')"><i class="feather-corner-down-right text-muted me-1"></i> {{ $child->name }}</a></li>
+                                @endforeach
+                            @endif
+                        @endforeach
+                    </ul>
+                </div>
+                @endunless
                 @unless($isDealView ?? false)
                 <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkConvertToDeal()">
                     <i class="feather-check-circle"></i> Convert to Deal
@@ -592,7 +610,7 @@
                         <tr>
                             <th class="lead-select-column"><input type="checkbox" class="form-check-input" id="checkAll"></th>
                             <th class="lead-info-column">Lead Info</th>
-                            <th class="lead-status-column">Status / Sub Status</th>
+                            <th class="lead-status-column">Status</th>
                             {{-- <th class="lead-engagement-column">Engagement</th> --}}
                             <th class="lead-owner-column">Owner</th>
                             <th class="lead-date-column">Created Date</th>
@@ -668,7 +686,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td>
+                                {{-- <td>
                                     <div class="d-flex flex-column gap-1">
                                         <span class="badge bg-light text-dark border fs-11 fw-semibold w-auto d-inline-block text-start">
                                             {{ $statusName }}
@@ -679,7 +697,44 @@
                                             </span>
                                         @endif
                                     </div>
+                                </td> --}}
+
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        {{-- INLINE STATUS DROPDOWN --}}
+                                        <div class="dropdown d-inline-block">
+                                            <button class="btn btn-sm btn-light border fs-11 fw-semibold text-start text-dark dropdown-toggle p-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" data-bs-boundary="window">
+                                                <span id="status-text-{{ $lead->id }}">{{ $statusName }}</span>
+                                            </button>
+                                            <ul class="dropdown-menu shadow-lg fs-12 p-1 border-0" style="max-height: 280px; overflow-y: auto; border-radius: 10px;">
+                                                @foreach(($childBuckets ?? collect()) as $bucket)
+                                                    <li>
+                                                        <a class="dropdown-item fw-bold text-primary rounded-2 mb-1 py-1.5" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this)">
+                                                            {{ $bucket->name }}
+                                                        </a>
+                                                    </li>
+                                                    @if($bucket->children && $bucket->children->count() > 0)
+                                                        @foreach($bucket->children as $child)
+                                                            <li>
+                                                                <a class="dropdown-item ms-2 rounded-2 mb-1 text-dark py-1.5" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $child->id }}, '{{ addslashes($child->name) }}', this)">
+                                                                    <i class="feather-corner-down-right text-muted me-1"></i> {{ $child->name }}
+                                                                </a>
+                                                            </li>
+                                                        @endforeach
+                                                    @endif
+                                                    <li><hr class="dropdown-divider my-1"></li>
+                                                @endforeach
+                                            </ul>
+                                        </div>
+                                        
+                                        @if($lead->bucket && $lead->bucket->parent)
+                                            <span class="text-muted fs-10" id="parent-text-{{ $lead->id }}">
+                                                Parent: {{ $lead->bucket->parent->name }}
+                                            </span>
+                                        @endif
+                                    </div>
                                 </td>
+
                                 {{-- <td class="lead-engagement-column">
                                     <div class="dropdown d-inline-block">
                                         <a href="javascript:void(0);" 
@@ -1080,6 +1135,90 @@
             else alert(data.message || 'Lead converted successfully');
         } catch (error) {
             if (button) button.disabled = false;
+            if (window.Swal) Swal.fire('Error', error.message, 'error');
+            else alert(error.message);
+        }
+    }
+
+    // FUNCTION 1: Single Inline Status Update
+    async function updateInlineLeadStatus(leadId, bucketId, statusName, el) {
+        let btnSpan = document.getElementById('status-text-' + leadId);
+        let originalText = btnSpan.innerText;
+        btnSpan.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        try {
+            const params = new URLSearchParams({
+                _token: '{{ csrf_token() }}',
+                bucket_id: bucketId,
+                status_name: statusName
+            });
+
+            const response = await fetch("{{ url('/new-leads-table') }}/" + leadId + "/update-status", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: params
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Update failed');
+
+            // Success: Update UI
+            btnSpan.innerText = statusName;
+            if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: data.message, showConfirmButton: false, timer: 1500 });
+        } catch (error) {
+            btnSpan.innerText = originalText;
+            if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: error.message, showConfirmButton: false, timer: 2000 });
+        }
+    }
+
+    // FUNCTION 2: Bulk Status Update
+    async function executeBulkStatusUpdate(bucketId, statusName) {
+        const checked = document.querySelectorAll('.lead-checkbox:checked');
+        const ids = Array.from(checked).map(cb => cb.value);
+        
+        if (!ids.length) {
+            if (window.Swal) Swal.fire('No Selection', 'Please select at least one lead.', 'warning');
+            return;
+        }
+
+        if (!confirm(`Update status to "${statusName}" for ${ids.length} selected lead(s)?`)) return;
+
+        try {
+            const params = new URLSearchParams();
+            params.append('_token', '{{ csrf_token() }}');
+            params.append('bucket_id', bucketId);
+            params.append('status_name', statusName);
+            ids.forEach(id => params.append('ids[]', id));
+
+            const response = await fetch("{{ url('/new-leads-table/bulk-update-status') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: params
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Bulk Update failed');
+
+            // Update UI dynamically for all selected leads
+            ids.forEach(id => {
+                let textEl = document.getElementById('status-text-' + id);
+                if (textEl) textEl.innerText = statusName;
+            });
+
+            deselectAllRows(); // Reset selection
+
+            if (window.Swal) Swal.fire({ icon: 'success', title: 'Updated!', text: data.message, timer: 1500, showConfirmButton: false });
+        } catch (error) {
             if (window.Swal) Swal.fire('Error', error.message, 'error');
             else alert(error.message);
         }

@@ -205,15 +205,38 @@ class LeadTableController extends Controller
         if ($request->filled('from') && $request->filled('to')) {
             $from = Carbon::parse($request->from)->startOfDay();
             $to = Carbon::parse($request->to)->endOfDay();
-            $query->whereBetween('date', [$from, $to]);
+            $query->where(function ($q) use ($from, $to) {
+                $q->whereBetween('date', [$from, $to])
+                  ->orWhere(function ($sub) use ($from, $to) {
+                      $sub->whereNull('date')->whereBetween('created_at', [$from, $to]);
+                  });
+            });
         } elseif ($request->filled('from')) {
-            $from = Carbon::parse($request->from)->toDateString();
-            $query->whereDate('date', $from);
+            $from = Carbon::parse($request->from)->startOfDay();
+            $query->where(function ($q) use ($from) {
+                $q->where('date', '>=', $from)
+                  ->orWhere(function ($sub) use ($from) {
+                      $sub->whereNull('date')->where('created_at', '>=', $from);
+                  });
+            });
+        } elseif ($request->filled('to')) {
+            $to = Carbon::parse($request->to)->endOfDay();
+            $query->where(function ($q) use ($to) {
+                $q->where('date', '<=', $to)
+                  ->orWhere(function ($sub) use ($to) {
+                      $sub->whereNull('date')->where('created_at', '<=', $to);
+                  });
+            });
         }
 
-        // Other Filters
-        if ($request->filled('source'))
-            $query->where('platform', 'like', "%{$request->source}%");
+        // Source Filter
+        if ($request->filled('source')) {
+            $query->where(function($sq) use ($request) {
+                $sq->where('platform', 'like', "%{$request->source}%")
+                   ->orWhere('form_name', 'like', "%{$request->source}%");
+            });
+        }
+
         if ($request->filled('status'))
             $query->where('lead_status', $request->status);
         if ($request->filled('owner_id')) {
@@ -411,6 +434,7 @@ class LeadTableController extends Controller
             ->get();
 
         $statusCountsQuery = (clone $query)
+            ->without(['user', 'owner', 'bucket', 'category', 'latestMessage', 'tags'])
             ->where(function($lq) {
                 $lq->whereNull('is_converted')->orWhere('is_converted', 0);
             })
@@ -459,9 +483,21 @@ class LeadTableController extends Controller
             $b->leads_count = $cnt;
         });
 
-        $hasActiveFilter = $request->filled('search') || $request->filled('search_uid') || $request->filled('from') || $request->filled('source') || $request->filled('owner_id') || $request->filled('lead_engagement_status') || $request->filled('category_id') || $request->filled('company') || $request->filled('campaign_name') || $request->filled('has_followups');
+        $hasActiveFilter = $request->filled('search') 
+            || $request->filled('search_uid') 
+            || $request->filled('from') 
+            || $request->filled('to') 
+            || $request->filled('source') 
+            || $request->filled('owner_id') 
+            || $request->filled('lead_engagement_status') 
+            || $request->filled('category_id') 
+            || $request->filled('company') 
+            || $request->filled('campaign_name') 
+            || $request->filled('adset_name') 
+            || $request->filled('ad_name') 
+            || $request->filled('has_followups');
 
-        $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
+        $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : $totalLeadsCount;
 
         if ($hasActiveFilter && empty($request->lead_status)) {
             $childtotalLeadsCount = $leads->total();
@@ -489,17 +525,16 @@ class LeadTableController extends Controller
         $today = Carbon::today();
         $followupsQuery = CallBack::query();
         if (auth()->check() && auth()->user()->role_id == 3) {
-            $followupsQuery->whereHas('lead', function ($lq) {
-                $lq->where('lead_owner', auth()->id());
-            });
+            $followupsQuery->join('leads', 'callback_messages.lead_id', '=', 'leads.id')
+                           ->where('leads.lead_owner', auth()->id());
         }
         $type = $request->followup_type_filter ?? 'upcoming';
         $followupsQuery->whereNotNull('next_followup_date');
         if ($type == 'missed') {
-            $followupsQuery->whereDate('next_followup_date', '<', $today)
+            $followupsQuery->where('next_followup_date', '<', $today)
                 ->where('is_done', 0);
         } else {
-            $followupsQuery->whereDate('next_followup_date', '>=', $today);
+            $followupsQuery->where('next_followup_date', '>=', $today);
         }
         $followupsCount = $followupsQuery->count();
 
@@ -523,6 +558,48 @@ class LeadTableController extends Controller
             'allBucketsWithChildren',
             'allTags'
         ));
+    }
+
+    // ADD THIS NEW FUNCTION FOR SINGLE STATUS UPDATE
+    public function updateStatus(Request $request, $lead)
+    {
+        abort_unless(auth()->check(), 401);
+        $leadObj = Leads::findOrFail($lead);
+        
+        // Check permission for role 3
+        if (auth()->user()->role_id == 3 && $leadObj->lead_owner != auth()->id()) {
+            return response()->json(['status' => false, 'message' => 'Permission denied.'], 403);
+        }
+
+        $leadObj->update([
+            'lead_status' => $request->status_name,
+            'lead_bucket_id' => $request->bucket_id,
+        ]);
+
+        return response()->json(['status' => true, 'message' => 'Status updated successfully']);
+    }
+
+    // ADD THIS NEW FUNCTION FOR BULK STATUS UPDATE
+    public function bulkUpdateStatus(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $ids = $request->input('ids', []);
+        
+        if (empty($ids)) {
+            return response()->json(['status' => false, 'message' => 'No leads selected'], 400);
+        }
+
+        $query = Leads::whereIn('id', $ids);
+        if (auth()->user()->role_id == 3) {
+            $query->where('lead_owner', auth()->id());
+        }
+
+        $query->update([
+            'lead_status' => $request->status_name,
+            'lead_bucket_id' => $request->bucket_id,
+        ]);
+
+        return response()->json(['status' => true, 'message' => count($ids) . ' leads updated successfully']);
     }
 
     /* =========================================================================
@@ -572,14 +649,36 @@ class LeadTableController extends Controller
         if ($request->filled('from') && $request->filled('to')) {
             $from = Carbon::parse($request->from)->startOfDay();
             $to = Carbon::parse($request->to)->endOfDay();
-            $query->whereBetween('date', [$from, $to]);
+            $query->where(function ($q) use ($from, $to) {
+                $q->whereBetween('date', [$from, $to])
+                  ->orWhere(function ($sub) use ($from, $to) {
+                      $sub->whereNull('date')->whereBetween('created_at', [$from, $to]);
+                  });
+            });
         } elseif ($request->filled('from')) {
-            $query->whereDate('date', Carbon::parse($request->from)->toDateString());
+            $from = Carbon::parse($request->from)->startOfDay();
+            $query->where(function ($q) use ($from) {
+                $q->where('date', '>=', $from)
+                  ->orWhere(function ($sub) use ($from) {
+                      $sub->whereNull('date')->where('created_at', '>=', $from);
+                  });
+            });
+        } elseif ($request->filled('to')) {
+            $to = Carbon::parse($request->to)->endOfDay();
+            $query->where(function ($q) use ($to) {
+                $q->where('date', '<=', $to)
+                  ->orWhere(function ($sub) use ($to) {
+                      $sub->whereNull('date')->where('created_at', '<=', $to);
+                  });
+            });
         }
 
         // 4. Source Filter
         if ($request->filled('source')) {
-            $query->where('platform', 'like', "%{$request->source}%");
+            $query->where(function($sq) use ($request) {
+                $sq->where('platform', 'like', "%{$request->source}%")
+                   ->orWhere('form_name', 'like', "%{$request->source}%");
+            });
         }
 
         // 5. Lead Owner Filter
@@ -591,12 +690,39 @@ class LeadTableController extends Controller
             }
         }
 
-        // 6. Country Filter
+        // 6. Company Filter
+        if ($request->filled('company')) {
+            $companyUserIds = User::where('company_name', 'like', "%{$request->company}%")->pluck('id')->toArray();
+            $query->where(function ($q) use ($request, $companyUserIds) {
+                $q->where('business_name', 'like', "%{$request->company}%");
+                if (!empty($companyUserIds)) {
+                    $q->orWhereIn('uid', $companyUserIds);
+                }
+            });
+        }
+
+        // 7. Campaign, Adset, Ad Name Filters
+        if ($request->filled('campaign_name')) {
+            $query->where('campaign_name', 'like', "%{$request->campaign_name}%");
+        }
+        if ($request->filled('adset_name')) {
+            $query->where('adset_name', 'like', "%{$request->adset_name}%");
+        }
+        if ($request->filled('ad_name')) {
+            $query->where('ad_name', 'like', "%{$request->ad_name}%");
+        }
+
+        // 8. Engagement Status Filter
+        if ($request->filled('lead_engagement_status')) {
+            $query->where('lead_engagement_status', strtolower($request->lead_engagement_status));
+        }
+
+        // 9. Country Filter
         if ($request->filled('country')) {
             $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
         }
 
-        // 7. Category Filter
+        // 10. Category Filter
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
@@ -731,14 +857,16 @@ class LeadTableController extends Controller
             $this->applyPipelineFilters($request, $cardQuery);
             $this->applyBucketQueryFilter($cardQuery, $b);
 
-            $paginator = $cardQuery->orderBy('id', 'desc')->paginate($perPage, ['*'], 'col_' . $bId, 1);
+            $leadsItems = $cardQuery->orderBy('id', 'desc')->take($perPage + 1)->get();
+            $hasMore = $leadsItems->count() > $perPage;
+            $displayLeads = $hasMore ? $leadsItems->slice(0, $perPage) : $leadsItems;
 
             $columnCards[$bId] = [
                 'bucket' => $b,
                 'total' => $colTotal,
-                'leads' => $paginator->items(),
-                'has_more' => $paginator->hasMorePages(),
-                'next_page' => $paginator->hasMorePages() ? 2 : null,
+                'leads' => $displayLeads,
+                'has_more' => $hasMore,
+                'next_page' => $hasMore ? 2 : null,
             ];
         }
 
