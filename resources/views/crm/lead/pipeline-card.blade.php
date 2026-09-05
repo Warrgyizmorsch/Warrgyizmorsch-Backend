@@ -27,9 +27,9 @@
          onclick="if (!event.target.closest('button, a, select, input')) openViewDetailsModalLazy({{ $lead->id }})">
         {{-- Card Header: Engagement Status & Date --}}
         <div class="d-flex align-items-center justify-content-between mb-2">
-            <span class="badge {{ $badgeBg }} px-2 py-1 fs-11 rounded-2 text-uppercase fw-semibold">
+            <!-- <span class="badge {{ $badgeBg }} px-2 py-1 fs-11 rounded-2 text-uppercase fw-semibold">
                 {{ $lead->lead_engagement_status ?? 'Standard' }}
-            </span>
+            </span> -->
             <small class="text-muted fs-11 ms-auto">
                 <i class="feather-calendar me-1"></i>{{ $createdDate }}
             </small>

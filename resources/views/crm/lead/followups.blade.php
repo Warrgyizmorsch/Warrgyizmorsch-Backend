@@ -180,6 +180,17 @@
                         <input type="date" name="to" class="form-control form-control-sm border-slate" value="{{ request('to') }}" style="font-size: 12px; width: 140px;">
                     </div>
 
+                    {{-- NEW: Sort Dropdown (Only visible on Missed Tab) --}}
+                    @if($tab === 'missed')
+                    <div class="col-12 col-sm-auto d-flex align-items-center gap-1.5 ms-sm-1">
+                        <span class="text-muted fs-12 fw-semibold"><i class="feather-bar-chart-2 text-primary me-1"></i>Sort:</span>
+                        <select name="sort_dir" class="form-select form-select-sm border-slate" style="font-size: 12px; width: 125px; cursor: pointer;" onchange="this.form.submit()">
+                            <option value="desc" {{ request('sort_dir', 'desc') == 'desc' ? 'selected' : '' }}>Newest Missed</option>
+                            <option value="asc" {{ request('sort_dir') == 'asc' ? 'selected' : '' }}>Oldest Missed</option>
+                        </select>
+                    </div>
+                    @endif
+
                     {{-- Live Search Input with Suggestions Dropdown --}}
                     <div class="col-12 col-md position-relative">
                         <div class="input-group input-group-sm w-100">
@@ -222,7 +233,7 @@
                             <th class="text-center followup-action-cell">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="lead-table-body">
+                    <tbody class="lead-table-body" id="lead-table-body">
                         @forelse($followups as $item)
                             @php
                                 $lead = $item->lead;
@@ -356,14 +367,14 @@
                                                 <i class="feather-message-square"></i>
                                             </button>
 
-                                            {{-- Convert to Deal (for Leads) --}}
+                                            {{-- Convert to Deal (for Leads) 
                                             @unless($lead->is_converted)
                                                 <button type="button" class="table-action-btn text-warning" 
                                                         onclick="convertFollowupToDeal({{ $item->id }}, this)"
                                                         title="Convert to Deal">
                                                     <i class="feather-briefcase"></i>
                                                 </button>
-                                            @endunless
+                                            @endunless --}}
                                         @endif
                                     </div>
                                 </td>
@@ -381,8 +392,19 @@
             </div>
         </div>
 
-        {{-- Pagination --}}
-        <div class="d-flex align-items-center justify-content-between mt-3 px-1">
+        <div id="lead-infinite-loader"
+             class="lead-infinite-loader"
+             data-next-page="{{ $followups->nextPageUrl() }}">
+            @if($followups->hasMorePages())
+                <span class="spinner-border text-primary d-none" role="status" aria-hidden="true"></span>
+                <span class="loader-message">Scroll down to load more follow-ups</span>
+            @elseif($followups->count())
+                <span class="loader-message">All follow-ups loaded</span>
+            @endif
+        </div>
+
+        {{-- Pagination (fallback hidden for infinite scroll) --}}
+        <div class="d-none align-items-center justify-content-between mt-3 px-1" aria-hidden="true">
             <div class="text-muted fs-12">
                 Showing {{ $followups->firstItem() ?? 0 }} to {{ $followups->lastItem() ?? 0 }} of {{ $followups->total() }} entries
             </div>

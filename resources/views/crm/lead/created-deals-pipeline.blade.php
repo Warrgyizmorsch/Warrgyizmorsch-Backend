@@ -261,6 +261,97 @@
     }
 
     let draggedCard = null;
+    let autoScrollAnimId = null;
+    let scrollSpeedX = 0;
+    let scrollSpeedY = 0;
+    let activeColContainer = null;
+
+    function stopAutoScroll() {
+        scrollSpeedX = 0;
+        scrollSpeedY = 0;
+        activeColContainer = null;
+        if (autoScrollAnimId) {
+            cancelAnimationFrame(autoScrollAnimId);
+            autoScrollAnimId = null;
+        }
+    }
+
+    function autoScrollStep() {
+        if (!draggedCard) {
+            stopAutoScroll();
+            return;
+        }
+
+        const board = document.getElementById('pipelineBoard');
+        if (board && scrollSpeedX !== 0) {
+            board.scrollLeft += scrollSpeedX;
+        }
+
+        if (activeColContainer && scrollSpeedY !== 0) {
+            activeColContainer.scrollTop += scrollSpeedY;
+        }
+
+        if (scrollSpeedX !== 0 || scrollSpeedY !== 0) {
+            autoScrollAnimId = requestAnimationFrame(autoScrollStep);
+        } else {
+            autoScrollAnimId = null;
+        }
+    }
+
+    function handleDocumentDragOver(e) {
+        if (!draggedCard) return;
+        e.preventDefault();
+
+        const board = document.getElementById('pipelineBoard');
+        if (!board) return;
+
+        const bRect = board.getBoundingClientRect();
+        const edgeThreshold = 140;
+        const maxSpeed = 26;
+
+        const clientX = e.clientX;
+        const rightBoundary = Math.min(bRect.right, window.innerWidth);
+        const leftBoundary = Math.max(bRect.left, 0);
+
+        if (clientX > rightBoundary - edgeThreshold) {
+            const distance = Math.max(0, rightBoundary - clientX);
+            const ratio = (edgeThreshold - distance) / edgeThreshold;
+            scrollSpeedX = Math.round(ratio * maxSpeed) + 4;
+        } else if (clientX < leftBoundary + edgeThreshold) {
+            const distance = Math.max(0, clientX - leftBoundary);
+            const ratio = (edgeThreshold - distance) / edgeThreshold;
+            scrollSpeedX = -(Math.round(ratio * maxSpeed) + 4);
+        } else {
+            scrollSpeedX = 0;
+        }
+
+        const colContainer = e.target.closest('.pipeline-cards-container');
+        if (colContainer) {
+            activeColContainer = colContainer;
+            const cRect = colContainer.getBoundingClientRect();
+            const vThreshold = 70;
+            if (e.clientY > cRect.bottom - vThreshold) {
+                const vDist = Math.max(0, cRect.bottom - e.clientY);
+                const vRatio = (vThreshold - vDist) / vThreshold;
+                scrollSpeedY = Math.round(vRatio * 18) + 3;
+            } else if (e.clientY < cRect.top + vThreshold) {
+                const vDist = Math.max(0, e.clientY - cRect.top);
+                const vRatio = (vThreshold - vDist) / vThreshold;
+                scrollSpeedY = -(Math.round(vRatio * 18) + 3);
+            } else {
+                scrollSpeedY = 0;
+            }
+        } else {
+            scrollSpeedY = 0;
+            activeColContainer = null;
+        }
+
+        if (!autoScrollAnimId && (scrollSpeedX !== 0 || scrollSpeedY !== 0)) {
+            autoScrollAnimId = requestAnimationFrame(autoScrollStep);
+        }
+    }
+
+    document.addEventListener('dragover', handleDocumentDragOver);
 
     function handleDragStart(e) {
         draggedCard = this;
@@ -270,6 +361,7 @@
     }
 
     function handleDragEnd(e) {
+        stopAutoScroll();
         if (draggedCard) {
             draggedCard.classList.remove('dragging');
         }
@@ -293,6 +385,7 @@
     }
 
     function handleDrop(e) {
+        stopAutoScroll();
         e.preventDefault();
         const targetCol = e.target.closest('.pipeline-column');
         if (!targetCol) return;

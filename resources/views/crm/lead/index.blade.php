@@ -573,7 +573,7 @@ $exportColumns = [
                                         </th> -->
                                         <th class="bg-white">Detail</th>
                                         <th style="text-align: left;">Last Comment</th>
-                                        <th>Engagement</th>
+                                        <!-- <th>Engagement</th> -->
                                         <!-- <th>Name</th>
                                         <th>Contact</th> -->
                                         <th>City</th>
@@ -707,24 +707,26 @@ $exportColumns = [
                                                 @endif
                                             </td>                                                        
                                             
-                                            <td style="max-width: 200px !important;">
-                                                <form action="{{ route('lead.updateEngagementStatus', $lead->id) }}"
-                                                    method="POST"
-                                                    class="engagement-form">
-                                                    @csrf
-                                                    @method('PUT')
+                                            <!-- Engagement (Commented out)
+                                             <td style="max-width: 200px !important;">
+                                                 <form action="{{ route('lead.updateEngagementStatus', $lead->id) }}"
+                                                     method="POST"
+                                                     class="engagement-form">
+                                                     @csrf
+                                                     @method('PUT')
 
-                                                    <select name="lead_engagement_status"
-                                                            class="form-control engagement-status-select"
-                                                            data-select2-selector="tag">
-                                                        <option value="">Select</option>
-                                                        <option value="hot"  {{ $lead->lead_engagement_status === 'hot' ? 'selected' : '' }}>Hot</option>
-                                                        <option value="warm" {{ $lead->lead_engagement_status === 'warm' ? 'selected' : '' }}>Warm</option>
-                                                        <option value="cold" {{ $lead->lead_engagement_status === 'cold' ? 'selected' : '' }}>Cold</option>
-                                                        <option value="dead" {{ $lead->lead_engagement_status === 'dead' ? 'selected' : '' }}>Dead</option>
-                                                    </select>
-                                                </form>
-                                            </td>
+                                                     <select name="lead_engagement_status"
+                                                             class="form-control engagement-status-select"
+                                                             data-select2-selector="tag">
+                                                         <option value="">Select</option>
+                                                         <option value="hot"  {{ $lead->lead_engagement_status === 'hot' ? 'selected' : '' }}>Hot</option>
+                                                         <option value="warm" {{ $lead->lead_engagement_status === 'warm' ? 'selected' : '' }}>Warm</option>
+                                                         <option value="cold" {{ $lead->lead_engagement_status === 'cold' ? 'selected' : '' }}>Cold</option>
+                                                         <option value="dead" {{ $lead->lead_engagement_status === 'dead' ? 'selected' : '' }}>Dead</option>
+                                                     </select>
+                                                 </form>
+                                             </td>
+                                             -->
 
                                             <!-- Name -->
                                             <!-- <td>{{ $lead->user->name ?? 'N/A' }}</td> -->

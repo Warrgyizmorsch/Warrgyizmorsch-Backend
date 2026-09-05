@@ -31,10 +31,10 @@
             <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
                 <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
                     <i class="fas fa-sliders text-primary fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status & Engagement</h6>
+                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status</h6>
                 </div>
                 <div class="card-body p-3">
-                    {{-- Engagement Status --}}
+                    <!-- {{-- Engagement Status (Commented out) --}}
                     <div class="mb-3">
                         <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
                             <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
@@ -47,6 +47,7 @@
                             <option value="dead" {{ strtolower($lead->lead_engagement_status) == 'dead' ? 'selected' : '' }}>💀 Dead</option>
                         </select>
                     </div>
+                    -->
 
                     {{-- Lead Status --}}
                     <div>

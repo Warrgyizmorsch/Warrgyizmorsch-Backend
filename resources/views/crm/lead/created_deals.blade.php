@@ -196,7 +196,7 @@
                             <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="checkAll"></th>
                             <th>Lead Info</th>
                             <th>Status / Sub Status</th>
-                            <th>Engagement</th>
+                            {{-- <th>Engagement</th> --}}
                             <th>Owner</th>
                             <th>Created Date</th>
                             <th class="text-end" style="min-width: 220px;">Actions</th>
@@ -289,7 +289,7 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td>
+                                {{-- <td>
                                     <div class="dropdown d-inline-block">
                                         <a href="javascript:void(0);" 
                                            class="pipeline-pill-badge {{ $engPillClass }} dropdown-toggle text-decoration-none" 
@@ -304,7 +304,7 @@
                                             <li><a class="dropdown-item" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'dead', this)"><span class="pipeline-pill-badge pipeline-pill-dead">💀 Dead</span></a></li>
                                         </ul>
                                     </div>
-                                </td>
+                                </td> --}}
                                 <td>
                                     <div class="d-flex align-items-center gap-1.5">
                                         <div class="rounded-circle bg-secondary-subtle text-secondary d-flex align-items-center justify-content-center fw-bold fs-11" style="width: 24px; height: 24px;">
@@ -805,8 +805,8 @@
                     if (lead.lead_status) {
                         badgesHtml += `<span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-flag me-1"></i> Status: ${lead.lead_status}</span>`;
                     }
-                    let eng = (lead.lead_engagement_status || 'New').toUpperCase();
-                    badgesHtml += `<span class="badge bg-warning-subtle text-warning border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-zap me-1"></i> Engagement: ${eng}</span>`;
+                    // let eng = (lead.lead_engagement_status || 'New').toUpperCase();
+                    // badgesHtml += `<span class="badge bg-warning-subtle text-warning border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-zap me-1"></i> Engagement: ${eng}</span>`;
                     document.getElementById('vd_badges').innerHTML = badgesHtml;
 
                     // Helper field renderer
@@ -835,7 +835,7 @@
                     let lInfo = '';
                     lInfo += fItem('feather-layers', 'Bucket', bucket);
                     lInfo += fItem('feather-flag', 'Status', lead.lead_status);
-                    lInfo += fItem('feather-zap', 'Engagement', lead.lead_engagement_status);
+                    // lInfo += fItem('feather-zap', 'Engagement', lead.lead_engagement_status);
                     lInfo += fItem('feather-user-check', 'Owner', owner.name || 'Unassigned');
                     lInfo += fItem('feather-target', 'Campaign Name', lead.campaign_name);
                     lInfo += fItem('feather-grid', 'Adset Name', lead.adset_name);

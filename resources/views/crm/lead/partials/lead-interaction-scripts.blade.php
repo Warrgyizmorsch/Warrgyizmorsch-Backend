@@ -61,60 +61,162 @@
         updateScrollButtons();
     });
 
-    document.addEventListener('DOMContentLoaded', function () {
-        const tableBody = document.getElementById('lead-table-body');
-        const loader = document.getElementById('lead-infinite-loader');
-        if (!tableBody || !loader) return;
+    (function () {
+        const initInfiniteScroll = () => {
+            const tableBody = document.getElementById('lead-table-body');
+            const loader = document.getElementById('lead-infinite-loader');
+            if (!tableBody || !loader) return;
+            if (loader.dataset.initialized === 'true') return;
+            loader.dataset.initialized = 'true';
 
-        const spinner = loader.querySelector('.spinner-border');
-        const message = loader.querySelector('.loader-message');
-        let nextPageUrl = loader.dataset.nextPage || '';
-        let isLoading = false;
+            const spinner = loader.querySelector('.spinner-border');
+            const message = loader.querySelector('.loader-message');
+            let nextPageUrl = loader.dataset.nextPage || '';
+            let isLoading = false;
+            let observer = null;
 
-        const setLoaderState = (state) => {
-            if (spinner) spinner.classList.toggle('d-none', state !== 'loading');
-            if (!message) return;
-            if (state === 'loading') message.textContent = 'Loading next 20 leads...';
-            if (state === 'ready') message.textContent = 'Scroll down to load more leads';
-            if (state === 'complete') message.textContent = 'All leads loaded';
-            if (state === 'error') message.textContent = 'Could not load more leads. Scroll to try again.';
-        };
+            const getItemType = () => {
+                const path = window.location.pathname.toLowerCase();
+                const title = (document.title || '').toLowerCase();
+                if (path.includes('deal') || title.includes('deal')) return 'deals';
+                if (path.includes('follow') || title.includes('follow')) return 'follow-ups';
+                return 'leads';
+            };
 
-        const loadMoreLeads = async () => {
-            if (isLoading || !nextPageUrl) return;
-            isLoading = true;
-            setLoaderState('loading');
+            const normalizeUrl = (url) => {
+                if (!url) return '';
+                try {
+                    const parsed = new URL(url, window.location.href);
+                    return window.location.origin + parsed.pathname + parsed.search;
+                } catch (e) {
+                    return url;
+                }
+            };
 
+            const setLoaderState = (state) => {
+                if (spinner) spinner.classList.toggle('d-none', state !== 'loading');
+                if (!message) return;
+                const itemType = getItemType();
+                if (state === 'loading') {
+                    message.textContent = `Loading more ${itemType}...`;
+                } else if (state === 'ready') {
+                    message.textContent = `Scroll down or click to load more ${itemType}`;
+                } else if (state === 'complete') {
+                    message.textContent = `All ${itemType} loaded`;
+                } else if (state === 'error') {
+                    message.textContent = `Could not load more ${itemType}. Click to retry.`;
+                }
+            };
+
+            const loadMoreLeads = async () => {
+                if (isLoading || !nextPageUrl) return;
+                isLoading = true;
+                setLoaderState('loading');
+
+                const targetUrl = normalizeUrl(nextPageUrl);
+
+                try {
+                    const response = await fetch(targetUrl, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    if (!response.ok) throw new Error('Unable to load entries');
+
+                    const html = await response.text();
+                    const parsedDocument = new DOMParser().parseFromString(html, 'text/html');
+                    const newRows = parsedDocument.querySelectorAll('#lead-table-body > tr');
+                    const nextLoader = parsedDocument.getElementById('lead-infinite-loader');
+
+                    if (newRows.length > 0) {
+                        newRows.forEach(row => {
+                            if (row.querySelector('td[colspan]')) return;
+                            if (row.id && document.getElementById(row.id)) return;
+                            tableBody.appendChild(document.adoptNode ? document.adoptNode(row) : row);
+                        });
+                        if (typeof updateBulkActionsState === 'function') {
+                            updateBulkActionsState();
+                        }
+                    }
+
+                    nextPageUrl = nextLoader ? (nextLoader.dataset.nextPage || nextLoader.getAttribute('data-next-page') || '') : '';
+                    loader.dataset.nextPage = nextPageUrl;
+                    loader.setAttribute('data-next-page', nextPageUrl);
+                    setLoaderState(nextPageUrl ? 'ready' : 'complete');
+
+                    if (observer && nextPageUrl) {
+                        observer.unobserve(loader);
+                        observer.observe(loader);
+                    }
+
+                    if (nextPageUrl) {
+                        setTimeout(checkAndLoad, 250);
+                    }
+                } catch (error) {
+                    console.error('Infinite scroll error:', error);
+                    setLoaderState('error');
+                } finally {
+                    isLoading = false;
+                }
+            };
+
+            const checkAndLoad = () => {
+                if (isLoading || !nextPageUrl) return;
+                const rect = loader.getBoundingClientRect();
+                const vHeight = window.innerHeight || document.documentElement.clientHeight || 800;
+                if (rect.top <= vHeight + 600) {
+                    loadMoreLeads();
+                }
+            };
+
+            // 1. Click to load fallback
+            loader.style.cursor = 'pointer';
+            loader.addEventListener('click', function () {
+                if (nextPageUrl && !isLoading) {
+                    loadMoreLeads();
+                } else if (message && message.textContent.includes('retry')) {
+                    loadMoreLeads();
+                }
+            });
+
+            // 2. IntersectionObserver
             try {
-                const response = await fetch(nextPageUrl, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                if (!response.ok) throw new Error('Unable to load leads');
+                observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            loadMoreLeads();
+                        }
+                    });
+                }, { rootMargin: '450px 0px', threshold: 0 });
 
-                const html = await response.text();
-                const parsedDocument = new DOMParser().parseFromString(html, 'text/html');
-                const newRows = parsedDocument.querySelectorAll('#lead-table-body > tr');
-                const nextLoader = parsedDocument.getElementById('lead-infinite-loader');
+                if (nextPageUrl) observer.observe(loader);
+            } catch (e) {
+                console.warn('IntersectionObserver not supported, using scroll fallback:', e);
+            }
 
-                newRows.forEach(row => tableBody.appendChild(row));
-                nextPageUrl = nextLoader ? (nextLoader.dataset.nextPage || '') : '';
-                loader.dataset.nextPage = nextPageUrl;
-                setLoaderState(nextPageUrl ? 'ready' : 'complete');
-            } catch (error) {
-                setLoaderState('error');
-            } finally {
-                isLoading = false;
+            // 3. Scroll events on window, document, and containers
+            window.addEventListener('scroll', checkAndLoad, { passive: true });
+            document.addEventListener('scroll', checkAndLoad, { passive: true, capture: true });
+            window.addEventListener('resize', checkAndLoad, { passive: true });
+            document.querySelectorAll('.nxl-container, .nxl-content, .table-responsive, .main-content').forEach(el => {
+                el.addEventListener('scroll', checkAndLoad, { passive: true });
+            });
+
+            // 4. Initial check
+            if (nextPageUrl) {
+                setLoaderState('ready');
+                setTimeout(checkAndLoad, 250);
+            } else {
+                setLoaderState('complete');
             }
         };
 
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) loadMoreLeads();
-        }, { rootMargin: '180px 0px', threshold: 0.01 });
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initInfiniteScroll);
+        } else {
+            initInfiniteScroll();
+        }
+    })();
 
-        if (nextPageUrl) observer.observe(loader);
-    });
-
-    const leadStatusMap = @json(
+    var leadStatusMap = window.leadStatusMap = window.leadStatusMap || @json(
         (isset($childBuckets) ? $childBuckets : collect())->mapWithKeys(function($b) {
             return [$b->name => [
                 'id' => $b->id,
@@ -124,7 +226,7 @@
             ]];
         })
     );
-    const sharedLeadTagsMap = @json(
+    var sharedLeadTagsMap = window.sharedLeadTagsMap = window.sharedLeadTagsMap || @json(
         (isset($leads) ? collect(method_exists($leads, 'items') ? $leads->items() : $leads) : collect())->mapWithKeys(function ($lead) {
             return [$lead->id => $lead->tags->pluck('id')->values()->toArray()];
         })
@@ -486,8 +588,8 @@
                     if (lead.lead_status) {
                         badgesHtml += `<span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-flag me-1"></i> Status: ${lead.lead_status}</span>`;
                     }
-                    let eng = (lead.lead_engagement_status || 'New').toUpperCase();
-                    badgesHtml += `<span class="badge bg-warning-subtle text-warning border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-zap me-1"></i> Engagement: ${eng}</span>`;
+                    // let eng = (lead.lead_engagement_status || 'New').toUpperCase();
+                    // badgesHtml += `<span class="badge bg-warning-subtle text-warning border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-zap me-1"></i> Engagement: ${eng}</span>`;
                     document.getElementById('vd_badges').innerHTML = badgesHtml;
 
                     // Helper field renderer
@@ -516,7 +618,7 @@
                     let lInfo = '';
                     lInfo += fItem('feather-layers', 'Bucket', bucket);
                     lInfo += fItem('feather-flag', 'Status', lead.lead_status);
-                    lInfo += fItem('feather-zap', 'Engagement', lead.lead_engagement_status);
+                    // lInfo += fItem('feather-zap', 'Engagement', lead.lead_engagement_status);
                     lInfo += fItem('feather-user-check', 'Owner', owner.name || 'Unassigned');
                     lInfo += fItem('feather-target', 'Campaign Name', lead.campaign_name);
                     lInfo += fItem('feather-grid', 'Adset Name', lead.adset_name);
@@ -577,7 +679,7 @@
         }
     }
 
-    const LEAD_FORM_DRAFT_KEY = 'crm_create_lead_draft_v1';
+    var LEAD_FORM_DRAFT_KEY = window.LEAD_FORM_DRAFT_KEY = window.LEAD_FORM_DRAFT_KEY || 'crm_create_lead_draft_v1';
     let draftSaveTimeout = null;
 
     function saveLeadFormDraft() {
@@ -883,7 +985,6 @@
 
             // 2. Pipeline view: update columns
             const newBoard = doc.getElementById('pipelineBoard');
-            const currentBoard = document.getElementById('pipelineBoard');
             if (newBoard && currentBoard) {
                 newBoard.querySelectorAll('.pipeline-column').forEach(newCol => {
                     const bId = newCol.getAttribute('data-bucket-id');
@@ -1188,8 +1289,8 @@
     /* =========================================================================
        CHECKBOX SELECTION & FLOATING BULK ACTIONS CONTROLLER
        ========================================================================= */
-    const isDealViewMode = {{ ($isDealView ?? false) ? 'true' : 'false' }};
-    const isArchiveViewMode = {{ ($isArchiveView ?? false) ? 'true' : 'false' }};
+    var isDealViewMode = window.isDealViewMode = {{ ($isDealView ?? false) ? 'true' : 'false' }};
+    var isArchiveViewMode = window.isArchiveViewMode = {{ ($isArchiveView ?? false) ? 'true' : 'false' }};
 
     function getSelectedLeadIds() {
         const checkboxes = document.querySelectorAll('.lead-checkbox:checked');

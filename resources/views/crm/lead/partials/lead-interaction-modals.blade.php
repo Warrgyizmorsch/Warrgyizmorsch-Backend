@@ -21,21 +21,40 @@
             <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
                 <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
                     <i class="fas fa-sliders text-primary fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status & Engagement</h6>
+                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">
+                        Status
+                    </h6>
                 </div>
                 <div class="card-body p-3">
-                    <div class="mb-3">
-                        <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
-                            <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
-                        </label>
-                        <select class="form-select border-slate shadow-2xs fs-13" name="lead_engagement_status" style="border-color: #cbd5e1; border-radius: 8px;">
-                            <option value="" disabled selected>Select Engagement Status</option>
-                            <option value="hot">🔥 Hot</option>
-                            <option value="warm">⚡ Warm</option>
-                            <option value="cold">❄️ Cold</option>
-                            <option value="dead">💀 Dead</option>
-                        </select>
-                    </div>
+                    <!-- Engagement Status (Commented out)
+                    @if(!empty($isDealView))
+                        <div class="mb-3">
+                            <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
+                            </label>
+                            <select class="form-select border-slate shadow-2xs fs-13" name="lead_engagement_status" style="border-color: #cbd5e1; border-radius: 8px;">
+                                <option value="" disabled selected>Select Engagement Status</option>
+                                <option value="hot">🔥 Hot</option>
+                                <option value="warm">⚡ Warm</option>
+                                <option value="cold">❄️ Cold</option>
+                                <option value="dead">💀 Dead</option>
+                            </select>
+                        </div>
+                    @else
+                        <div class="mb-3">
+                            <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
+                                <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
+                            </label>
+                            <select class="form-select border-slate shadow-2xs fs-13" name="lead_engagement_status" style="border-color: #cbd5e1; border-radius: 8px;">
+                                <option value="" disabled selected>Select Engagement Status</option>
+                                <option value="hot">🔥 Hot</option>
+                                <option value="warm">⚡ Warm</option>
+                                <option value="cold">❄️ Cold</option>
+                                <option value="dead">💀 Dead</option>
+                            </select>
+                        </div>
+                    @endif
+                    -->
 
                     <div class="mb-3">
                         <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">

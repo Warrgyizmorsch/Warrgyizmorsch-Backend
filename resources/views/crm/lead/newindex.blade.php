@@ -872,10 +872,10 @@
                                         @endif
                                     </div>
 
-                                    {{-- Row 2: HOT Badge --}}
-                                    <div class="d-flex align-items-center">
+                                    {{-- Row 2: HOT Badge (Commented out) --}}
+                                    {{-- <div class="d-flex align-items-center">
                                         <span class="badge {{ $badgeClass }} fw-semibold px-1.5 py-0.5 rounded-pill text-uppercase" style="font-size: 8.5px;">{{ $engStatus }}</span>
-                                    </div>
+                                    </div> --}}
 
                                     {{-- Row 3: SAAP Product Badge (Stacked Below $engStatus) --}}
                                     @if($lead->product)
@@ -1284,7 +1284,7 @@
                                     @else
                                         <span class="pipeline-pill-badge pipeline-pill-saap">SAAP</span>
                                     @endif
-                                    {{-- Interactive Engagement Status Dropdown --}}
+                                    <!-- {{-- Interactive Engagement Status Dropdown (Commented out) --}}
                                     <div class="dropdown d-inline-block" onclick="event.stopPropagation();">
                                         <a href="javascript:void(0);" 
                                            class="pipeline-pill-badge {{ $engPillClass }} dropdown-toggle text-decoration-none" 
@@ -1321,6 +1321,7 @@
                                             </li>
                                         </ul>
                                     </div>
+                                    -->
                                 </div>
 
                                 {{-- Owner Row --}}
@@ -2965,7 +2966,8 @@
                 if (lead.lead_sub_status) {
                     badgesHtml += '<span class="vd-badge vd-badge-default"><i class="fas fa-code-branch"></i> ' + lead.lead_sub_status + '</span>';
                 }
-                // Engagement
+                // Engagement (Commented out)
+                /*
                 var engLower = (engagement || '').toLowerCase();
                 var engClass = 'vd-badge-default';
                 if (engLower === 'hot') engClass = 'vd-badge-hot';
@@ -2973,6 +2975,7 @@
                 else if (engLower === 'cold') engClass = 'vd-badge-cold';
                 else if (engLower === 'dead') engClass = 'vd-badge-dead';
                 badgesHtml += '<span class="vd-badge ' + engClass + '"><i class="fas fa-fire"></i> ' + (engagement || 'N/A') + '</span>';
+                */
                 // Product
                 if (lead.product) {
                     badgesHtml += '<span class="vd-badge vd-badge-product"><i class="fas fa-box"></i> ' + lead.product + '</span>';
@@ -3013,7 +3016,7 @@
                 leadInfoHtml += fieldHtml('fa-layer-group', 'Bucket', bucket);
                 leadInfoHtml += fieldHtml('fa-flag', 'Status', status);
                 leadInfoHtml += fieldHtml('fa-code-branch', 'Sub-Status', lead.lead_sub_status);
-                leadInfoHtml += fieldHtml('fa-fire', 'Engagement', engagement);
+                // leadInfoHtml += fieldHtml('fa-fire', 'Engagement', engagement);
                 leadInfoHtml += fieldHtml('fa-box', 'Product', lead.product);
                 leadInfoHtml += fieldHtml('fa-dollar-sign', 'Deal Value', lead.deal_value ? ('₹' + lead.deal_value) : '');
                 leadInfoHtml += fieldHtml('fa-bullhorn', 'Source', lead.lead_source || lead.platform);
@@ -4324,10 +4327,10 @@
                     <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
                         <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
                             <i class="fas fa-sliders text-primary fs-12"></i>
-                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status & Engagement</h6>
+                            <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">Status</h6>
                         </div>
                         <div class="card-body p-3">
-                            {{-- Engagement Status --}}
+                            <!-- Engagement Status (Commented out)
                             <div class="mb-3">
                                 <label class="form-label text-secondary fw-semibold mb-1 fs-11 text-uppercase tracking-wider">
                                     <i class="fas fa-fire text-danger me-1 fs-10"></i>Engagement Status
@@ -4340,6 +4343,8 @@
                                     <option value="dead">💀 Dead</option>
                                 </select>
                             </div>
+                            -->
+                           
 
                             {{-- Lead Status --}}
                             <div class="mb-3">

@@ -123,7 +123,8 @@ class CreatedDealController extends Controller
         $perPage = (int) $request->get('per_page', 20);
         $perPage = in_array($perPage, [20, 50, 100, 250, 500]) ? $perPage : 20;
 
-        $leads = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        // $leads = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends($request->query());
+        $leads = $query->orderBy('updated_at', 'desc')->paginate($perPage)->appends($request->query());
 
         // Fetch parent/child buckets for offcanvas status change
         $childBuckets = Bucket::with('children')

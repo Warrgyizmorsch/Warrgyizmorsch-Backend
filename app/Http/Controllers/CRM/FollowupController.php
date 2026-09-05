@@ -153,13 +153,29 @@ class FollowupController extends Controller
 
         $allCount = $leadCount + $dealCount + $missedCount;
 
+        // // Pagination
+        // $perPage = (int) $request->get('per_page', 20);
+        // $perPage = in_array($perPage, [20, 50, 100, 250, 500]) ? $perPage : 20;
+
+        // $followups = $query
+        //     ->orderBy('next_followup_date', $tab === 'missed' ? 'desc' : 'asc')
+        //     ->paginate($perPage)
+        //     ->appends($request->query());
+
         // Pagination
         $perPage = (int) $request->get('per_page', 20);
         $perPage = in_array($perPage, [20, 50, 100, 250, 500]) ? $perPage : 20;
 
+        // NEW: Check if user selected a sort direction, otherwise use existing default logic
+        $sortDir = $request->get('sort_dir');
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = $tab === 'missed' ? 'desc' : 'asc';
+        }
+
         $followups = $query
-            ->orderBy('next_followup_date', $tab === 'missed' ? 'desc' : 'asc')
-            ->paginate($perPage);
+            ->orderBy('next_followup_date', $sortDir)
+            ->paginate($perPage)
+            ->appends($request->query());
 
         // Fetch Buckets and Owners for Offcanvas actions
         $childBuckets = Bucket::with('children')

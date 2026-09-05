@@ -593,7 +593,7 @@
                             <th class="lead-select-column"><input type="checkbox" class="form-check-input" id="checkAll"></th>
                             <th class="lead-info-column">Lead Info</th>
                             <th class="lead-status-column">Status / Sub Status</th>
-                            <th class="lead-engagement-column">Engagement</th>
+                            {{-- <th class="lead-engagement-column">Engagement</th> --}}
                             <th class="lead-owner-column">Owner</th>
                             <th class="lead-date-column">Created Date</th>
                             <th class="lead-actions-column">Actions</th>
@@ -603,14 +603,8 @@
                         @forelse($leads as $index => $lead)
                             @php
                                 $statusName = $lead->lead_status ?: optional($lead->bucket)->name ?: 'Yet to Call';
-                                $eng = strtolower(trim($lead->lead_engagement_status ?? ''));
-                                $engPillClass = match($eng) {
-                                    'hot' => 'pipeline-pill-hot',
-                                    'warm' => 'pipeline-pill-warm',
-                                    'cold' => 'pipeline-pill-cold',
-                                    'dead' => 'pipeline-pill-dead',
-                                    default => 'pipeline-pill-new',
-                                };
+                                $eng = '';
+                                $engPillClass = '';
                             @endphp
                             <tr id="lead-row-{{ $lead->id }}">
                                 <td class="lead-select-column">
@@ -686,7 +680,7 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="lead-engagement-column">
+                                {{-- <td class="lead-engagement-column">
                                     <div class="dropdown d-inline-block">
                                         <a href="javascript:void(0);" 
                                            class="pipeline-pill-badge {{ $engPillClass }} dropdown-toggle text-decoration-none" 
@@ -701,7 +695,7 @@
                                             <li><a class="dropdown-item" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'dead', this)"><span class="pipeline-pill-badge pipeline-pill-dead">💀 Dead</span></a></li>
                                         </ul>
                                     </div>
-                                </td>
+                                </td> --}}
                                 <td data-owner-cell="{{ $lead->id }}">
                                     @if($lead->owner)
                                     <div class="d-flex align-items-center gap-1.5">
@@ -805,7 +799,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center py-4 text-muted">
+                                <td colspan="6" class="text-center py-4 text-muted">
                                     <i class="feather-inbox fs-2 mb-2 d-block text-secondary"></i>
                                     {{ ($isDealView ?? false) ? 'No created deals found in this view.' : 'No leads found in this view.' }}
                                 </td>
@@ -843,7 +837,7 @@
 
 @push('scripts')
 <script>
-    const leadStatusMap = @json(
+    var leadStatusMap = window.leadStatusMap = @json(
         (isset($childBuckets) ? $childBuckets : collect())->mapWithKeys(function($b) {
             return [$b->name => [
                 'id' => $b->id,
@@ -982,7 +976,6 @@
 
                     let badgesHtml = `
                         <span class="badge bg-soft-primary text-primary px-2.5 py-1.5 fs-12 fw-semibold"><i class="feather-flag me-1"></i>${lead.lead_status || bucket.name || 'Yet to Call'}</span>
-                        <span class="badge bg-soft-warning text-warning px-2.5 py-1.5 fs-12 fw-semibold text-capitalize"><i class="feather-activity me-1"></i>${lead.lead_engagement_status || 'New'}</span>
                         ${category.category_name ? `<span class="badge bg-soft-success text-success px-2.5 py-1.5 fs-12 fw-semibold"><i class="feather-tag me-1"></i>${category.category_name}</span>` : ''}
                     `;
                     document.getElementById('vd_badges').innerHTML = badgesHtml;

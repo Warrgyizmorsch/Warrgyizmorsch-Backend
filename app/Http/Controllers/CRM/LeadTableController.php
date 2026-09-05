@@ -58,6 +58,13 @@ class LeadTableController extends Controller
                     'converted_at' => now(),
                 ]
             );
+
+            \App\Models\CallBack::create([
+                'lead_id' => $leadObj->id,
+                'created_by' => auth()->id(),
+                'message' => 'Lead successfully converted to Deal.', // Agar column ka naam 'remark' hai, to 'remark' likhein
+                'is_done' => 1 // Taki yeh pending follow-up ki tarah show na ho
+            ]);
         });
 
         return response()->json(['status' => true, 'message' => 'Lead converted to deal successfully']);
@@ -119,6 +126,12 @@ class LeadTableController extends Controller
                         'converted_at' => now(),
                     ]
                 );
+                \App\Models\CallBack::create([
+                    'lead_id' => $leadObj->id,
+                    'created_by' => auth()->id(),
+                    'message' => 'Lead successfully converted to Deal (Bulk Action).',
+                    'is_done' => 1
+                ]);
             }
         });
 
