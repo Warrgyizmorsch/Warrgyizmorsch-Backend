@@ -907,6 +907,12 @@
         })
     );
 
+    // CSRF Token nikalne ka dynamic function (Taki Cache ka issue na aaye)
+    function getSafeCsrfToken() {
+        let metaTag = document.querySelector('meta[name="csrf-token"]');
+        return metaTag ? metaTag.getAttribute('content') : '{{ csrf_token() }}';
+    }
+
     function onOffcanvasMainStatusChange(selectedMainStatus, preselectedSubStatus = '') {
         const subSelect = document.getElementById('editStatusSubSelect');
         if (!subSelect) return;
@@ -1114,15 +1120,16 @@
         if (!confirm('Convert lead to deal? The lead will be moved to Created Deals.')) return;
         if (button) button.disabled = true;
         try {
+            let token = getSafeCsrfToken();
             const response = await fetch("{{ url('/new-leads-table') }}/" + leadId + "/convert-deal", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-CSRF-TOKEN': token,
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: new URLSearchParams({ _token: '{{ csrf_token() }}' })
+                body: new URLSearchParams({ _token: token })
             });
             const data = await response.json();
             if (!response.ok || !data.status) throw new Error(data.message || 'Lead conversion failed');
@@ -1151,8 +1158,9 @@
         btnSpan.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
         try {
+            let token = getSafeCsrfToken();
             const params = new URLSearchParams({
-                _token: '{{ csrf_token() }}',
+                _token: token,
                 bucket_id: bucketId,
                 status_name: statusName
             });
@@ -1161,7 +1169,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-CSRF-TOKEN': token,
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
@@ -1193,21 +1201,21 @@
         if (!confirm(`Update status to "${statusName}" for ${ids.length} selected lead(s)?`)) return;
 
         try {
+            let token = getSafeCsrfToken();
             const params = new URLSearchParams();
-            params.append('_token', '{{ csrf_token() }}');
+            params.append('_token', token);
             params.append('bucket_id', bucketId);
             params.append('status_name', statusName);
             ids.forEach(id => params.append('ids[]', id));
 
-            const bulkUrl = {{ !empty($isDealView) ? 'true' : 'false' }} 
-                ? "{{ route('created.deals.bulkUpdateStatus') }}" 
-                : "{{ url('/new-leads-table/bulk-update-status') }}";
+            // Safe URL to avoid route not found exceptions
+            const bulkUrl = "{{ url('/new-leads-table/bulk-update-status') }}";
 
             const response = await fetch(bulkUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-CSRF-TOKEN': token,
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
@@ -1241,15 +1249,16 @@
         if (!confirm('Are you sure you want to move this lead to Archive?')) return;
         if (button) button.disabled = true;
         try {
+            let token = getSafeCsrfToken();
             const response = await fetch("{{ url('/archive-leads') }}/" + leadId + "/archive", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'X-CSRF-TOKEN': token,
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: new URLSearchParams({ _token: '{{ csrf_token() }}' })
+                body: new URLSearchParams({ _token: token })
             });
             const data = await response.json();
             if (!response.ok || !data.success) throw new Error(data.message || 'Archive failed');
@@ -1266,6 +1275,51 @@
             else alert(data.message || 'Lead archived');
         } catch (error) {
             if (button) button.disabled = false;
+            if (window.Swal) Swal.fire('Error', error.message, 'error');
+            else alert(error.message);
+        }
+    }
+
+    async function executeBulkConvertToDeal() {
+        const checked = document.querySelectorAll('.lead-checkbox:checked');
+        const ids = Array.from(checked).map(cb => cb.value);
+        if (!ids.length) {
+            if (window.Swal) Swal.fire('No Selection', 'Please select at least one lead using the checkboxes.', 'warning');
+            else alert('Please select at least one lead using the checkboxes.');
+            return;
+        }
+
+        if (!confirm(`Convert ${ids.length} selected lead(s) to deals?`)) return;
+
+        try {
+            let token = getSafeCsrfToken();
+            const params = new URLSearchParams();
+            params.append('_token', token);
+            ids.forEach(id => params.append('ids[]', id));
+
+            const response = await fetch("{{ url('/new-leads-table/bulk-convert-deal') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: params
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.status) throw new Error(data.message || 'Conversion failed');
+
+            ids.forEach(id => {
+                const row = document.getElementById('lead-row-' + id);
+                if (row) row.remove();
+            });
+            deselectAllRows();
+
+            if (window.Swal) Swal.fire({ icon: 'success', title: 'Converted!', text: data.message, timer: 1500, showConfirmButton: false });
+            else alert(data.message || 'Leads converted successfully');
+        } catch (error) {
             if (window.Swal) Swal.fire('Error', error.message, 'error');
             else alert(error.message);
         }
@@ -1377,50 +1431,6 @@
         const checkAll = document.getElementById('checkAll');
         if (checkAll) checkAll.checked = false;
         updateBulkActionsState();
-    }
-
-    async function executeBulkConvertToDeal() {
-        const checked = document.querySelectorAll('.lead-checkbox:checked');
-        const ids = Array.from(checked).map(cb => cb.value);
-        if (!ids.length) {
-            if (window.Swal) Swal.fire('No Selection', 'Please select at least one lead using the checkboxes.', 'warning');
-            else alert('Please select at least one lead using the checkboxes.');
-            return;
-        }
-
-        if (!confirm(`Convert ${ids.length} selected lead(s) to deals?`)) return;
-
-        try {
-            const params = new URLSearchParams();
-            params.append('_token', '{{ csrf_token() }}');
-            ids.forEach(id => params.append('ids[]', id));
-
-            const response = await fetch("{{ url('/new-leads-table/bulk-convert-deal') }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: params
-            });
-
-            const data = await response.json();
-            if (!response.ok || !data.status) throw new Error(data.message || 'Conversion failed');
-
-            ids.forEach(id => {
-                const row = document.getElementById('lead-row-' + id);
-                if (row) row.remove();
-            });
-            deselectAllRows();
-
-            if (window.Swal) Swal.fire({ icon: 'success', title: 'Converted!', text: data.message, timer: 1500, showConfirmButton: false });
-            else alert(data.message || 'Leads converted successfully');
-        } catch (error) {
-            if (window.Swal) Swal.fire('Error', error.message, 'error');
-            else alert(error.message);
-        }
     }
 
     // Expose all globally on window
