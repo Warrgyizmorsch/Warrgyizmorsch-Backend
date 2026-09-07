@@ -798,15 +798,12 @@
                     document.getElementById('vd_leadName').textContent = user.name || 'N/A';
                     document.getElementById('vd_leadSubtitle').textContent = (lead.business_name || 'No Business') + ' • Lead ID: #' + lead.id;
 
-                    // Badges
-                    let badgesHtml = '';
-                    let bucket = lead.bucket ? lead.bucket.name : 'N/A';
-                    badgesHtml += `<span class="badge bg-primary-subtle text-primary border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-layers me-1"></i> Bucket: ${bucket}</span>`;
-                    if (lead.lead_status) {
-                        badgesHtml += `<span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-flag me-1"></i> Status: ${lead.lead_status}</span>`;
-                    }
-                    // let eng = (lead.lead_engagement_status || 'New').toUpperCase();
-                    // badgesHtml += `<span class="badge bg-warning-subtle text-warning border px-2.5 py-1 fs-11 fw-semibold"><i class="feather-zap me-1"></i> Engagement: ${eng}</span>`;
+                    // Badges - Only Lead's Actual Status (No duplicate/mismatched Bucket)
+                    let currentStatus = (lead.lead_status && String(lead.lead_status).trim() !== '') 
+                        ? String(lead.lead_status).trim() 
+                        : ((lead.bucket && lead.bucket.name) ? lead.bucket.name : 'New');
+
+                    let badgesHtml = `<span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fs-11 fw-semibold"><i class="feather-flag me-1"></i> Status: ${currentStatus}</span>`;
                     document.getElementById('vd_badges').innerHTML = badgesHtml;
 
                     // Helper field renderer
@@ -831,11 +828,9 @@
                     pInfo += fItem('feather-globe', 'Website', lead.website);
                     document.getElementById('vd_personalInfo').innerHTML = pInfo;
 
-                    // Lead Info & Campaign
+                    // Lead Info & Campaign - Bucket removed, only actual Status shown
                     let lInfo = '';
-                    lInfo += fItem('feather-layers', 'Bucket', bucket);
-                    lInfo += fItem('feather-flag', 'Status', lead.lead_status);
-                    // lInfo += fItem('feather-zap', 'Engagement', lead.lead_engagement_status);
+                    lInfo += fItem('feather-flag', 'Status', currentStatus);
                     lInfo += fItem('feather-user-check', 'Owner', owner.name || 'Unassigned');
                     lInfo += fItem('feather-target', 'Campaign Name', lead.campaign_name);
                     lInfo += fItem('feather-grid', 'Adset Name', lead.adset_name);

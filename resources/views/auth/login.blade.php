@@ -47,13 +47,13 @@
                 <button type="submit" class="button sign-in">Log In</button>
 
                 <!-- Footer Links -->
-                <p class="footer mt-3">
+                <!-- <p class="footer mt-3">
                     <a href="{{ route('password.request') }}" class="link">Forgot password?</a><br />
-                    <!-- <span class="flex justify-between">
+                   <span class="flex justify-between">
                         Don't have an account?
                         <a  class="link flex justify-end ml-auto">Sign up, it's free!</a>
-                    </span>  route('register') -->
-                </p>
+                    </span>  route('register')
+                </p> -->
             </form>
         </div>
     </div>

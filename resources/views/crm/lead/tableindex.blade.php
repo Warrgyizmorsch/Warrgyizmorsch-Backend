@@ -1033,40 +1033,66 @@
                 if (data.status === 'success') {
                     let lead = data.lead || {};
                     let user = data.user || {};
-                    let category = data.category || {};
-                    let bucket = data.bucket || {};
+                    let owner = data.owner || {};
 
-                    document.getElementById('vd_leadName').textContent = user.name || 'Lead Details';
-                    document.getElementById('vd_leadSubtitle').textContent = 'Lead #' + lead.id + (lead.created_at ? ' • ' + new Date(lead.created_at).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' }) : '');
+                    document.getElementById('vd_leadName').textContent = user.name || 'N/A';
+                    document.getElementById('vd_leadSubtitle').textContent = (lead.business_name || 'No Business') + ' • Lead ID: #' + lead.id;
 
-                    let badgesHtml = `
-                        <span class="badge bg-soft-primary text-primary px-2.5 py-1.5 fs-12 fw-semibold"><i class="feather-flag me-1"></i>${lead.lead_status || bucket.name || 'Yet to Call'}</span>
-                        ${category.category_name ? `<span class="badge bg-soft-success text-success px-2.5 py-1.5 fs-12 fw-semibold"><i class="feather-tag me-1"></i>${category.category_name}</span>` : ''}
-                    `;
+                    // Badges - Only Lead's Actual Status (No duplicate/mismatched Bucket)
+                    let currentStatus = (lead.lead_status && String(lead.lead_status).trim() !== '') 
+                        ? String(lead.lead_status).trim() 
+                        : ((lead.bucket && lead.bucket.name) ? lead.bucket.name : 'New');
+
+                    let badgesHtml = `<span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fs-11 fw-semibold"><i class="feather-flag me-1"></i> Status: ${currentStatus}</span>`;
                     document.getElementById('vd_badges').innerHTML = badgesHtml;
 
-                    document.getElementById('vd_personalInfo').innerHTML = `
-                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Full Name</span><span class="fw-semibold text-dark fs-13">${user.name || 'N/A'}</span></div></div>
-                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Contact No</span><span class="fw-semibold text-dark fs-13"><a href="tel:${user.contact_no}" class="text-dark text-decoration-none">${user.contact_no || 'N/A'}</a></span></div></div>
-                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Email Address</span><span class="fw-semibold text-dark fs-13">${user.email || 'N/A'}</span></div></div>
-                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Business Name</span><span class="fw-semibold text-dark fs-13">${lead.business_name || 'N/A'}</span></div></div>
-                    `;
+                    // Helper field renderer
+                    function fItem(icon, label, value) {
+                        let val = (value && value !== 'null' && value !== 'undefined') ? value : 'N/A';
+                        return `
+                            <div class="col-md-4 col-sm-6">
+                                <div class="p-2 border rounded bg-light">
+                                    <div class="text-muted fs-10 text-uppercase fw-bold mb-0.5"><i class="${icon} me-1 text-primary"></i> ${label}</div>
+                                    <div class="fw-semibold text-dark fs-12 text-truncate" title="${val}">${val}</div>
+                                </div>
+                            </div>`;
+                    }
 
-                    document.getElementById('vd_leadInfo').innerHTML = `
-                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Lead Source</span><span class="fw-semibold text-dark fs-13">${lead.platform || 'N/A'}</span></div></div>
-                        <div class="col-md-6"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Assigned Owner</span><span class="fw-semibold text-dark fs-13">${lead.owner ? lead.owner.name : 'Unassigned'}</span></div></div>
-                        <div class="col-md-12"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Requirements / Pain Points</span><span class="text-dark fs-12">${lead.pain_points || 'None specified.'}</span></div></div>
-                    `;
+                    // Personal & Contact Info
+                    let pInfo = '';
+                    pInfo += fItem('feather-user', 'Full Name', user.name);
+                    pInfo += fItem('feather-phone', 'Contact No.', user.contact_no);
+                    pInfo += fItem('feather-mail', 'Email', user.email);
+                    pInfo += fItem('feather-briefcase', 'Business Name', lead.business_name);
+                    pInfo += fItem('feather-hash', 'GST Number', lead.gst_number);
+                    pInfo += fItem('feather-globe', 'Website', lead.website);
+                    document.getElementById('vd_personalInfo').innerHTML = pInfo;
 
-                    document.getElementById('vd_addressInfo').innerHTML = `
-                        <div class="col-md-4"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">City</span><span class="fw-semibold text-dark fs-13">${lead.city || user.city || 'N/A'}</span></div></div>
-                        <div class="col-md-4"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">State</span><span class="fw-semibold text-dark fs-13">${lead.state || user.state || 'N/A'}</span></div></div>
-                        <div class="col-md-4"><div class="p-2.5 bg-light rounded-2"><span class="text-muted fs-11 d-block mb-1">Pincode</span><span class="fw-semibold text-dark fs-13">${lead.pincode || user.pincode || 'N/A'}</span></div></div>
-                    `;
+                    // Lead Info & Campaign - Bucket removed, only actual Status shown
+                    let lInfo = '';
+                    lInfo += fItem('feather-flag', 'Status', currentStatus);
+                    lInfo += fItem('feather-user-check', 'Owner', owner.name || 'Unassigned');
+                    lInfo += fItem('feather-target', 'Campaign Name', lead.campaign_name);
+                    lInfo += fItem('feather-grid', 'Adset Name', lead.adset_name);
+                    lInfo += fItem('feather-tv', 'Ad Name', lead.ad_name);
+                    lInfo += fItem('feather-file-text', 'Form Name', lead.form_name);
+                    lInfo += fItem('feather-layout', 'Platform', lead.platform);
+                    lInfo += fItem('feather-book', 'Course Study', lead.what_course_are_you_planning_to_study);
+                    lInfo += fItem('feather-dollar-sign', 'Budget', lead.budget);
+                    lInfo += fItem('feather-globe', 'Country Visa', lead.applying_country_for_a_visa);
+                    document.getElementById('vd_leadInfo').innerHTML = lInfo;
+
+                    // Address Info
+                    let aInfo = '';
+                    aInfo += fItem('feather-map-pin', 'City', lead.city);
+                    aInfo += fItem('feather-map', 'State', lead.state);
+                    aInfo += fItem('feather-hash', 'Pincode', lead.pincode);
+                    aInfo += fItem('feather-home', 'Address', lead.address);
+                    document.getElementById('vd_addressInfo').innerHTML = aInfo;
                 }
             })
             .catch(err => {
-                document.getElementById('vd_personalInfo').innerHTML = '<div class="col-12 text-danger p-3 text-center">Failed to load lead details.</div>';
+                document.getElementById('vd_personalInfo').innerHTML = '<div class="col-12 text-danger py-2 fs-12">Failed to load lead details.</div>';
             });
     }
 

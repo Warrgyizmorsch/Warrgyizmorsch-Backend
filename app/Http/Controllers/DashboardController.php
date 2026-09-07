@@ -111,7 +111,10 @@ class DashboardController extends Controller
                     $seenStatusKeys[$statusKey] = true;
 
                     $matchingCount = $allStatusCounts->filter(function($item) use ($childNameNorm, $child, $b) {
-                        return $item->norm_status === $childNameNorm || $item->lead_bucket_id == $child->id;
+                        if ($item->norm_status !== '') {
+                            return $item->norm_status === $childNameNorm;
+                        }
+                        return $item->lead_bucket_id == $child->id;
                     })->sum('cnt');
 
                     if ($matchingCount > 0 || in_array($child->name, ['Yet to Call', 'Qualifying', 'Proposal Sent', 'Negotiation', 'Awaiting Confirmation', 'No Response', 'Closed', 'In Progress', 'Not Qualified'])) {
@@ -127,7 +130,10 @@ class DashboardController extends Controller
             } else {
                 $bNameNorm = strtolower(trim($b->name));
                 $matchingCount = $allStatusCounts->filter(function($item) use ($bNameNorm, $b) {
-                    return $item->norm_status === $bNameNorm || $item->lead_bucket_id == $b->id;
+                    if ($item->norm_status !== '') {
+                        return $item->norm_status === $bNameNorm;
+                    }
+                    return $item->lead_bucket_id == $b->id;
                 })->sum('cnt');
 
                 $overviewStatuses[] = [
@@ -290,18 +296,46 @@ class DashboardController extends Controller
         $columnCards = [];
         $perPage = 15;
 
+        // Auto-sync any legacy leads whose status is closed/lost but bucket is still pointing to Yet to Call
+        try {
+            $lostBucket = Bucket::where('is_deleted', 0)
+                ->where(function($q) {
+                    $q->where('name', 'LIKE', '%lost%')->orWhere('name', 'LIKE', '%closed%');
+                })->first();
+
+            $yetToCallBucket = Bucket::where('is_deleted', 0)
+                ->where('name', 'LIKE', '%yet to call%')
+                ->first();
+
+            if ($lostBucket && $yetToCallBucket) {
+                Leads::whereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), ['closed', 'not qualified', 'lost', 'disqualified', 'wrong number'])
+                    ->where('lead_bucket_id', $yetToCallBucket->id)
+                    ->update(['lead_bucket_id' => $lostBucket->id]);
+            }
+        } catch (\Throwable $e) {
+            // Silently continue if sync fails
+        }
+
         foreach ($pipelineBuckets as $b) {
             $bName = strtolower(trim($b->name));
             $bId = $b->id;
             $childIds = $b->children ? $b->children->pluck('id')->toArray() : [];
             $childNames = $b->children ? $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
 
-            $colTotal = $statusCountsDb->filter(function ($item) use ($bName, $bId, $childNames, $childIds) {
-                $itemStatus = strtolower(trim($item->status_name));
-                if ($itemStatus === $bName || $item->lead_bucket_id == $bId) return true;
-                if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) return true;
-                if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) return true;
-                return false;
+            $isYetToCall = ($bName === 'yet to call');
+            $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
+            $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
+            $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
+
+            $colTotal = $statusCountsDb->filter(function ($item) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+                $itemStatus = strtolower(trim($item->status_name ?? ''));
+                if ($itemStatus !== '') {
+                    return in_array($itemStatus, $matchingStatuses);
+                }
+                if ($isYetToCall) {
+                    return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds) || is_null($item->lead_bucket_id) || $item->lead_bucket_id == 0);
+                }
+                return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds));
             })->sum('cnt');
 
             $cardQuery = Leads::with([
@@ -320,17 +354,37 @@ class DashboardController extends Controller
                 $cardQuery->whereBetween('created_at', [$filterStart, $filterEnd]);
             }
 
-            $cardQuery->where(function ($q) use ($bName, $bId, $childNames, $childIds) {
-                $q->where('lead_bucket_id', $bId)
-                  ->orWhere('lead_status', $bName);
-                if (!empty($childIds)) {
-                    $q->orWhereIn('lead_bucket_id', $childIds);
-                }
-                if (!empty($childNames)) {
-                    $q->orWhereIn('lead_status', $childNames);
-                }
-                if ($bName === 'yet to call') {
-                    $q->orWhereNull('lead_status')->orWhere('lead_status', '');
+            $cardQuery->where(function ($q) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+                $q->where(function ($sq) use ($matchingStatuses) {
+                    $sq->whereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $matchingStatuses);
+                });
+
+                if ($isYetToCall) {
+                    $q->orWhere(function ($sq) use ($bId, $childIds) {
+                        $sq->where(function ($emptyStatus) {
+                            $emptyStatus->whereNull('lead_status')
+                                        ->orWhere(DB::raw('TRIM(COALESCE(lead_status, ""))'), '');
+                        })->where(function ($bk) use ($bId, $childIds) {
+                            $bk->where('lead_bucket_id', $bId)
+                               ->orWhereNull('lead_bucket_id')
+                               ->orWhere('lead_bucket_id', 0);
+                            if (!empty($childIds)) {
+                                $bk->orWhereIn('lead_bucket_id', $childIds);
+                            }
+                        });
+                    });
+                } else {
+                    $q->orWhere(function ($sq) use ($bId, $childIds) {
+                        $sq->where(function ($emptyStatus) {
+                            $emptyStatus->whereNull('lead_status')
+                                        ->orWhere(DB::raw('TRIM(COALESCE(lead_status, ""))'), '');
+                        })->where(function ($bk) use ($bId, $childIds) {
+                            $bk->where('lead_bucket_id', $bId);
+                            if (!empty($childIds)) {
+                                $bk->orWhereIn('lead_bucket_id', $childIds);
+                            }
+                        });
+                    });
                 }
             });
 

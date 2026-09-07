@@ -455,8 +455,11 @@ class LeadTableController extends Controller
                     $cName = strtolower(trim($child->name));
                     $cId = $child->id;
                     $childCnt = $statusCounts->filter(function ($item) use ($cName, $cId) {
-                        $itemStatus = strtolower(trim($item->status_name));
-                        return ($itemStatus === $cName || $item->lead_bucket_id == $cId);
+                        $itemStatus = strtolower(trim($item->status_name ?? ''));
+                        if ($itemStatus !== '') {
+                            return $itemStatus === $cName;
+                        }
+                        return $item->lead_bucket_id == $cId;
                     })->sum('cnt');
                     $child->leads_count = $childCnt;
                 });
@@ -467,18 +470,20 @@ class LeadTableController extends Controller
             $childIds = $b->children->pluck('id')->toArray();
             $childNames = $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
 
-            $cnt = $statusCounts->filter(function ($item) use ($bName, $bId, $childNames, $childIds) {
-                $itemStatus = strtolower(trim($item->status_name));
-                if ($itemStatus === $bName || $item->lead_bucket_id == $bId) {
-                    return true;
+            $isYetToCall = ($bName === 'yet to call');
+            $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
+            $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
+            $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
+
+            $cnt = $statusCounts->filter(function ($item) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+                $itemStatus = strtolower(trim($item->status_name ?? ''));
+                if ($itemStatus !== '') {
+                    return in_array($itemStatus, $matchingStatuses);
                 }
-                if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) {
-                    return true;
+                if ($isYetToCall) {
+                    return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds) || is_null($item->lead_bucket_id) || $item->lead_bucket_id == 0);
                 }
-                if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) {
-                    return true;
-                }
-                return false;
+                return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds));
             })->sum('cnt');
             $b->leads_count = $cnt;
         });
@@ -766,22 +771,42 @@ class LeadTableController extends Controller
         $childIds = $bucket->children ? $bucket->children->pluck('id')->toArray() : [];
         $childNames = $bucket->children ? $bucket->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
 
-        $query->where(function ($q) use ($bName, $bId, $childNames, $childIds) {
-            $q->where('lead_bucket_id', $bId);
-            if (!empty($childIds)) {
-                $q->orWhereIn('lead_bucket_id', $childIds);
-            }
-            if ($bName !== '') {
-                $q->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $bName);
-            }
-            if (!empty($childNames)) {
-                $q->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames);
-            }
-            if ($bName === 'yet to call') {
-                $q->orWhereNull('lead_bucket_id')
-                  ->orWhere('lead_bucket_id', 0)
-                  ->orWhereNull('lead_status')
-                  ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), '');
+        $isYetToCall = ($bName === 'yet to call');
+        $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
+        $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
+        $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
+
+        $query->where(function ($q) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+            $q->where(function ($sq) use ($matchingStatuses) {
+                $sq->whereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $matchingStatuses);
+            });
+
+            if ($isYetToCall) {
+                $q->orWhere(function ($sq) use ($bId, $childIds) {
+                    $sq->where(function ($emptyStatus) {
+                        $emptyStatus->whereNull('lead_status')
+                                    ->orWhere(DB::raw('TRIM(COALESCE(lead_status, ""))'), '');
+                    })->where(function ($bk) use ($bId, $childIds) {
+                        $bk->where('lead_bucket_id', $bId)
+                           ->orWhereNull('lead_bucket_id')
+                           ->orWhere('lead_bucket_id', 0);
+                        if (!empty($childIds)) {
+                            $bk->orWhereIn('lead_bucket_id', $childIds);
+                        }
+                    });
+                });
+            } else {
+                $q->orWhere(function ($sq) use ($bId, $childIds) {
+                    $sq->where(function ($emptyStatus) {
+                        $emptyStatus->whereNull('lead_status')
+                                    ->orWhere(DB::raw('TRIM(COALESCE(lead_status, ""))'), '');
+                    })->where(function ($bk) use ($bId, $childIds) {
+                        $bk->where('lead_bucket_id', $bId);
+                        if (!empty($childIds)) {
+                            $bk->orWhereIn('lead_bucket_id', $childIds);
+                        }
+                    });
+                });
             }
         });
     }
@@ -842,18 +867,20 @@ class LeadTableController extends Controller
             $childIds = $b->children ? $b->children->pluck('id')->toArray() : [];
             $childNames = $b->children ? $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
 
-            $colTotal = $statusCounts->filter(function ($item) use ($bName, $bId, $childNames, $childIds) {
-                $itemStatus = strtolower(trim($item->status_name));
-                if ($itemStatus === $bName || $item->lead_bucket_id == $bId) {
-                    return true;
+            $isYetToCall = ($bName === 'yet to call');
+            $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
+            $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
+            $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
+
+            $colTotal = $statusCounts->filter(function ($item) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+                $itemStatus = strtolower(trim($item->status_name ?? ''));
+                if ($itemStatus !== '') {
+                    return in_array($itemStatus, $matchingStatuses);
                 }
-                if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) {
-                    return true;
+                if ($isYetToCall) {
+                    return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds) || is_null($item->lead_bucket_id) || $item->lead_bucket_id == 0);
                 }
-                if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) {
-                    return true;
-                }
-                return false;
+                return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds));
             })->sum('cnt');
 
             $cardQuery = Leads::with([

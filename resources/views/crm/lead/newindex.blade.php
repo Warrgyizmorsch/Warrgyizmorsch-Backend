@@ -2937,7 +2937,9 @@
                 var user = JSON.parse(el.getAttribute('data-user') || '{}');
                 var owner = JSON.parse(el.getAttribute('data-owner') || '{}');
                 var bucket = el.getAttribute('data-bucket') || 'N/A';
-                var status = el.getAttribute('data-status') || 'N/A';
+                var rawStatus = el.getAttribute('data-status') || lead.lead_status || '';
+                var rawBucket = el.getAttribute('data-bucket') || '';
+                var status = (rawStatus && rawStatus !== 'N/A') ? rawStatus : (rawBucket || 'N/A');
                 var engagement = el.getAttribute('data-engagement') || 'N/A';
 
                 // Helper: create a field item HTML
@@ -2956,8 +2958,6 @@
 
                 // Badges
                 var badgesHtml = '';
-                // Bucket
-                badgesHtml += '<span class="vd-badge vd-badge-bucket"><i class="fas fa-layer-group"></i> ' + bucket + '</span>';
                 // Status
                 if (status && status !== 'N/A') {
                     badgesHtml += '<span class="vd-badge vd-badge-status"><i class="fas fa-flag"></i> ' + status + '</span>';
@@ -3013,7 +3013,6 @@
 
                 // Lead Information
                 var leadInfoHtml = '';
-                leadInfoHtml += fieldHtml('fa-layer-group', 'Bucket', bucket);
                 leadInfoHtml += fieldHtml('fa-flag', 'Status', status);
                 leadInfoHtml += fieldHtml('fa-code-branch', 'Sub-Status', lead.lead_sub_status);
                 // leadInfoHtml += fieldHtml('fa-fire', 'Engagement', engagement);
@@ -3338,8 +3337,9 @@
                         if (data.status === 'success') {
                             titleName.textContent = data.user?.name || 'User';
                             let lead = data.lead || {};
-                            let currentBucket = (lead.bucket && lead.bucket.name) ? lead.bucket.name : 'N/A';
-                            let currentStatus = lead.lead_status || 'N/A';
+                            let currentStatus = (lead.lead_status && String(lead.lead_status).trim() !== '') 
+                                ? String(lead.lead_status).trim() 
+                                : ((lead.bucket && lead.bucket.name) ? lead.bucket.name : 'New');
 
                             if (!data.messages || data.messages.length === 0) {
                                 body.innerHTML = `
@@ -3347,8 +3347,7 @@
                                         <div class="card-body p-3">
                                             <span class="fs-11 text-muted text-uppercase fw-bold d-block mb-1">Current Active Stage</span>
                                             <div class="d-flex align-items-center gap-2 flex-wrap">
-                                                <span class="badge bg-primary-subtle text-primary border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-layer-group me-1"></i> ${currentBucket}</span>
-                                                <span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-flag me-1"></i> ${currentStatus}</span>
+                                                <span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-flag me-1"></i> Status: ${currentStatus}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -3368,7 +3367,6 @@
                                         <span class="badge bg-light text-secondary border fs-10 px-2 py-0.5">${data.messages.length} Logs</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                                        <span class="badge bg-primary-subtle text-primary border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-layer-group me-1"></i> Bucket: ${currentBucket}</span>
                                         <span class="badge bg-success-subtle text-success border px-2.5 py-1 fs-12 fw-bold"><i class="fas fa-flag me-1"></i> Status: ${currentStatus}</span>
                                     </div>
                                 </div>
