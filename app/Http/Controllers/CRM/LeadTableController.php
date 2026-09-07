@@ -576,6 +576,11 @@ class LeadTableController extends Controller
             'lead_bucket_id' => $request->bucket_id,
         ]);
 
+        \App\Models\Order::where('lead_id', $leadObj->id)->update([
+            'order_bucket_id' => $request->bucket_id,
+            'order_status' => $request->status_name,
+        ]);
+
         return response()->json(['status' => true, 'message' => 'Status updated successfully']);
     }
 
@@ -597,6 +602,11 @@ class LeadTableController extends Controller
         $query->update([
             'lead_status' => $request->status_name,
             'lead_bucket_id' => $request->bucket_id,
+        ]);
+
+        \App\Models\Order::whereIn('lead_id', $ids)->update([
+            'order_bucket_id' => $request->bucket_id,
+            'order_status' => $request->status_name,
         ]);
 
         return response()->json(['status' => true, 'message' => count($ids) . ' leads updated successfully']);

@@ -36,8 +36,32 @@ class CreatedDealController extends Controller
             $query->where('lead_owner', auth()->id());
         }
 
-        // Show every non-archived converted lead throughout the complete deal lifecycle.
-        $query->where('is_converted', 1)->where(function($q) {
+        // 3. Fetch Deal/Order Buckets to strictly isolate Deals from standard Leads
+        $childBuckets = Bucket::with('children')
+            ->whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where('type', 'order')
+            ->get();
+
+        $orderBucketIds = $childBuckets->pluck('id')
+            ->merge($childBuckets->pluck('children')->flatten()->pluck('id'))
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        $orderStatusNames = $childBuckets->pluck('name')
+            ->merge($childBuckets->pluck('children')->flatten()->pluck('name'))
+            ->filter()
+            ->map(fn($n) => strtolower(trim($n)))
+            ->unique()
+            ->toArray();
+
+        // Must strictly belong to deal/order buckets or Deal Created status, and non-archived
+        $query->where(function ($q) use ($orderBucketIds, $orderStatusNames) {
+            $q->whereIn('lead_bucket_id', $orderBucketIds)
+              ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+              ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
+        })->where(function ($q) {
             $q->where('is_archived', 0)->orWhereNull('is_archived');
         });
 
@@ -116,9 +140,30 @@ class CreatedDealController extends Controller
         if ($request->filled('ad_name')) {
             $query->where('ad_name', 'like', '%' . $request->ad_name . '%');
         }
+        $dealCreatedBucket = $childBuckets->first(fn($b) => strtolower(trim($b->name)) === 'deal created');
+        $dealCreatedBucketIds = $dealCreatedBucket ? collect([$dealCreatedBucket->id])->merge($dealCreatedBucket->children->pluck('id'))->all() : [];
+
         $dealStatusFilter = $request->input('lead_status', $request->input('status'));
-        if (!empty($dealStatusFilter)) {
-            $query->where('lead_status', $dealStatusFilter);
+        if (!empty($dealStatusFilter) && strtolower($dealStatusFilter) !== 'all') {
+            $matchingBucket = $childBuckets->first(fn($b) => strtolower(trim($b->name)) === strtolower(trim($dealStatusFilter)));
+            $matchingBucketIds = $matchingBucket ? collect([$matchingBucket->id])->merge($matchingBucket->children->pluck('id'))->all() : [];
+
+            $query->where(function ($q) use ($dealStatusFilter, $matchingBucketIds) {
+                $q->where('lead_status', $dealStatusFilter)
+                  ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), strtolower(trim($dealStatusFilter)));
+                if (!empty($matchingBucketIds)) {
+                    $q->orWhereIn('lead_bucket_id', $matchingBucketIds);
+                }
+            });
+        } elseif (empty($dealStatusFilter)) {
+            // By default on Created Deals view: strictly show leads whose status is 'Deal Created'
+            $query->where(function ($q) use ($dealCreatedBucketIds) {
+                $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%')
+                  ->orWhere('lead_status', 'Deal Created');
+                if (!empty($dealCreatedBucketIds)) {
+                    $q->orWhereIn('lead_bucket_id', $dealCreatedBucketIds);
+                }
+            });
         }
 
         // 5. Sorting & Pagination
@@ -128,15 +173,15 @@ class CreatedDealController extends Controller
         $leads = $query->orderBy('updated_at', 'desc')->paginate($perPage)->appends($request->query());
         $totalDealsCount = $leads->total();
 
-        // Fetch parent/child buckets for offcanvas status change
-        $childBuckets = Bucket::with('children')
-            ->whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->where('type', 'order')
-            ->get();
-
-        // Pre-aggregate deal counts in 1 fast query instead of N queries in loop
-        $dealCounts = Leads::where('is_converted', 1)
+        // Pre-aggregate deal counts in 1 fast query strictly for deal buckets
+        $dealCounts = Leads::where(function ($q) use ($orderBucketIds, $orderStatusNames) {
+                $q->whereIn('lead_bucket_id', $orderBucketIds)
+                  ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+                  ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
+            })
+            ->where(function ($q) {
+                $q->where('is_archived', 0)->orWhereNull('is_archived');
+            })
             ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
             ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
             ->groupBy('lead_status', 'lead_bucket_id')
@@ -151,7 +196,7 @@ class CreatedDealController extends Controller
                 if (in_array($item->lead_bucket_id, $bucketIds) || in_array($item->status_name, $statusNames)) {
                     return true;
                 }
-                if ($bName === 'deal created' && (empty($item->lead_bucket_id) || empty($item->status_name))) {
+                if ($bName === 'deal created' && str_contains($item->status_name, 'deal created')) {
                     return true;
                 }
                 return false;
@@ -167,10 +212,8 @@ class CreatedDealController extends Controller
         $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
         $totalLeadsCount = $totalDealsCount;
         $filteredLeadCount = $leads->total();
-        $systemTotalLeadsCount = Leads::where('is_converted', 1)
-            ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
-            ->count();
         $childtotalLeadsCount = $childBuckets->sum('leads_count');
+        $systemTotalLeadsCount = $childtotalLeadsCount;
         $deletedLeadsCount = 0;
         $followupsCount = 0;
         $otherLeadsCount = 0;
@@ -209,8 +252,18 @@ class CreatedDealController extends Controller
             $query->where('lead_owner', auth()->id());
         }
 
-        // Keep non-archived converted deals visible while they move through order statuses.
-        $query->where('is_converted', 1)->where(function($q) {
+        // Must strictly belong to deal/order buckets or Deal Created status, and non-archived
+        $orderBuckets = Bucket::where('is_deleted', 0)
+            ->where('type', 'order')
+            ->get();
+        $orderBucketIds = $orderBuckets->pluck('id')->toArray();
+        $orderStatusNames = $orderBuckets->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
+
+        $query->where(function ($q) use ($orderBucketIds, $orderStatusNames) {
+            $q->whereIn('lead_bucket_id', $orderBucketIds)
+              ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+              ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
+        })->where(function ($q) {
             $q->where('is_archived', 0)->orWhereNull('is_archived');
         });
 
@@ -305,11 +358,8 @@ class CreatedDealController extends Controller
             if (!empty($childNames)) {
                 $q->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames);
             }
-            if ($bName === 'deal created' || $bName === 'yet to call') {
-                $q->orWhereNull('lead_bucket_id')
-                  ->orWhere('lead_bucket_id', 0)
-                  ->orWhereNull('lead_status')
-                  ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), '');
+            if ($bName === 'deal created') {
+                $q->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
             }
         });
     }
@@ -361,7 +411,7 @@ class CreatedDealController extends Controller
                 if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) {
                     return true;
                 }
-                if (($bName === 'deal created' || $bName === 'yet to call') && ($itemStatus === '' || is_null($itemStatus))) {
+                if ($bName === 'deal created' && str_contains($itemStatus, 'deal created')) {
                     return true;
                 }
                 return false;
@@ -517,5 +567,32 @@ class CreatedDealController extends Controller
             'new_bucket_id' => $targetBucket->id,
             'new_status' => $lead->lead_status,
         ]);
+    }
+
+    public function bulkUpdateStatus(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return response()->json(['status' => false, 'message' => 'No deals selected'], 400);
+        }
+
+        $query = Leads::whereIn('id', $ids);
+        if (auth()->user()->role_id == 3) {
+            $query->where('lead_owner', auth()->id());
+        }
+
+        $query->update([
+            'lead_status' => $request->status_name,
+            'lead_bucket_id' => $request->bucket_id,
+        ]);
+
+        \App\Models\Order::whereIn('lead_id', $ids)->update([
+            'order_bucket_id' => $request->bucket_id,
+            'order_status' => $request->status_name,
+        ]);
+
+        return response()->json(['status' => true, 'message' => count($ids) . ' deals updated successfully']);
     }
 }

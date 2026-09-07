@@ -235,6 +235,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/created-deals/pipeline', [CreatedDealController::class, 'pipelineIndex'])->name('created.deals.pipeline');
     Route::get('/created-deals/pipeline/cards', [CreatedDealController::class, 'pipelineCards'])->name('created.deals.pipeline.cards');
     Route::post('/created-deals/pipeline/drag-update/{lead}', [CreatedDealController::class, 'pipelineDragUpdate'])->name('created.deals.pipeline.dragUpdate');
+    Route::post('/created-deals/bulk-update-status', [CreatedDealController::class, 'bulkUpdateStatus'])->name('created.deals.bulkUpdateStatus');
     Route::get('/new-leads-table', [LeadTableController::class, 'index'])->name('leads.table.index');
     Route::post('/new-leads-table/{lead}/update-status', [LeadTableController::class, 'updateStatus'])->name('leads.table.updateStatus');
     Route::post('/new-leads-table/bulk-update-status', [LeadTableController::class, 'bulkUpdateStatus'])->name('leads.table.bulkUpdateStatus');

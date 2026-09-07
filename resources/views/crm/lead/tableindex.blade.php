@@ -447,7 +447,6 @@
                 </button>
             @else
             {{-- BULK STATUS DROPDOWN --}}
-                @unless($isDealView ?? false)
                 <div class="dropdown">
                     <button class="btn btn-sm rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5 dropdown-toggle text-white" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #6366f1;">
                         <i class="feather-sliders"></i> Change Status
@@ -463,7 +462,6 @@
                         @endforeach
                     </ul>
                 </div>
-                @endunless
                 @unless($isDealView ?? false)
                 <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5" onclick="executeBulkConvertToDeal()">
                     <i class="feather-check-circle"></i> Convert to Deal
@@ -491,19 +489,22 @@
             </button>
             <div class="lead-tab-scroll" id="lead-status-scroll">
                 @php
-                    $isAllActived = empty(request('lead_status')) && !request('deleted_leads');
+                    $isAllActived = !empty($isDealView)
+                        ? request('lead_status') === 'all'
+                        : (empty(request('lead_status')) && !request('deleted_leads'));
                 @endphp
-                <a href="{{ request()->fullUrlWithQuery(['lead_status' => '', 'deleted_leads' => '']) }}"
+                <a href="{{ request()->fullUrlWithQuery(['lead_status' => (!empty($isDealView) ? 'all' : ''), 'deleted_leads' => '']) }}"
                     class="lead-status-tab status-primary {{ $isAllActived ? 'is-active' : '' }}">
                     <i class="feather-layers"></i>
-                    ALL ({{ $leads->total() }})
+                    ALL ({{ !empty($isDealView) ? ($childtotalLeadsCount ?? $leads->total()) : ($systemTotalLeadsCount ?? $leads->total()) }})
                 </a>
 
                 @foreach($childBuckets as $bucket)
                     @php
                         $childNames = $bucket->children ? $bucket->children->pluck('name')->toArray() : [];
                         $hasActiveChild = in_array(request('lead_status'), $childNames);
-                        $isActive = (request('lead_status') == $bucket->name || $hasActiveChild) && !request('deleted_leads');
+                        $isDefaultDealBucket = !empty($isDealView) && empty(request('lead_status')) && strtolower(trim($bucket->name)) === 'deal created';
+                        $isActive = (request('lead_status') == $bucket->name || $hasActiveChild || $isDefaultDealBucket) && !request('deleted_leads');
                         $statusColor = match(true) {
                             str_contains($bucket->bucket_color ?? '', 'success') => 'status-success',
                             str_contains($bucket->bucket_color ?? '', 'warning') => 'status-warning',
@@ -541,7 +542,10 @@
         @php
             $activeParentBucket = null;
             $currentStatus = request('lead_status');
-            if (!empty($currentStatus) && !request('deleted_leads')) {
+            if (!empty($isDealView) && empty($currentStatus) && !request('deleted_leads')) {
+                $currentStatus = 'Deal Created';
+            }
+            if (!empty($currentStatus) && !request('deleted_leads') && $currentStatus !== 'all') {
                 foreach ($childBuckets as $b) {
                     $childNames = $b->children ? $b->children->pluck('name')->toArray() : [];
                     if ($b->name == $currentStatus || in_array($currentStatus, $childNames)) {
@@ -1195,7 +1199,11 @@
             params.append('status_name', statusName);
             ids.forEach(id => params.append('ids[]', id));
 
-            const response = await fetch("{{ url('/new-leads-table/bulk-update-status') }}", {
+            const bulkUrl = {{ !empty($isDealView) ? 'true' : 'false' }} 
+                ? "{{ route('created.deals.bulkUpdateStatus') }}" 
+                : "{{ url('/new-leads-table/bulk-update-status') }}";
+
+            const response = await fetch(bulkUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -1217,7 +1225,12 @@
 
             deselectAllRows(); // Reset selection
 
-            if (window.Swal) Swal.fire({ icon: 'success', title: 'Updated!', text: data.message, timer: 1500, showConfirmButton: false });
+            if (window.Swal) {
+                Swal.fire({ icon: 'success', title: 'Updated!', text: data.message, timer: 1200, showConfirmButton: false });
+                setTimeout(() => window.location.reload(), 1300);
+            } else {
+                window.location.reload();
+            }
         } catch (error) {
             if (window.Swal) Swal.fire('Error', error.message, 'error');
             else alert(error.message);
