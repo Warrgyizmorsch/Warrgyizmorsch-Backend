@@ -7,6 +7,32 @@
     $headerTitle = $isArchive
         ? ($isDeal ? 'Archive Deals' : 'Archive Leads')
         : ($isDeal ? 'Created Deals' : 'New Leads Table');
+
+    $getMondayStatusStyle = function($status) {
+        $s = strtolower(trim($status ?? ''));
+        if (str_contains($s, 'qualified') || str_contains($s, 'won') || str_contains($s, 'deal created') || str_contains($s, 'converted') || str_contains($s, 'order placed') || str_contains($s, 'delivered')) {
+            return ['bg' => '#00c875', 'color' => '#ffffff'];
+        }
+        if (str_contains($s, 'attempt') || str_contains($s, 'call back') || str_contains($s, 'pending') || str_contains($s, 'retry')) {
+            return ['bg' => '#fb275d', 'color' => '#ffffff'];
+        }
+        if (str_contains($s, 'contact') || str_contains($s, 'interested') || str_contains($s, 'in discuss') || str_contains($s, 'quote')) {
+            return ['bg' => '#ff642f', 'color' => '#ffffff'];
+        }
+        if (str_contains($s, 'new') || str_contains($s, 'yet to call') || str_contains($s, 'fresh')) {
+            return ['bg' => '#fdab3d', 'color' => '#ffffff'];
+        }
+        if (str_contains($s, 'unqual') || str_contains($s, 'lost') || str_contains($s, 'dead') || str_contains($s, 'close') || str_contains($s, 'reject') || str_contains($s, 'wrong')) {
+            return ['bg' => '#797e93', 'color' => '#ffffff'];
+        }
+        if (str_contains($s, 'cold')) {
+            return ['bg' => '#579bfc', 'color' => '#ffffff'];
+        }
+        if (str_contains($s, 'warm')) {
+            return ['bg' => '#a25ddc', 'color' => '#ffffff'];
+        }
+        return ['bg' => '#0086c0', 'color' => '#ffffff'];
+    };
 @endphp
 
 @extends('layouts.app')
@@ -21,11 +47,11 @@
         bottom: 28px;
         left: 50%;
         transform: translateX(-50%) translateY(140px);
-        background: #0f172a;
+        background: #181b34;
         color: #ffffff;
-        padding: 10px 22px;
-        border-radius: 50px;
-        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.15);
+        padding: 10px 24px;
+        border-radius: 40px;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.15);
         display: flex;
         align-items: center;
         gap: 16px;
@@ -40,377 +66,565 @@
         pointer-events: auto;
     }
     .floating-bulk-actions .badge-count {
-        background: #006FC9;
+        background: #0073ea;
         color: #ffffff;
         padding: 4px 12px;
         border-radius: 20px;
         font-weight: 700;
         font-size: 13px;
-        box-shadow: 0 2px 6px rgba(0, 111, 201, 0.4);
+        box-shadow: 0 2px 6px rgba(0, 115, 234, 0.4);
     }
 
-    /* Duralux Table & Status Tab Styling */
+    /* Monday CRM Status Tabs Filter Strip */
     .lead-tab-strip {
         display: flex;
         align-items: center;
         gap: 8px;
         position: relative;
         background: #ffffff;
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 8px 12px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e2e8f0;
-        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e6e9ef;
+        margin-bottom: 14px;
     }
-
     .lead-tab-scroll {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         overflow-x: auto;
         scroll-behavior: smooth;
         white-space: nowrap;
         scrollbar-width: none;
         flex-grow: 1;
     }
-
-    .lead-tab-scroll::-webkit-scrollbar {
-        display: none;
-    }
-
+    .lead-tab-scroll::-webkit-scrollbar { display: none; }
     .lead-status-scroll-btn {
-        width: 30px;
-        height: 30px;
-        min-width: 30px;
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
         padding: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        border: 1px solid #cbd5e1;
+        border: 1px solid #d0d4e4;
         border-radius: 50%;
-        background: #f8fafc;
-        color: #334155;
+        background: #ffffff;
+        color: #676879;
         cursor: pointer;
         z-index: 2;
+        transition: all 0.15s ease;
     }
     .lead-status-scroll-btn:hover:not(:disabled) {
-        background: #2563eb;
-        border-color: #2563eb;
+        background: #0073ea;
+        border-color: #0073ea;
         color: #ffffff;
     }
-    .lead-status-scroll-btn:disabled {
-        opacity: .35;
-        cursor: default;
-    }
+    .lead-status-scroll-btn:disabled { opacity: .35; cursor: default; }
 
     .lead-status-tab {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         padding: 6px 14px;
-        border-radius: 50px;
+        border-radius: 20px;
         font-size: 12px;
         font-weight: 600;
         text-decoration: none !important;
-        transition: all 0.2s ease;
-        border: 1px solid transparent;
+        transition: all 0.15s ease;
+        border: 1px solid #d0d4e4;
+        background: #f5f6f8;
+        color: #676879;
         white-space: nowrap;
     }
+    .lead-status-tab:hover {
+        background: #e5f4ff;
+        color: #0073ea;
+        border-color: #0073ea;
+    }
+    .lead-status-tab.is-active {
+        background: #0073ea !important;
+        color: #ffffff !important;
+        border-color: #0073ea !important;
+        box-shadow: 0 1px 4px rgba(0, 115, 234, 0.3);
+    }
 
-    .lead-status-tab.status-primary { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
-    .lead-status-tab.status-primary:hover, .lead-status-tab.status-primary.is-active { background-color: #0284c7; color: #ffffff; }
-
-    .lead-status-tab.status-success { background-color: #dcfce7; color: #15803d; border-color: #bbf7d0; }
-    .lead-status-tab.status-success:hover, .lead-status-tab.status-success.is-active { background-color: #16a34a; color: #ffffff; }
-
-    .lead-status-tab.status-warning { background-color: #fef3c7; color: #b45309; border-color: #fde68a; }
-    .lead-status-tab.status-warning:hover, .lead-status-tab.status-warning.is-active { background-color: #d97706; color: #ffffff; }
-
-    .lead-status-tab.status-danger { background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-    .lead-status-tab.status-danger:hover, .lead-status-tab.status-danger.is-active { background-color: #dc2626; color: #ffffff; }
-
-    .lead-status-tab.status-info { background-color: #e0e7ff; color: #4338ca; border-color: #c7d2fe; }
-    .lead-status-tab.status-info:hover, .lead-status-tab.status-info.is-active { background-color: #4f46e5; color: #ffffff; }
-
-    .lead-status-tab.status-dark { background-color: #f1f5f9; color: #334155; border-color: #cbd5e1; }
-    .lead-status-tab.status-dark:hover, .lead-status-tab.status-dark.is-active { background-color: #334155; color: #ffffff; }
-
-    .pipeline-pill-badge {
-        padding: 3px 10px;
-        border-radius: 50px;
-        font-size: 11px;
-        font-weight: 600;
+    /* Monday CRM Table Card & Group Banner */
+    .monday-board-card {
+        border-radius: 8px;
+        border: 1px solid #d0d4e4;
+        background: #ffffff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        margin-bottom: 24px;
+        overflow: hidden;
+        border-left: 6px solid #0073ea;
+    }
+    .monday-group-banner {
+        padding: 12px 18px;
+        background: #ffffff;
+        border-bottom: 1px solid #e6e9ef;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .monday-group-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0073ea;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 8px;
+        margin: 0;
     }
-    .pipeline-pill-hot { background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
-    .pipeline-pill-warm { background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
-    .pipeline-pill-cold { background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
-    .pipeline-pill-dead { background-color: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
-    .pipeline-pill-new { background-color: #e0e7ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+    .monday-collapse-btn {
+        background: transparent;
+        border: none;
+        color: #0073ea;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 2px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s ease;
+    }
+    .monday-collapse-btn[aria-expanded="false"] i {
+        transform: rotate(-90deg);
+    }
+    .monday-group-count {
+        font-size: 12px;
+        font-weight: 500;
+        color: #676879;
+        background: #f5f6f8;
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid #e6e9ef;
+    }
 
-    .engagement-filter-bar {
+    /* Monday CRM Table Grid */
+    .lead-table-card {
+        border: none;
+        background: transparent;
+        box-shadow: none;
+    }
+    .monday-table {
+        width: 100%;
+        min-width: 1240px;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+    }
+    .monday-table thead th {
+        background: #f5f6f8;
+        color: #676879;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #d0d4e4;
+        border-right: 1px solid #e6e9ef;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    .monday-table thead th:last-child {
+        border-right: none;
+    }
+    .monday-table tbody td {
+        padding: 10px 14px;
+        font-size: 13px;
+        color: #323338;
+        vertical-align: middle;
+        border-bottom: 1px solid #e6e9ef;
+        border-right: 1px solid #e6e9ef;
+        background: #ffffff;
+        transition: background-color 0.12s ease;
+    }
+    .monday-table tbody td:last-child {
+        border-right: none;
+    }
+    .monday-table tbody tr:hover td {
+        background-color: #f0f3ff;
+    }
+
+    /* Selection Checkbox Column */
+    .monday-select-col {
+        width: 44px;
+        min-width: 44px;
+        text-align: center;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+    .monday-table .form-check-input {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        border-color: #c3c6d4;
+        cursor: pointer;
+        margin: 0;
+        vertical-align: middle;
+    }
+    .monday-table .form-check-input:checked {
+        background-color: #0073ea;
+        border-color: #0073ea;
+    }
+
+    /* Monday Item Peek Button */
+    .monday-peek-btn {
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #676879;
+        cursor: pointer;
+        font-size: 13px;
+        position: relative;
+        transition: all 0.15s ease;
+        padding: 0;
+        flex-shrink: 0;
+    }
+    .monday-peek-btn:hover {
+        background: #e5f4ff;
+        color: #0073ea;
+        border-color: #cce5ff;
+    }
+    .monday-peek-dot {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #0073ea;
+        border: 2px solid #ffffff;
+    }
+
+    /* Monday Signature Solid Color Status Pill */
+    .monday-status-pill {
+        width: 100%;
+        min-height: 32px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #ffffff !important;
+        text-align: center;
+        border-radius: 4px;
+        border: none;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 12px;
-        padding: 10px 14px;
-        margin-bottom: 12px;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+        text-decoration: none !important;
+        cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+        line-height: 1.2;
     }
-    .engagement-filter-list { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
-    .engagement-filter {
+    .monday-status-pill:hover {
+        filter: brightness(0.93);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    }
+    .monday-status-pill::after {
+        display: none;
+    }
+
+    /* Monday CRM Status Picker Dropdown */
+    .monday-status-picker-menu {
+        min-width: 170px;
+        padding: 6px !important;
+        border-radius: 6px !important;
+        border: 1px solid #d0d4e4 !important;
+        background: #ffffff !important;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12) !important;
+        max-height: 320px;
+        overflow-y: auto;
+    }
+    .monday-picker-item {
+        border-radius: 4px;
+        margin-bottom: 4px;
+        padding: 7px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-decoration: none !important;
+        display: block;
+    }
+    .monday-picker-item:hover {
+        filter: brightness(0.92);
+        transform: scale(1.02);
+    }
+
+    /* Monday Action Button (Dark Green Move to Contacts / Convert to Deal) */
+    .monday-action-btn {
+        background-color: #00854d;
+        color: #ffffff !important;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 4px;
+        border: none;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        min-width: 72px;
-        padding: 6px 13px;
+        gap: 5px;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background-color 0.15s ease, transform 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0, 133, 77, 0.2);
+        text-decoration: none !important;
+    }
+    .monday-action-btn:hover {
+        background-color: #007041;
+        transform: translateY(-1px);
+    }
+    .monday-action-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .monday-btn-deal {
+        background-color: #0073ea;
+    }
+    .monday-btn-deal:hover {
+        background-color: #0060b9;
+    }
+
+    /* Next Activity Styling (HubSpot style) */
+    .deal-next-activity-cell {
+        min-width: 210px;
+        max-width: 260px;
+    }
+    .deal-activity-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        max-width: 100%;
+        text-decoration: none !important;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 8px;
+        transition: background-color 0.15s ease;
+    }
+    .deal-activity-wrap:hover {
+        background-color: #f1f5f9;
+    }
+    .deal-activity-icon {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
         border: 1px solid #e2e8f0;
-        border-radius: 20px;
         background: #f8fafc;
         color: #475569;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+    }
+    .deal-activity-wrap:hover .deal-activity-icon {
+        transform: scale(1.06);
+        border-color: #cbd5e1;
+    }
+    .deal-activity-icon.icon-email {
+        background: #eff6ff;
+        color: #2563eb;
+        border-color: #bfdbfe;
+    }
+    .deal-activity-icon.icon-call {
+        background: #f0fdf4;
+        color: #16a34a;
+        border-color: #bbf7d0;
+    }
+    .deal-activity-icon.icon-meeting {
+        background: #faf5ff;
+        color: #9333ea;
+        border-color: #e9d5ff;
+    }
+    .deal-activity-icon.icon-whatsapp {
+        background: #f0fdf4;
+        color: #15803d;
+        border-color: #bbf7d0;
+    }
+    .deal-activity-icon.icon-task {
+        background: #f8fafc;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+    .deal-activity-icon.icon-empty {
+        background: #f8fafc;
+        color: #94a3b8;
+        border: 1px dashed #cbd5e1;
+    }
+    .deal-activity-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+        line-height: 1.25;
+    }
+    .deal-activity-title {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #0073ea;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 175px;
+    }
+    .deal-activity-wrap:hover .deal-activity-title {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+    .deal-activity-meta {
+        font-size: 11px;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+    }
+    .activity-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+    .activity-status-dot.dot-teal {
+        background-color: #0ea5e9;
+    }
+    .activity-status-dot.dot-green {
+        background-color: #10b981;
+    }
+    .activity-status-dot.dot-red {
+        background-color: #ef4444;
+    }
+    .activity-status-dot.dot-muted {
+        background-color: #94a3b8;
+    }
+    .activity-schedule-btn {
+        font-size: 11px;
+        font-weight: 600;
+        color: #0073ea;
+        background: transparent;
+        border: none;
+        padding: 0;
+        text-decoration: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .activity-schedule-btn:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+
+    /* Monday User Avatar */
+    .monday-avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background-color: #579bfc;
+        color: #ffffff;
         font-size: 11px;
         font-weight: 700;
-        text-decoration: none !important;
-        transition: all .15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        text-transform: uppercase;
+        border: 1px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    .engagement-filter:hover { transform: translateY(-1px); }
-    .engagement-filter.filter-all.is-active { background: #2563eb; border-color: #2563eb; color: #fff; }
-    .engagement-filter.filter-hot.is-active { background: #dc2626; border-color: #dc2626; color: #fff; }
-    .engagement-filter.filter-warm.is-active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
-    .engagement-filter.filter-cold.is-active { background: #0284c7; border-color: #0284c7; color: #fff; }
-    .engagement-filter.filter-dead.is-active { background: #475569; border-color: #475569; color: #fff; }
 
-    .engagement-dropdown-menu .dropdown-item {
+    /* Monday Add Item Row */
+    .monday-add-row {
+        cursor: pointer;
+        background-color: #fafbfc;
+        transition: background-color 0.15s ease;
+    }
+    .monday-add-row:hover td {
+        background-color: #f0f3ff !important;
+    }
+    .monday-add-btn-text {
+        font-size: 13px;
+        color: #676879;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .monday-add-row:hover .monday-add-btn-text {
+        color: #0073ea;
+    }
+
+    /* Monday Summary Bar */
+    .monday-summary-bar {
+        background: #fafbfc;
+        border-top: 1px solid #e6e9ef;
+        padding: 10px 16px;
         display: flex;
         align-items: center;
-        padding: 5px;
-        font-size: 12px;
-        border-radius: 6px;
+        gap: 16px;
     }
-    .engagement-dropdown-menu {
-        min-width: 132px;
-        padding: 5px;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 9px;
+    .monday-dist-bar {
+        height: 12px;
+        border-radius: 3px;
+        display: flex;
+        overflow: hidden;
+        background: #e6e9ef;
+        flex-grow: 1;
+        max-width: 260px;
     }
-    .engagement-dropdown-menu .pipeline-pill-badge {
-        width: 100%;
-        min-height: 28px;
-        justify-content: center;
-    }
-    .lead-engagement-column {
-        width: 145px;
-        min-width: 145px;
-        text-align: center;
-    }
-    .lead-engagement-column > .dropdown {
-        min-width: 105px;
-    }
-    .lead-engagement-column .dropdown-toggle.pipeline-pill-badge {
-        min-width: 105px;
-        min-height: 30px;
-        justify-content: space-between;
-        padding: 5px 10px;
+    .monday-dist-segment {
+        height: 100%;
+        transition: width 0.3s ease;
     }
 
+    /* Compact Action Buttons */
     .table-action-btn {
         width: 28px;
         height: 28px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 6px;
-        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        border: 1px solid #d0d4e4;
         background: #ffffff;
-        color: #475569;
+        color: #676879;
         transition: all 0.15s ease;
         font-size: 12px;
     }
     .table-action-btn:hover {
-        background: #f1f5f9;
-        color: #0f172a;
-        border-color: #cbd5e1;
-    }
-
-    .lead-table-card {
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        background: #ffffff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        overflow: hidden;
-    }
-
-    .lead-data-table {
-        width: 100%;
-        min-width: 1080px;
-        margin: 0;
-        border-collapse: separate;
-        border-spacing: 0;
-        table-layout: auto;
-    }
-
-    .lead-table-head {
-        background-color: #f8fafc;
-    }
-    .lead-table-head th {
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #64748b;
-        padding: 12px 16px;
-        vertical-align: middle;
-        white-space: nowrap;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #cbd5e1;
-    }
-    .lead-table-body td {
-        padding: 12px 16px;
-        font-size: 13px;
-        color: #334155;
-        vertical-align: middle;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
-        background-color: #ffffff;
-    }
-    .lead-table-head th:last-child,
-    .lead-table-body td:last-child {
-        border-right: 0;
-    }
-    .lead-table-body tr:last-child td {
-        border-bottom: none;
-    }
-    .lead-table-body tr:hover td {
-        background-color: #f8fafc;
-    }
-
-    .lead-data-table .lead-select-column {
-        width: 52px;
-        min-width: 52px;
-        padding-right: 10px;
-        padding-left: 10px;
-        text-align: center;
-    }
-
-    .lead-data-table .lead-info-column {
-        min-width: 250px;
-    }
-
-    .lead-data-table .lead-status-column {
-        min-width: 170px;
-    }
-
-    .lead-data-table .lead-owner-column,
-    .lead-data-table .lead-date-column {
-        min-width: 140px;
-    }
-
-    .lead-data-table .lead-actions-column {
-        width: 275px;
-        min-width: 275px;
-        text-align: center;
-    }
-
-    .lead-data-table .form-check-input {
-        float: none;
-        margin: 0;
-        vertical-align: middle;
-        cursor: pointer;
+        background: #f0f3ff;
+        color: #0073ea;
+        border-color: #0073ea;
     }
 
     .lead-infinite-loader {
-        min-height: 54px;
+        min-height: 50px;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 9px;
-        color: #64748b;
-        font-size: 12px;
-        font-weight: 600;
-    }
-
-    .lead-infinite-loader .spinner-border {
-        width: 20px;
-        height: 20px;
-        border-width: 2px;
-    }
-
-    .comment-history-summary {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 12px;
-        margin-bottom: 14px;
-        border: 1px solid #dbeafe;
-        border-radius: 9px;
-        background: #eff6ff;
-    }
-    .comment-timeline { position: relative; padding-left: 26px; }
-    .comment-timeline::before {
-        content: '';
-        position: absolute;
-        top: 7px;
-        bottom: 7px;
-        left: 8px;
-        width: 2px;
-        background: #dbe4ef;
-    }
-    .comment-timeline-item { position: relative; padding-bottom: 14px; }
-    .comment-timeline-item:last-child { padding-bottom: 0; }
-    .comment-timeline-dot {
-        position: absolute;
-        top: 16px;
-        left: -26px;
-        width: 18px;
-        height: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 3px solid #eff6ff;
-        border-radius: 50%;
-        background: #2563eb;
-        box-shadow: 0 0 0 1px #93c5fd;
-    }
-    .comment-history-card {
-        overflow: hidden;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        background: #fff;
-        box-shadow: 0 2px 7px rgba(15, 23, 42, .05);
-    }
-    .comment-history-meta {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
         gap: 8px;
-        padding: 9px 12px;
-        border-bottom: 1px solid #f1f5f9;
-        background: #f8fafc;
-    }
-    .comment-history-content { padding: 11px 12px; }
-    .comment-message-box {
-        padding: 9px 10px;
-        border-left: 3px solid #60a5fa;
-        border-radius: 0 6px 6px 0;
-        background: #f8fafc;
-        color: #334155;
+        color: #676879;
         font-size: 12px;
-        line-height: 1.55;
-        white-space: pre-wrap;
-        word-break: break-word;
+        font-weight: 500;
     }
 
     @media (max-width: 767.98px) {
-        .lead-table-head th,
-        .lead-table-body td {
-            padding: 10px 12px;
+        .monday-table thead th,
+        .monday-table tbody td {
+            padding: 8px 10px;
         }
     }
 </style>
@@ -606,37 +820,114 @@
             </div>
         </div> -->
 
-        {{-- Table Container --}}
-        <div class="lead-table-card">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle lead-data-table">
-                    <thead class="lead-table-head">
-                        <tr>
-                            <th class="lead-select-column"><input type="checkbox" class="form-check-input" id="checkAll"></th>
-                            <th class="lead-info-column">Lead Info</th>
-                            <th class="lead-status-column">Status</th>
-                            {{-- <th class="lead-engagement-column">Engagement</th> --}}
-                            <th class="lead-owner-column">Owner</th>
-                            <th class="lead-date-column">Created Date</th>
-                            <th class="lead-actions-column">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="lead-table-body" id="lead-table-body">
-                        @forelse($leads as $index => $lead)
-                            @php
-                                $statusName = $lead->lead_status ?: optional($lead->bucket)->name ?: 'Yet to Call';
-                                $eng = '';
-                                $engPillClass = '';
-                            @endphp
-                            <tr id="lead-row-{{ $lead->id }}">
-                                <td class="lead-select-column">
-                                    <input type="checkbox" class="form-check-input lead-checkbox" value="{{ $lead->id }}">
-                                </td>
-                                <td>
-                                    <div class="d-flex flex-column gap-1.5">
-                                        <div class="fw-bold text-dark fs-13 d-flex align-items-center gap-1.5 mb-0.5">
-                                            <span>{{ optional($lead->user)->name ?? 'N/A' }}</span>
-                                            <div class="dropdown d-inline-block">
+        {{-- Monday CRM Board Table Container --}}
+        @php
+            $groupTitle = !empty(request('lead_status')) && request('lead_status') !== 'all'
+                ? request('lead_status')
+                : ($isDeal ? 'Created Deals' : 'New Leads');
+            $totalCount = $leads->total();
+
+            // Calculate status distribution for the summary bar
+            $statusDistribution = [];
+            foreach ($leads as $l) {
+                $stName = $l->lead_status ?: optional($l->bucket)->name ?: 'Yet to Call';
+                $stStyle = $getMondayStatusStyle($stName);
+                $k = $stStyle['bg'];
+                if (!isset($statusDistribution[$k])) {
+                    $statusDistribution[$k] = [
+                        'name' => $stName,
+                        'bg' => $k,
+                        'count' => 0
+                    ];
+                }
+                $statusDistribution[$k]['count']++;
+            }
+            $loadedCount = count($leads);
+        @endphp
+
+        <div class="monday-board-card">
+            {{-- Monday Group Banner --}}
+            <div class="monday-group-banner">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="monday-collapse-btn" data-bs-toggle="collapse" data-bs-target="#mondayTableCollapse" aria-expanded="true" title="Collapse / Expand Group">
+                        <i class="feather-chevron-down"></i>
+                    </button>
+                    <h3 class="monday-group-title">
+                        {{ $groupTitle }}
+                    </h3>
+                    <span class="monday-group-count">{{ $totalCount }} {{ $isDeal ? 'deals' : 'leads' }}</span>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-link text-decoration-none text-muted p-0 d-inline-flex align-items-center gap-1" onclick="openCreateModal()" title="Add {{ $isDeal ? 'Deal' : 'Lead' }}">
+                        <i class="feather-plus-circle fs-15 text-primary"></i>
+                        <span class="fs-12 text-primary fw-semibold d-none d-sm-inline">+ Add {{ $isDeal ? 'deal' : 'lead' }}</span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Collapsible Table Grid --}}
+            <div id="mondayTableCollapse" class="collapse show">
+                <div class="table-responsive">
+                    <table class="table align-middle monday-table mb-0 lead-data-table">
+                        <thead>
+                            <tr>
+                                <th class="monday-select-col lead-select-column"><input type="checkbox" class="form-check-input" id="checkAll"></th>
+                                <th style="min-width: 230px;" class="lead-info-column">Lead</th>
+                                <th style="width: 175px; min-width: 175px; text-align: center;" class="lead-status-column">Status</th>
+                                @if($isDeal)
+                                    <th style="min-width: 210px;" class="lead-activity-column">
+                                        <div class="d-inline-flex align-items-center gap-1.5">
+                                            <span>Next Activity</span>
+                                            <i class="feather-info text-muted fs-11" title="Upcoming task or follow-up activity"></i>
+                                        </div>
+                                    </th>
+                                @else
+                                    <th style="min-width: 155px; text-align: center;">Create a Deal</th>
+                                @endif
+                                <th style="min-width: 150px;">Company</th>
+                                <th style="min-width: 130px;">Title</th>
+                                <th style="min-width: 190px;">Email</th>
+                                <th style="min-width: 140px;">Phone</th>
+                                <th style="min-width: 140px;" class="lead-owner-column">Owner</th>
+                                <th style="min-width: 110px;" class="lead-date-column">Created Date</th>
+                                <th style="min-width: 175px; text-align: center;" class="lead-actions-column">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="lead-table-body" id="lead-table-body">
+                            @forelse($leads as $index => $lead)
+                                @php
+                                    $statusName = $lead->lead_status ?: optional($lead->bucket)->name ?: 'Yet to Call';
+                                    $stStyle = $getMondayStatusStyle($statusName);
+                                @endphp
+                                <tr id="lead-row-{{ $lead->id }}">
+                                    {{-- Checkbox --}}
+                                    <td class="monday-select-col lead-select-column">
+                                        <input type="checkbox" class="form-check-input lead-checkbox" value="{{ $lead->id }}">
+                                    </td>
+
+                                    {{-- Lead Contact & Tags --}}
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            {{-- Monday Item Peek Comments Icon --}}
+                                            <button type="button" class="monday-peek-btn" onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')" title="Open updates & history">
+                                                <i class="feather-message-square"></i>
+                                                @if($lead->latestMessage)
+                                                    <span class="monday-peek-dot"></span>
+                                                @endif
+                                            </button>
+
+                                            {{-- Name & Duplicate badge --}}
+                                            <div class="d-flex flex-column gap-0.5">
+                                                <span class="fw-bold text-dark fs-13">{{ optional($lead->user)->name ?? 'N/A' }}</span>
+                                                @if($lead->duplicate_count > 0)
+                                                    <span class="badge bg-danger text-white rounded-pill" style="font-size: 9px; width: fit-content;" title="Duplicate Lead">
+                                                        Dup ({{ $lead->duplicate_count }})
+                                                    </span>
+                                                @endif
+                                            </div>
+
+                                            {{-- Tags Dropdown Button --}}
+                                            <div class="dropdown d-inline-block ms-auto">
                                                 <button type="button" class="btn btn-xs btn-light border rounded-pill px-1.5 py-0.5 text-primary d-inline-flex align-items-center gap-1 shadow-2xs" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Manage Tags" style="font-size: 11px; line-height: 1;">
                                                     <i class="fas fa-tag"></i>
                                                     <span class="badge bg-primary text-white rounded-pill px-1 py-0 {{ ($lead->tags && $lead->tags->count() > 0) ? '' : 'd-none' }}" data-lead-tag-btn-badge="{{ $lead->id }}" style="font-size: 9px;">{{ $lead->tags ? $lead->tags->count() : 0 }}</span>
@@ -658,214 +949,384 @@
                                                     @endforelse
                                                 </div>
                                             </div>
-                                            @if($lead->duplicate_count > 0)
-                                                <span class="badge bg-danger-subtle text-danger rounded-pill fs-10" title="Duplicate Lead">
-                                                    Dup ({{ $lead->duplicate_count }})
-                                                </span>
-                                            @endif
                                         </div>
-                                        <div class="text-muted fs-11 d-flex align-items-center">
-                                            <i class="feather-phone text-primary me-2 flex-shrink-0 d-inline-flex justify-content-center" style="width: 16px;"></i>
-                                            <span>{{ optional($lead->user)->contact_no ?? 'N/A' }}</span>
-                                        </div>
-                                        @if(optional($lead->user)->email)
-                                            <div class="text-muted fs-11 d-flex align-items-center">
-                                                <i class="feather-mail text-primary me-2 flex-shrink-0 d-inline-flex justify-content-center" style="width: 16px;"></i>
-                                                <span class="text-truncate" style="max-width: 220px;" title="{{ optional($lead->user)->email }}">{{ optional($lead->user)->email }}</span>
-                                            </div>
-                                        @endif
-                                        @if($lead->business_name)
-                                            <div class="text-muted fs-11 d-flex align-items-center">
-                                                <i class="feather-briefcase text-secondary me-2 flex-shrink-0 d-inline-flex justify-content-center" style="width: 16px;"></i>
-                                                <span class="text-truncate" style="max-width: 220px;" title="{{ $lead->business_name }}">{{ $lead->business_name }}</span>
-                                            </div>
-                                        @endif
-                                        <div class="d-flex flex-wrap gap-1 mt-1" data-lead-tags-container="{{ $lead->id }}">
-                                                @foreach($lead->tags as $tag)
-                                                    <span class="badge rounded-pill text-white fs-10 d-inline-flex align-items-center gap-1 shadow-2xs" style="background-color:{{ $tag->color }}" data-lead-tag="{{ $lead->id }}-{{ $tag->id }}">
-                                                        {{ $tag->name }}
-                                                        <button type="button" class="border-0 bg-transparent text-white p-0 d-inline-flex align-items-center" style="font-size:11px;line-height:1;opacity:0.85;" title="Remove tag" onclick="removeLeadTag(event, {{ $lead->id }}, {{ $tag->id }}, this)"><i class="fas fa-times-circle"></i></button>
-                                                    </span>
-                                                @endforeach
-                                        </div>
-                                    </div>
-                                </td>
-                                {{-- <td>
-                                    <div class="d-flex flex-column gap-1">
-                                        <span class="badge bg-light text-dark border fs-11 fw-semibold w-auto d-inline-block text-start">
-                                            {{ $statusName }}
-                                        </span>
-                                        @if($lead->bucket && $lead->bucket->parent)
-                                            <span class="text-muted fs-10">
-                                                Parent: {{ $lead->bucket->parent->name }}
-                                            </span>
-                                        @endif
-                                    </div>
-                                </td> --}}
 
-                                <td>
-                                    <div class="d-flex flex-column gap-1">
-                                        {{-- INLINE STATUS DROPDOWN --}}
-                                        <div class="dropdown d-inline-block">
-                                            <button class="btn btn-sm btn-light border fs-11 fw-semibold text-start text-dark dropdown-toggle p-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" data-bs-boundary="window">
+                                        {{-- Selected Tag Badges --}}
+                                        <div class="d-flex flex-wrap gap-1 mt-1" data-lead-tags-container="{{ $lead->id }}">
+                                            @foreach($lead->tags as $tag)
+                                                <span class="badge rounded-pill text-white fs-10 d-inline-flex align-items-center gap-1 shadow-2xs" style="background-color:{{ $tag->color }}" data-lead-tag="{{ $lead->id }}-{{ $tag->id }}">
+                                                    {{ $tag->name }}
+                                                    <button type="button" class="border-0 bg-transparent text-white p-0 d-inline-flex align-items-center" style="font-size:11px;line-height:1;opacity:0.85;" title="Remove tag" onclick="removeLeadTag(event, {{ $lead->id }}, {{ $tag->id }}, this)"><i class="fas fa-times-circle"></i></button>
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    </td>
+
+                                    {{-- Monday Solid Color Status Block --}}
+                                    <td style="text-align: center;">
+                                        <div class="dropdown d-inline-block w-100">
+                                            <button class="monday-status-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-boundary="window" style="background-color: {{ $stStyle['bg'] }};" id="status-pill-{{ $lead->id }}">
                                                 <span id="status-text-{{ $lead->id }}">{{ $statusName }}</span>
                                             </button>
-                                            <ul class="dropdown-menu shadow-lg fs-12 p-1 border-0" style="max-height: 280px; overflow-y: auto; border-radius: 10px;">
+                                            <ul class="dropdown-menu monday-status-picker-menu shadow-lg border-0">
                                                 @foreach(($childBuckets ?? collect()) as $bucket)
+                                                    @php $bStyle = $getMondayStatusStyle($bucket->name); @endphp
                                                     <li>
-                                                        <a class="dropdown-item fw-bold text-primary rounded-2 mb-1 py-1.5" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this)">
+                                                        <a class="dropdown-item monday-picker-item" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this, '{{ $bStyle['bg'] }}')" style="background-color: {{ $bStyle['bg'] }}; color: #ffffff;">
                                                             {{ $bucket->name }}
                                                         </a>
                                                     </li>
                                                     @if($bucket->children && $bucket->children->count() > 0)
                                                         @foreach($bucket->children as $child)
+                                                            @php $cStyle = $getMondayStatusStyle($child->name); @endphp
                                                             <li>
-                                                                <a class="dropdown-item ms-2 rounded-2 mb-1 text-dark py-1.5" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $child->id }}, '{{ addslashes($child->name) }}', this)">
-                                                                    <i class="feather-corner-down-right text-muted me-1"></i> {{ $child->name }}
+                                                                <a class="dropdown-item monday-picker-item ms-1" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $child->id }}, '{{ addslashes($child->name) }}', this, '{{ $cStyle['bg'] }}')" style="background-color: {{ $cStyle['bg'] }}; color: #ffffff;">
+                                                                    {{ $child->name }}
                                                                 </a>
                                                             </li>
                                                         @endforeach
                                                     @endif
-                                                    <li><hr class="dropdown-divider my-1"></li>
                                                 @endforeach
                                             </ul>
                                         </div>
-                                        
                                         @if($lead->bucket && $lead->bucket->parent)
-                                            <span class="text-muted fs-10" id="parent-text-{{ $lead->id }}">
+                                            <span class="text-muted d-block mt-1" id="parent-text-{{ $lead->id }}" style="font-size: 10.5px;">
                                                 Parent: {{ $lead->bucket->parent->name }}
                                             </span>
                                         @endif
-                                    </div>
-                                </td>
+                                    </td>
 
-                                {{-- <td class="lead-engagement-column">
-                                    <div class="dropdown d-inline-block">
-                                        <a href="javascript:void(0);" 
-                                           class="pipeline-pill-badge {{ $engPillClass }} dropdown-toggle text-decoration-none" 
-                                           data-bs-toggle="dropdown" aria-expanded="false">
-                                            <span>{{ ucfirst($eng ?: 'New') }}</span>
-                                        </a>
-                                        <ul class="dropdown-menu engagement-dropdown-menu shadow-sm">
-                                            <li><a class="dropdown-item" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'new', this)"><span class="pipeline-pill-badge pipeline-pill-new">New</span></a></li>
-                                            <li><a class="dropdown-item" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'hot', this)"><span class="pipeline-pill-badge pipeline-pill-hot">🔥 Hot</span></a></li>
-                                            <li><a class="dropdown-item" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'warm', this)"><span class="pipeline-pill-badge pipeline-pill-warm">⚡ Warm</span></a></li>
-                                            <li><a class="dropdown-item" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'cold', this)"><span class="pipeline-pill-badge pipeline-pill-cold">❄️ Cold</span></a></li>
-                                            <li><a class="dropdown-item" href="javascript:void(0);" onclick="updateLeadEngagement({{ $lead->id }}, 'dead', this)"><span class="pipeline-pill-badge pipeline-pill-dead">💀 Dead</span></a></li>
-                                        </ul>
-                                    </div>
-                                </td> --}}
-                                <td data-owner-cell="{{ $lead->id }}">
-                                    @if($lead->owner)
-                                    <div class="d-flex align-items-center gap-1.5">
-                                        <div class="rounded-circle bg-secondary-subtle text-secondary d-flex align-items-center justify-content-center fw-bold fs-11" style="width: 24px; height: 24px;">
-                                            {{ strtoupper(substr($lead->owner->name, 0, 1)) }}
-                                        </div>
-                                        <span class="fs-12 text-dark">{{ $lead->owner->name }}</span>
-                                    </div>
+                                    {{-- Next Activity (for Deals) or Move to Contacts (for Leads) --}}
+                                    @if($isDeal)
+                                        <td class="deal-next-activity-cell">
+                                            @php
+                                                // Determine the next upcoming activity for this deal
+                                                $activity = null;
+                                                $now = \Carbon\Carbon::now();
+
+                                                // 1. Check upcoming active callback/followup
+                                                $pendingCallback = $lead->messages
+                                                    ? $lead->messages->filter(function($m) {
+                                                        return empty($m->is_done) && !empty($m->next_followup_date);
+                                                    })->sortBy('next_followup_date')->first()
+                                                    : null;
+
+                                                // Fallback to latestMessage if it has a next_followup_date
+                                                if (!$pendingCallback && $lead->latestMessage && !empty($lead->latestMessage->next_followup_date)) {
+                                                    $pendingCallback = $lead->latestMessage;
+                                                }
+
+                                                /* 2. To-Do Task query commented out as requested */
+
+                                                // 3. Select activity from callback/followup
+                                                if ($pendingCallback) {
+                                                    try {
+                                                        $cbDate = \Carbon\Carbon::parse($pendingCallback->next_followup_date);
+                                                    } catch (\Exception $e) {
+                                                        $cbDate = null;
+                                                    }
+                                                    $activity = ['type' => 'callback', 'item' => $pendingCallback, 'date' => $cbDate];
+                                                }
+
+                                                // Action to open Edit Status offcanvas (1st screenshot)
+                                                $openEditOffcanvas = "openEditStatusOffcanvas({$lead->id}, '" . addslashes($statusName) . "', '" . addslashes($lead->lead_engagement_status ?? '') . "', " . ($lead->lead_bucket_id ?? 46) . ")";
+
+                                                // Activity tracking offcanvas for existing activity logs
+                                                $leadDisplayName = optional($lead->user)->name ?: ($lead->business_name ?: 'Lead');
+                                                $openCommentsOffcanvas = "openCommentsModal({$lead->id}, '" . addslashes($leadDisplayName) . "')";
+
+                                                // 4. Format activity details
+                                                $title = '';
+                                                $subText = '';
+                                                $iconClass = 'icon-task';
+                                                $iconHtml = '<i class="feather-calendar"></i>';
+                                                $dotClass = 'dot-teal';
+                                                $clickAction = $activity ? $openCommentsOffcanvas : $openEditOffcanvas;
+
+                                                if ($activity) {
+                                                    $userName = optional($lead->user)->name ?? 'Contact';
+                                                    $fType = strtolower(trim($activity['item']->followup_type ?? ''));
+                                                    $msgText = trim($activity['item']->message ?? '');
+
+                                                    if (str_contains($fType, 'call')) {
+                                                        $iconClass = 'icon-call';
+                                                        $iconHtml = '<i class="feather-phone"></i>';
+                                                        $title = 'Call ' . $userName;
+                                                    } elseif (str_contains($fType, 'email')) {
+                                                        $iconClass = 'icon-email';
+                                                        $iconHtml = '<i class="feather-mail"></i>';
+                                                        $title = 'Email ' . $userName;
+                                                    } elseif (str_contains($fType, 'meet')) {
+                                                        $iconClass = 'icon-meeting';
+                                                        $iconHtml = '<i class="feather-calendar"></i>';
+                                                        $title = 'Meeting w/ ' . $userName;
+                                                    } elseif (str_contains($fType, 'whats')) {
+                                                        $iconClass = 'icon-whatsapp';
+                                                        $iconHtml = '<i class="fab fa-whatsapp"></i>';
+                                                        $title = 'WhatsApp ' . $userName;
+                                                    } else {
+                                                        $iconClass = 'icon-task';
+                                                        $iconHtml = '<i class="feather-calendar"></i>';
+                                                        $title = !empty($msgText) ? \Illuminate\Support\Str::limit($msgText, 25) : ('Follow Up w/ ' . $userName);
+                                                    }
+
+                                                    if ($activity['date']) {
+                                                        $actDate = $activity['date'];
+                                                        if ($actDate->lt($now)) {
+                                                            $diffDays = $now->diffInDays($actDate);
+                                                            $diffHours = $now->diffInHours($actDate);
+                                                            $dotClass = 'dot-red';
+                                                            if ($diffDays >= 1) {
+                                                                $subText = 'Overdue by ' . $diffDays . ' ' . \Illuminate\Support\Str::plural('day', $diffDays);
+                                                            } elseif ($diffHours >= 1) {
+                                                                $subText = 'Overdue by ' . $diffHours . ' ' . \Illuminate\Support\Str::plural('hour', $diffHours);
+                                                            } else {
+                                                                $subText = 'Overdue today';
+                                                            }
+                                                        } else {
+                                                            $diffDays = $actDate->diffInDays($now);
+                                                            $diffHours = $actDate->diffInHours($now);
+                                                            if ($actDate->isToday()) {
+                                                                $dotClass = 'dot-teal';
+                                                                if ($diffHours <= 1) {
+                                                                    $subText = 'Due in an hour';
+                                                                } else {
+                                                                    $subText = 'Due in ' . $diffHours . ' ' . \Illuminate\Support\Str::plural('hour', $diffHours);
+                                                                }
+                                                            } elseif ($actDate->isTomorrow() || $diffDays <= 1) {
+                                                                $dotClass = 'dot-teal';
+                                                                $subText = 'Due tomorrow';
+                                                            } elseif ($diffDays >= 2 && $diffDays <= 6) {
+                                                                $dotClass = 'dot-teal';
+                                                                $subText = 'Due in ' . $diffDays . ' days';
+                                                            } else {
+                                                                $dotClass = 'dot-muted';
+                                                                $subText = 'Due ' . $actDate->format('M d');
+                                                            }
+                                                        }
+                                                    } else {
+                                                        $dotClass = 'dot-teal';
+                                                        $subText = 'Scheduled';
+                                                    }
+                                                }
+                                            @endphp
+
+                                            @if($activity)
+                                                <div class="deal-activity-wrap" onclick="{{ $clickAction }}" title="Next Activity: {{ $title }} - {{ $subText }} (Click to view activity tracking & history)">
+                                                    <div class="deal-activity-icon {{ $iconClass }}">
+                                                        {!! $iconHtml !!}
+                                                    </div>
+                                                    <div class="deal-activity-content">
+                                                        <span class="deal-activity-title">{{ $title }}</span>
+                                                        <span class="deal-activity-meta">
+                                                            <span class="activity-status-dot {{ $dotClass }}"></span>
+                                                            <span>{{ $subText }}</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                <div class="deal-activity-wrap" onclick="{{ $openEditOffcanvas }}" title="Click to schedule next activity & follow-up">
+                                                    <div class="deal-activity-icon icon-empty">
+                                                        <i class="feather-calendar"></i>
+                                                    </div>
+                                                    <div class="deal-activity-content">
+                                                        <span class="text-muted fs-12 fw-medium">No activity scheduled</span>
+                                                        <span class="deal-activity-meta">
+                                                            <span class="activity-schedule-btn">
+                                                                <i class="feather-plus" style="font-size: 10px;"></i> Schedule
+                                                            </span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </td>
                                     @else
-                                    <span class="text-muted fs-12 fw-semibold">N/A</span>
+                                        {{-- Monday Dark Green Action Button --}}
+                                        <td style="text-align: center;">
+                                            <button type="button" class="monday-action-btn" onclick="convertLeadToDeal({{ $lead->id }}, this)" title="Convert Lead to Deal">
+                                                Create Deal
+                                            </button>
+                                        </td>
                                     @endif
-                                </td>
-                                <td>
-                                    <span class="text-muted fs-12">{{ $lead->created_at ? $lead->created_at->format('d M Y') : 'N/A' }}</span>
-                                </td>
-                                <td class="lead-actions-column">
-                                    <div class="d-inline-flex align-items-center justify-content-center gap-1">
-                                        @if($isArchive)
-                                            {{-- Restore from Archive Button --}}
-                                            <button type="button" class="table-action-btn text-success" 
-                                                    onclick="restoreSingleLead({{ $lead->id }}, this)"
-                                                    title="Restore Lead">
-                                                <i class="feather-rotate-ccw"></i>
-                                            </button>
 
-                                            {{-- View Details Modal --}}
-                                            <button type="button" class="table-action-btn text-info" 
-                                                    onclick="openViewDetailsModalLazy({{ $lead->id }})"
-                                                    title="View Details">
-                                                <i class="feather-eye"></i>
-                                            </button>
+                                    {{-- Company --}}
+                                    <td>
+                                        <span class="text-dark fw-medium">{{ $lead->business_name ?: '—' }}</span>
+                                    </td>
 
-                                            {{-- View Comments / Messages --}}
-                                            <button type="button" class="table-action-btn text-warning" 
-                                                    onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
-                                                    title="View Comments & History">
-                                                <i class="feather-message-square"></i>
-                                            </button>
+                                    {{-- Title / Platform --}}
+                                    <td>
+                                        <span class="text-muted">{{ $lead->platform ?: (optional($lead->category)->category_name ?: '—') }}</span>
+                                    </td>
 
-                                            {{-- Delete Permanently --}}
-                                            <button type="button" class="table-action-btn text-danger" 
-                                                    onclick="deleteSingleLeadPermanently({{ $lead->id }}, this)"
-                                                    title="Delete Permanently">
-                                                <i class="feather-trash-2"></i>
-                                            </button>
+                                    {{-- Email --}}
+                                    <td>
+                                        @if(optional($lead->user)->email)
+                                            <a href="mailto:{{ optional($lead->user)->email }}" class="text-decoration-none fw-medium" style="color: #0073ea;" title="{{ optional($lead->user)->email }}">
+                                                {{ optional($lead->user)->email }}
+                                            </a>
                                         @else
-                                            {{-- Move to Archive Button --}}
-                                            <button type="button" class="table-action-btn text-warning" 
-                                                    onclick="archiveSingleLead({{ $lead->id }}, this)"
-                                                    title="Move to Archive">
-                                                <i class="feather-archive"></i>
-                                            </button>
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
 
-                                            {{-- Edit Status Offcanvas Button --}}
-                                            <button type="button" class="table-action-btn text-primary" 
-                                                    onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
-                                                    title="Edit Status">
-                                                <i class="feather-sliders"></i>
-                                            </button>
+                                    {{-- Phone --}}
+                                    <td>
+                                        @if(optional($lead->user)->contact_no)
+                                            <a href="tel:{{ optional($lead->user)->contact_no }}" class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5 fw-medium">
+                                                <i class="feather-phone text-muted fs-11"></i>
+                                                <span>{{ optional($lead->user)->contact_no }}</span>
+                                            </a>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
 
-                                            {{-- Edit Lead Button --}}
-                                            <button type="button" class="table-action-btn text-success" title="Edit Lead"
-                                                    onclick="openLeadEditModal({{ $lead->id }})">
-                                                <i class="feather-edit"></i>
-                                            </button>
+                                    {{-- Owner --}}
+                                    <td data-owner-cell="{{ $lead->id }}">
+                                        @if($lead->owner)
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="monday-avatar" title="{{ $lead->owner->name }}">
+                                                    {{ strtoupper(substr($lead->owner->name, 0, 1)) }}
+                                                </span>
+                                                <span class="fs-12 text-dark fw-medium text-truncate" style="max-width: 100px;" title="{{ $lead->owner->name }}">
+                                                    {{ $lead->owner->name }}
+                                                </span>
+                                            </div>
+                                        @else
+                                            <span class="text-muted fs-12">Unassigned</span>
+                                        @endif
+                                    </td>
 
-                                            {{-- View Details Modal --}}
-                                            <button type="button" class="table-action-btn text-info" 
-                                                    onclick="openViewDetailsModalLazy({{ $lead->id }})"
-                                                    title="View Details">
-                                                <i class="feather-eye"></i>
-                                            </button>
+                                    {{-- Created Date --}}
+                                    <td>
+                                        <span class="text-muted fs-12">{{ $lead->created_at ? $lead->created_at->format('M d, Y') : '—' }}</span>
+                                    </td>
 
-                                            {{-- View Comments / Messages --}}
-                                            <button type="button" class="table-action-btn text-warning" 
-                                                    onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
-                                                    title="View Comments & History">
-                                                <i class="feather-message-square"></i>
-                                            </button>
+                                    {{-- Actions --}}
+                                    <td class="lead-actions-column">
+                                        <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                            @if($isArchive)
+                                                {{-- Restore from Archive Button --}}
+                                                <button type="button" class="table-action-btn text-success" 
+                                                        onclick="restoreSingleLead({{ $lead->id }}, this)"
+                                                        title="Restore Lead">
+                                                    <i class="feather-rotate-ccw"></i>
+                                                </button>
 
-                                            @unless($isDealView ?? false)
-                                            {{-- Convert Lead to Deal --}}
-                                            <button type="button" class="table-action-btn text-warning"
-                                                    onclick="convertLeadToDeal({{ $lead->id }}, this)"
-                                                    title="Convert to Deal">
-                                                <i class="feather-check-circle"></i>
-                                            </button>
-                                            @endunless
+                                                {{-- View Details Modal --}}
+                                                <button type="button" class="table-action-btn text-info" 
+                                                        onclick="openViewDetailsModalLazy({{ $lead->id }})"
+                                                        title="View Details">
+                                                    <i class="feather-eye"></i>
+                                                </button>
 
-                                            {{-- Delete Lead --}}
-                                            <form action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this lead?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="table-action-btn text-danger" title="Delete Lead">
+                                                {{-- View Comments / Messages --}}
+                                                <button type="button" class="table-action-btn text-warning" 
+                                                        onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
+                                                        title="View Comments & History">
+                                                    <i class="feather-message-square"></i>
+                                                </button>
+
+                                                {{-- Delete Permanently --}}
+                                                <button type="button" class="table-action-btn text-danger" 
+                                                        onclick="deleteSingleLeadPermanently({{ $lead->id }}, this)"
+                                                        title="Delete Permanently">
                                                     <i class="feather-trash-2"></i>
                                                 </button>
-                                            </form>
-                                        @endif
-                                    </div>
+                                            @else
+                                                {{-- Move to Archive Button --}}
+                                                <button type="button" class="table-action-btn text-warning" 
+                                                        onclick="archiveSingleLead({{ $lead->id }}, this)"
+                                                        title="Move to Archive">
+                                                    <i class="feather-archive"></i>
+                                                </button>
+
+                                                {{-- Edit Status Offcanvas Button --}}
+                                                <button type="button" class="table-action-btn text-primary" 
+                                                        onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
+                                                        title="Edit Status">
+                                                    <i class="feather-sliders"></i>
+                                                </button>
+
+                                                {{-- Edit Lead Button --}}
+                                                <button type="button" class="table-action-btn text-success" title="Edit Lead"
+                                                        onclick="openLeadEditModal({{ $lead->id }})">
+                                                    <i class="feather-edit"></i>
+                                                </button>
+
+                                                {{-- View Details Modal --}}
+                                                <button type="button" class="table-action-btn text-info" 
+                                                        onclick="openViewDetailsModalLazy({{ $lead->id }})"
+                                                        title="View Details">
+                                                    <i class="feather-eye"></i>
+                                                </button>
+
+                                                {{-- View Comments / Messages --}}
+                                                <button type="button" class="table-action-btn text-warning" 
+                                                        onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
+                                                        title="View Comments & History">
+                                                    <i class="feather-message-square"></i>
+                                                </button>
+
+                                                @unless($isDealView ?? false)
+                                                {{-- Convert Lead to Deal --}}
+                                                <button type="button" class="table-action-btn text-warning"
+                                                        onclick="convertLeadToDeal({{ $lead->id }}, this)"
+                                                        title="Convert to Deal">
+                                                    <i class="feather-check-circle"></i>
+                                                </button>
+                                                @endunless
+
+                                                {{-- Delete Lead --}}
+                                                <form action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this lead?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="table-action-btn text-danger" title="Delete Lead">
+                                                        <i class="feather-trash-2"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="11" class="text-center py-5 text-muted">
+                                        <i class="feather-inbox fs-2 mb-2 d-block text-secondary"></i>
+                                        {{ ($isDealView ?? false) ? 'No created deals found in this view.' : 'No leads found in this view.' }}
+                                    </td>
+                                </tr>
+                            @endforelse
+
+                            {{-- Monday "+ Add lead" quick row --}}
+                            <tr class="monday-add-row" onclick="openCreateModal()">
+                                <td class="monday-select-col"><i class="feather-plus text-muted fs-13"></i></td>
+                                <td colspan="10">
+                                    <span class="monday-add-btn-text">
+                                        <i class="feather-plus-circle text-primary"></i> + Add {{ $isDeal ? 'deal' : 'lead' }}
+                                    </span>
                                 </td>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">
-                                    <i class="feather-inbox fs-2 mb-2 d-block text-secondary"></i>
-                                    {{ ($isDealView ?? false) ? 'No created deals found in this view.' : 'No leads found in this view.' }}
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- Monday Summary Bar with Status Distribution --}}
+                <div class="monday-summary-bar">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fs-12 text-muted fw-semibold">Status Overview:</span>
+                        <div class="monday-dist-bar" title="Status Distribution">
+                            @foreach($statusDistribution as $dist)
+                                @php $pct = $loadedCount > 0 ? round(($dist['count'] / $loadedCount) * 100, 1) : 0; @endphp
+                                <div class="monday-dist-segment" style="width: {{ $pct }}%; background-color: {{ $dist['bg'] }};" title="{{ $dist['name'] }}: {{ $dist['count'] }} ({{ $pct }}%)" data-bs-toggle="tooltip"></div>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="ms-auto fs-12 text-muted fw-semibold">
+                        Showing {{ count($leads) }} of {{ $totalCount }} {{ $isDeal ? 'deals' : 'leads' }}
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1096,52 +1557,6 @@
             });
     }
 
-    function openCommentsModal(leadId, leadName) {
-        let offcanvasEl = document.getElementById('commentsOffcanvas');
-        if (!offcanvasEl) return;
-        let commentsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
-        
-        document.getElementById('cm_leadName').textContent = leadName + ' - Comments';
-        document.getElementById('cm_body').innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading comments...</div>';
-        
-        commentsOffcanvas.show();
-
-        fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    let messages = data.messages || [];
-                    if (messages.length === 0) {
-                        document.getElementById('cm_body').innerHTML = `
-                            <div class="text-center py-5 bg-white rounded-3 border">
-                                <i class="feather-message-square text-muted fs-1 mb-2 opacity-50 d-block"></i>
-                                <h6 class="fs-13 fw-semibold text-muted">No Comments Available</h6>
-                                <p class="fs-11 text-muted mb-0">There are no remarks or chat notes recorded for this lead yet.</p>
-                            </div>
-                        `;
-                    } else {
-                        let html = '<div class="d-flex flex-column gap-2">';
-                        messages.forEach(m => {
-                            html += `
-                                <div class="bg-white p-3 rounded-3 border shadow-2xs">
-                                    <div class="d-flex align-items-center justify-content-between mb-1 pb-1 border-bottom">
-                                        <span class="badge bg-light text-primary fs-11 fw-semibold"><i class="feather-user me-1"></i>${m.sender_name || 'System / Agent'}</span>
-                                        <span class="fs-10 text-muted">${m.created_at || ''}</span>
-                                    </div>
-                                    <p class="fs-12 text-dark mb-0 mt-1" style="white-space: pre-wrap; line-height: 1.5;">${m.message || ''}</p>
-                                </div>
-                            `;
-                        });
-                        html += '</div>';
-                        document.getElementById('cm_body').innerHTML = html;
-                    }
-                }
-            })
-            .catch(err => {
-                document.getElementById('cm_body').innerHTML = '<div class="text-danger p-3 fs-12 text-center">Failed to load comments.</div>';
-            });
-    }
-
     async function convertLeadToDeal(leadId, button) {
         if (!confirm('Convert lead to deal? The lead will be moved to Created Deals.')) return;
         if (button) button.disabled = true;
@@ -1178,10 +1593,11 @@
     }
 
     // FUNCTION 1: Single Inline Status Update
-    async function updateInlineLeadStatus(leadId, bucketId, statusName, el) {
+    async function updateInlineLeadStatus(leadId, bucketId, statusName, el, newColor) {
         let btnSpan = document.getElementById('status-text-' + leadId);
-        let originalText = btnSpan.innerText;
-        btnSpan.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        let pillBtn = document.getElementById('status-pill-' + leadId) || (btnSpan ? btnSpan.closest('.monday-status-pill') : null);
+        let originalText = btnSpan ? btnSpan.innerText : statusName;
+        if (btnSpan) btnSpan.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
         try {
             let token = getSafeCsrfToken();
@@ -1206,10 +1622,11 @@
             if (!response.ok || !data.status) throw new Error(data.message || 'Update failed');
 
             // Success: Update UI
-            btnSpan.innerText = statusName;
+            if (btnSpan) btnSpan.innerText = statusName;
+            if (pillBtn && newColor) pillBtn.style.backgroundColor = newColor;
             if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: data.message, showConfirmButton: false, timer: 1500 });
         } catch (error) {
-            btnSpan.innerText = originalText;
+            if (btnSpan) btnSpan.innerText = originalText;
             if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: error.message, showConfirmButton: false, timer: 2000 });
         }
     }
@@ -1464,7 +1881,6 @@
     window.openEditStatusOffcanvas = openEditStatusOffcanvas;
     window.openLeadEditModal = openLeadEditModal;
     window.openViewDetailsModalLazy = openViewDetailsModalLazy;
-    window.openCommentsModal = openCommentsModal;
     window.convertLeadToDeal = convertLeadToDeal;
     window.openCreateModal = openCreateModal;
     window.executeBulkConvertToDeal = executeBulkConvertToDeal;

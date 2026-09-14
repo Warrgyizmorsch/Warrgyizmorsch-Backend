@@ -1,109 +1,255 @@
 @props(['buckets','filterBucket', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners','categories', 'title', 'showViewSwitcher' => true])
 
-<div class="page-header">
-    <div class="page-header-left d-flex align-items-center">
-
-        <div class="page-header-title">
-            <h5 class="m-b-10">{{ $title ?? 'Leads' }}</h5>
-        </div>
-
-        <ul class="breadcrumb">
-            <li class="breadcrumb-item">
-                <a href="{{ route('dashboard') }}">Home</a>
-            </li>
-            <li class="breadcrumb-item">{{ $title ?? 'Leads' }}</li>
-        </ul>
-
-    </div>
+@php
+    $isDealRoute = request()->is('created-deals*') || request()->routeIs('created.deals.*');
+    $btnLabel = $isDealRoute ? 'New deal' : 'New lead';
+@endphp
 
 <style>
-    .view-toggle-btn {
-        border: none !important;
-        border-radius: 4px !important;
-        transition: all 0.2s ease !important;
-        color: #64748b !important;
-        background: transparent !important;
+    /* Monday CRM Top Header Styling */
+    .monday-header-wrapper {
+        background: #ffffff;
+        border-bottom: 1px solid #e6e9ef;
+        padding: 18px 24px 0 24px;
+        margin-bottom: 16px;
     }
-    .view-toggle-btn.active-view {
-        background-color: #ffffff !important;
-        color: #006FC9 !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    .monday-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
     }
-    .view-toggle-btn:hover:not(.active-view) {
-        color: #1e293b !important;
-        background-color: rgba(255,255,255,0.6) !important;
+    .monday-title-text {
+        font-size: 24px;
+        font-weight: 700;
+        color: #323338;
+        letter-spacing: -0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
     }
-    .lead-filter-form .form-control,
-    .lead-filter-form .form-select {
-        border-color: #d1d5db;
+    .monday-title-chevron {
+        font-size: 16px;
+        color: #676879;
+        cursor: pointer;
+    }
+    .monday-top-tabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-bottom: 1px solid #d0d4e4;
+        margin-bottom: 12px;
+    }
+    .monday-tab-btn {
+        padding: 8px 16px;
         font-size: 13px;
-        padding-top: 0.42rem;
-        padding-bottom: 0.42rem;
-        border-radius: 6px;
-        color: #1f2937;
-        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        font-weight: 500;
+        color: #676879;
+        text-decoration: none !important;
+        border-bottom: 2px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+        border-radius: 4px 4px 0 0;
     }
-    .lead-filter-form .form-control:focus,
-    .lead-filter-form .form-select:focus {
-        border-color: #006FC9;
-        box-shadow: 0 0 0 3px rgba(0, 111, 201, 0.12);
+    .monday-tab-btn:hover {
+        color: #323338;
+        background: #f5f6f8;
     }
-    .lead-filter-form .input-group-text {
-        border-color: #d1d5db;
-        border-radius: 6px 0 0 6px;
+    .monday-tab-btn.is-active {
+        color: #0073ea;
+        font-weight: 600;
+        border-bottom-color: #0073ea;
+        background: transparent;
     }
-    #moreFiltersToggleBtn {
-        transition: all 0.2s ease;
-        background-color: #f8fafc;
+    .monday-tab-dots {
+        font-size: 11px;
+        opacity: 0.6;
+        margin-left: 2px;
     }
-    #moreFiltersToggleBtn:hover {
-        background-color: #f1f5f9;
-        border-color: #cbd5e1 !important;
-        color: #006FC9 !important;
+
+    /* Monday CRM Toolbar */
+    .monday-toolbar-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-bottom: 14px;
+    }
+    .monday-primary-btn {
+        background-color: #0073ea;
+        color: #ffffff !important;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 16px;
+        border-radius: 4px;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 1px 3px rgba(0, 115, 234, 0.2);
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .monday-primary-btn:hover {
+        background-color: #0060b9;
+        color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(0, 115, 234, 0.35);
+    }
+    .monday-tool-btn {
+        background: #ffffff;
+        color: #676879;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: 1px solid #d0d4e4;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+        cursor: pointer;
+        text-decoration: none !important;
+    }
+    .monday-tool-btn:hover {
+        background: #f5f6f8;
+        color: #323338;
+        border-color: #c3c6d4;
+    }
+    .monday-tool-btn.is-active {
+        background: #e5f4ff;
+        color: #0073ea;
+        border-color: #0073ea;
+    }
+    .monday-search-box {
+        position: relative;
+        width: 220px;
+    }
+    .monday-search-box input {
+        width: 100%;
+        font-size: 13px;
+        padding: 6px 10px 6px 30px;
+        border-radius: 4px;
+        border: 1px solid #d0d4e4;
+        background: #ffffff;
+        color: #323338;
+        outline: none;
+        transition: all 0.15s ease;
+    }
+    .monday-search-box input:focus {
+        border-color: #0073ea;
+        box-shadow: 0 0 0 2px rgba(0, 115, 234, 0.2);
+    }
+    .monday-search-box .search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #676879;
+        font-size: 13px;
+        pointer-events: none;
     }
 </style>
 
-    <div class="page-header-right ms-auto">
+<div class="monday-header-wrapper">
+    {{-- 1. Main Title & Right Tools --}}
+    <div class="monday-title-row">
         <div class="d-flex align-items-center gap-2">
+            <h1 class="monday-title-text">
+                {{ $title ?? 'Leads' }}
+                <i class="feather-chevron-down monday-title-chevron"></i>
+            </h1>
+        </div>
 
-            @if($showViewSwitcher)
-            @php
-                if (request()->is('created-deals*') || request()->routeIs('created.deals.*')) {
-                    $listRoute = route('created.deals.index', request()->query());
-                    $pipelineRoute = route('created.deals.pipeline', request()->query());
-                    $isPipelineActive = request()->is('created-deals/pipeline*') || request()->routeIs('created.deals.pipeline');
-                } elseif (request()->is('new-leads-table*') || request()->routeIs('leads.table.*')) {
-                    $listRoute = route('leads.table.index', request()->query());
-                    $pipelineRoute = route('leads.table.pipeline', request()->query());
-                    $isPipelineActive = request()->is('new-leads-table/pipeline*') || request()->routeIs('leads.table.pipeline');
-                } else {
-                    $listRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'list']));
-                    $pipelineRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'pipeline']));
-                    $isPipelineActive = request('view') === 'pipeline';
-                }
-            @endphp
-            {{-- View Switcher (List / Pipeline) --}}
-            <div class="btn-group p-1 bg-light rounded-2 border me-1" role="group" aria-label="View Switcher" style="background: #f1f5f9 !important;">
-                <a href="{{ $listRoute }}"
-                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ !$isPipelineActive ? 'active-view' : '' }}"
-                    title="List View">
-                    <i class="feather-list fs-14"></i>
-                    <span class="d-none d-sm-inline fs-12 fw-semibold">List View</span>
-                </a>
-                <a href="{{ $pipelineRoute }}"
-                    class="btn btn-sm px-2.5 py-1 text-muted d-flex align-items-center gap-1 view-toggle-btn {{ $isPipelineActive ? 'active-view' : '' }}"
-                    title="Pipeline View">
-                    <i class="feather-columns fs-14"></i>
-                    <span class="d-none d-sm-inline fs-12 fw-semibold">Pipeline View</span>
-                </a>
+        <div class="d-flex align-items-center gap-2">
+            {{-- Export / Import dropdown --}}
+            <div class="dropdown">
+                <button class="monday-tool-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Export & Import Options">
+                    <i class="feather-download"></i>
+                    <span>Export / Import</span>
+                    <i class="feather-chevron-down" style="font-size: 11px;"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-2" style="border-radius: 8px; min-width: 210px;">
+                    <a href="{{ route('leads.export', request()->query()) }}" class="dropdown-item py-1.5 fs-13 d-flex align-items-center gap-2">
+                        <i class="feather-download text-success"></i> Export to Excel
+                    </a>
+                    <div class="dropdown-divider my-1"></div>
+                    <a href="javascript:void(0)" onclick="openCustomImportModal()" class="dropdown-item py-1.5 fs-13 d-flex align-items-center gap-2 fw-semibold text-primary">
+                        <i class="feather-upload"></i> Custom Import (Mapping)
+                    </a>
+                    @unless(request()->routeIs('leads.table.*'))
+                    <a href="{{ route('lead.sample') }}" class="dropdown-item py-1.5 fs-13 text-muted">
+                        <i class="feather-file-text me-1"></i> Download Sample Excel
+                    </a>
+                    <a href="javascript:void(0)" onclick="openCompareExcelModal()" class="dropdown-item py-1.5 fs-13 text-info">
+                        <i class="feather-check-square me-1"></i> Compare Excel vs DB
+                    </a>
+                    @endunless
+                </div>
             </div>
-            @endif
 
-            {{-- Collapse Toggle --}}
-            <button class="btn btn-icon btn-light-brand"
-                data-bs-toggle="collapse"
-                data-bs-target="#collapseOne">
-                <i class="feather-bar-chart"></i>
+            {{-- Create Button (Top Right shortcut as well) --}}
+            <button class="monday-primary-btn" onclick="openCreateModal()" title="Add {{ $btnLabel }}">
+                <i class="feather-plus"></i>
+                <span class="d-none d-sm-inline">{{ $btnLabel }}</span>
+            </button>
+        </div>
+    </div>
+
+    {{-- 2. Monday View Tabs (Main Table / Pipeline View) --}}
+    @if($showViewSwitcher)
+    @php
+        if ($isDealRoute) {
+            $listRoute = route('created.deals.index', request()->query());
+            $pipelineRoute = route('created.deals.pipeline', request()->query());
+            $isPipelineActive = request()->is('created-deals/pipeline*') || request()->routeIs('created.deals.pipeline');
+        } elseif (request()->is('new-leads-table*') || request()->routeIs('leads.table.*')) {
+            $listRoute = route('leads.table.index', request()->query());
+            $pipelineRoute = route('leads.table.pipeline', request()->query());
+            $isPipelineActive = request()->is('new-leads-table/pipeline*') || request()->routeIs('leads.table.pipeline');
+        } else {
+            $listRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'list']));
+            $pipelineRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'pipeline']));
+            $isPipelineActive = request('view') === 'pipeline';
+        }
+    @endphp
+    <div class="monday-top-tabs">
+        <a href="{{ $listRoute }}" class="monday-tab-btn {{ !$isPipelineActive ? 'is-active' : '' }}">
+            <i class="feather-table"></i>
+            <span>Main table</span>
+            <span class="monday-tab-dots">•••</span>
+        </a>
+        <a href="{{ $pipelineRoute }}" class="monday-tab-btn {{ $isPipelineActive ? 'is-active' : '' }}">
+            <i class="feather-trello"></i>
+            <span>Pipeline view</span>
+        </a>
+    </div>
+    @endif
+
+    {{-- 3. Monday Action Bar (Search, Person, Filter, Bucket) --}}
+    <div class="monday-toolbar-row">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            {{-- Blue Primary New Button --}}
+            <button type="button" class="monday-primary-btn" onclick="openCreateModal()">
+                <i class="feather-plus"></i>
+                <span>{{ $btnLabel }}</span>
+            </button>
+
+            {{-- Live Search Input (Triggers main form search) --}}
+            <div class="monday-search-box">
+                <i class="feather-search search-icon"></i>
+                <input type="text" placeholder="Search this board" value="{{ request('search') }}" onkeydown="if(event.key==='Enter'){ const f=document.querySelector('.lead-filter-form'); if(f){ const inp=f.querySelector('#lead-live-search'); if(inp){ inp.value=this.value; f.submit(); } } }">
+            </div>
+
+            {{-- Filter Toggle Button (opens advanced filters collapse) --}}
+            <button class="monday-tool-btn {{ !empty($hasActiveFilters) ? 'is-active' : '' }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                <i class="feather-filter"></i>
+                <span>Filter</span>
+                @if(!empty($hasActiveFilters))
+                    <span class="badge bg-primary text-white rounded-pill px-1.5 py-0 fs-10 ms-1">Active</span>
+                @endif
             </button>
 
             @php
@@ -115,78 +261,32 @@
                     $bucketBaseRoute = 'modern.leads.index';
                 }
             @endphp
-            {{-- Bucket Dropdown --}}
+            {{-- Buckets Filter Dropdown --}}
             <div class="dropdown">
-                <button class="btn btn-icon btn-light-brand" data-bs-toggle="dropdown">
-                    <i class="feather-filter"></i>
+                <button class="monday-tool-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="feather-layers"></i>
+                    <span>{{ request('bucket_id') ? (optional($buckets->firstWhere('id', request('bucket_id')))->name ?? 'Bucket') : 'All Buckets' }}</span>
                 </button>
-
-                <div class="dropdown-menu dropdown-menu-end">
-
+                <div class="dropdown-menu shadow-lg border-0 py-2 fs-13" style="max-height: 280px; overflow-y: auto; border-radius: 8px;">
                     <a href="{{ route($bucketBaseRoute, request()->except('bucket_id', 'converted')) }}"
-                        class="dropdown-item {{ !request('bucket_id') && !request('converted') ? 'active' : '' }}">
+                        class="dropdown-item py-1.5 {{ !request('bucket_id') && !request('converted') ? 'active' : '' }}">
                         All Buckets
                     </a>
-
-                    <a href="{{ route($bucketBaseRoute, array_merge(request()->query(), ['converted' => 1, 'bucket_id' => ''])) }}"
-                        class="dropdown-item {{ request('converted') == 1 ? 'active' : '' }}">
-                        Converted
-                    </a>
-
                     @foreach($buckets as $bucket)
                     <a href="{{ route($bucketBaseRoute, array_merge(request()->query(), ['bucket_id' => $bucket->id, 'converted' => '', 'lead_status' => ''])) }}"
-                        class="dropdown-item {{ request('bucket_id') == $bucket->id ? 'active' : '' }}">
+                        class="dropdown-item py-1.5 {{ request('bucket_id') == $bucket->id ? 'active' : '' }}">
                         {{ $bucket->name }}
                     </a>
                     @endforeach
-
                 </div>
             </div>
+        </div>
 
-            {{-- Create --}}
-            <button class="btn btn-icon btn-light-brand"
-                onclick="openCreateModal()">
-                <i class="feather-plus"></i>
-            </button>
-
-
-            {{-- Import --}}
-            <div class="dropdown d-flex align-items-center">
-                <button class="btn btn-icon btn-light-brand" data-bs-toggle="dropdown">
-                    <i class="feather-paperclip"></i>
-                </button>
-
-                <span id="import-spinner" class="spinner-border spinner-border-sm text-primary ms-2 d-none"></span>
-
-                <div class="dropdown-menu dropdown-menu-end">
-                    <!-- ✅ EXPORT -->
-                    <a href="{{ route('leads.export', request()->query()) }}" class="dropdown-item">
-                        <i class="feather-download me-2"></i> Export Excel
-                    </a>
-
-                    <div class="dropdown-divider"></div>
-
-                    @unless(request()->routeIs('leads.table.*'))
-                    <a href="{{ route('lead.sample') }}" class="dropdown-item">Download Sample</a>
-                    
-                    <div class="dropdown-divider"></div>
-                    @endunless
-
-                    <a href="javascript:void(0)" onclick="openCustomImportModal()" class="dropdown-item fw-bold text-primary">
-                        <i class="feather-upload me-2"></i> Custom Import (Mapping)
-                    </a>
-
-                    @unless(request()->routeIs('leads.table.*'))
-                    <a href="javascript:void(0)" onclick="openCompareExcelModal()" class="dropdown-item fw-bold text-info">
-                        <i class="feather-check-square me-2"></i> Compare Excel vs Database
-                    </a>
-
-                    <label for="importFile" class="dropdown-item text-muted">Auto Import (Direct)</label>
-                    @endunless
-                    <input type="file" id="importFile" class="d-none" accept=".csv,.xlsx,.xls">
-                </div>
-            </div>
-
+        {{-- Right tools --}}
+        <div class="d-flex align-items-center gap-2">
+            <span class="fs-12 text-muted fw-semibold d-none d-md-inline">
+                Total: <strong class="text-dark">{{ $totalLeadsCount ?? 0 }}</strong>
+            </span>
         </div>
     </div>
 </div>

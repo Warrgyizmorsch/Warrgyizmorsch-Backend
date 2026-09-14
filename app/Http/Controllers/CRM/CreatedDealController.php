@@ -29,6 +29,18 @@ class CreatedDealController extends Controller
             'category',
             'latestMessage.user:id,name',
             'tags:id,name,color',
+            /*
+            'todoTasks' => function ($tQ) {
+                $tQ->where(function ($sub) {
+                    $sub->whereNull('status')->orWhere('status', '!=', 'completed');
+                })->orderBy('due_date', 'asc');
+            },
+            */
+            'messages' => function ($mQ) {
+                $mQ->where('is_done', 0)
+                   ->whereNotNull('next_followup_date')
+                   ->orderBy('next_followup_date', 'asc');
+            },
         ]);
 
         // 2. Role-based restrictions (Role 3 sees only assigned leads)

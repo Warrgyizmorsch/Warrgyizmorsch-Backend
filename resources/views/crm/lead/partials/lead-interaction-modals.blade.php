@@ -199,7 +199,8 @@
     </div>
 </div>
 
-{{-- Shared To-Do Offcanvas --}}
+<!--
+{{-- Shared To-Do Offcanvas (Commented out) --}}
 <div class="offcanvas offcanvas-end" tabindex="-1" id="todoOffcanvas" style="width: 420px;">
     <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title fw-bold text-dark" style="font-size: 18px;">To-Do Task</h5>
@@ -238,6 +239,7 @@
         </div>
     </div>
 </div>
+-->
 
 {{-- View Lead Details Modal --}}
 <div class="modal fade" id="viewLeadDetailsModal" tabindex="-1" aria-labelledby="viewLeadDetailsModalLabel" aria-hidden="true">

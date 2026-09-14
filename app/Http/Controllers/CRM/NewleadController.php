@@ -765,6 +765,21 @@ class NewleadController extends Controller
 
         $request->validate($rules);
 
+        // Ensure table has AUTO_INCREMENT if not set in MySQL
+        static $schemaChecked = false;
+        if (!$schemaChecked) {
+            $schemaChecked = true;
+            try {
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE `todo_tasks` MODIFY COLUMN `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT");
+            } catch (\Throwable $e) {
+                try {
+                    \Illuminate\Support\Facades\DB::statement("ALTER TABLE `todo_tasks` ADD PRIMARY KEY (`id`), MODIFY COLUMN `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT");
+                } catch (\Throwable $e2) {
+                    // ignore if already primary key or auto increment
+                }
+            }
+        }
+
         \App\Models\TodoTask::create([
             'lead_id' => $leadId,
             'assigned_to' => $isAdmin ? $request->assign_to : auth()->id(),

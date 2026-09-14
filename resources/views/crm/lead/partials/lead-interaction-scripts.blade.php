@@ -1175,6 +1175,7 @@
                 document.getElementById('cm_body').innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load comments.</div>';
             });
     }
+    window.openCommentsModal = openCommentsModal;
 
     async function toggleLeadTag(event, leadId, tagId, optionButton) {
         event.preventDefault();

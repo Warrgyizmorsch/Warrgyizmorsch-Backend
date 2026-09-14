@@ -16,6 +16,16 @@ class TodoTask extends Model
         'remark'
         ];
 
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (empty($model->id)) {
+                $maxId = \Illuminate\Support\Facades\DB::table('todo_tasks')->max('id');
+                $model->id = ($maxId ? (int)$maxId : 0) + 1;
+            }
+        });
+    }
+
     // Jis user ko task assign kiya gaya hai
     public function assignee()
     {

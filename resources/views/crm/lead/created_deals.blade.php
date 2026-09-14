@@ -106,6 +106,140 @@
     .lead-table-body tr:hover td {
         background-color: #f8fafc;
     }
+
+    /* Next Activity Styling (HubSpot style) */
+    .deal-next-activity-cell {
+        min-width: 210px;
+        max-width: 260px;
+    }
+    .deal-activity-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        max-width: 100%;
+        text-decoration: none !important;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 8px;
+        transition: background-color 0.15s ease;
+    }
+    .deal-activity-wrap:hover {
+        background-color: #f1f5f9;
+    }
+    .deal-activity-icon {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+    }
+    .deal-activity-wrap:hover .deal-activity-icon {
+        transform: scale(1.06);
+        border-color: #cbd5e1;
+    }
+    .deal-activity-icon.icon-email {
+        background: #eff6ff;
+        color: #2563eb;
+        border-color: #bfdbfe;
+    }
+    .deal-activity-icon.icon-call {
+        background: #f0fdf4;
+        color: #16a34a;
+        border-color: #bbf7d0;
+    }
+    .deal-activity-icon.icon-meeting {
+        background: #faf5ff;
+        color: #9333ea;
+        border-color: #e9d5ff;
+    }
+    .deal-activity-icon.icon-whatsapp {
+        background: #f0fdf4;
+        color: #15803d;
+        border-color: #bbf7d0;
+    }
+    .deal-activity-icon.icon-task {
+        background: #f8fafc;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+    .deal-activity-icon.icon-empty {
+        background: #f8fafc;
+        color: #94a3b8;
+        border: 1px dashed #cbd5e1;
+    }
+    .deal-activity-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+        line-height: 1.25;
+    }
+    .deal-activity-title {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #0073ea;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 175px;
+    }
+    .deal-activity-wrap:hover .deal-activity-title {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+    .deal-activity-meta {
+        font-size: 11px;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+    }
+    .activity-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+    .activity-status-dot.dot-teal {
+        background-color: #0ea5e9;
+    }
+    .activity-status-dot.dot-green {
+        background-color: #10b981;
+    }
+    .activity-status-dot.dot-red {
+        background-color: #ef4444;
+    }
+    .activity-status-dot.dot-muted {
+        background-color: #94a3b8;
+    }
+    .activity-schedule-btn {
+        font-size: 11px;
+        font-weight: 600;
+        color: #0073ea;
+        background: transparent;
+        border: none;
+        padding: 0;
+        text-decoration: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .activity-schedule-btn:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }
 </style>
 @endpush
 
@@ -196,6 +330,12 @@
                             <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="checkAll"></th>
                             <th>Lead Info</th>
                             <th>Status / Sub Status</th>
+                            <th style="min-width: 210px;" class="lead-activity-column">
+                                <div class="d-inline-flex align-items-center gap-1.5">
+                                    <span>Next Activity</span>
+                                    <i class="feather-info text-muted fs-11" title="Upcoming task or follow-up activity"></i>
+                                </div>
+                            </th>
                             {{-- <th>Engagement</th> --}}
                             <th>Owner</th>
                             <th>Created Date</th>
@@ -289,6 +429,144 @@
                                         @endif
                                     </div>
                                 </td>
+                                <td class="deal-next-activity-cell">
+                                    @php
+                                        // Determine the next upcoming activity for this deal
+                                        $activity = null;
+                                        $now = \Carbon\Carbon::now();
+
+                                        // 1. Check upcoming active callback/followup
+                                        $pendingCallback = $lead->messages
+                                            ? $lead->messages->filter(function($m) {
+                                                return empty($m->is_done) && !empty($m->next_followup_date);
+                                            })->sortBy('next_followup_date')->first()
+                                            : null;
+
+                                        // Fallback to latestMessage if it has a next_followup_date
+                                        if (!$pendingCallback && $lead->latestMessage && !empty($lead->latestMessage->next_followup_date)) {
+                                            $pendingCallback = $lead->latestMessage;
+                                        }
+
+                                        /* 2. To-Do Task query commented out as requested */
+
+                                        // 3. Select activity from callback/followup
+                                        if ($pendingCallback) {
+                                            try {
+                                                $cbDate = \Carbon\Carbon::parse($pendingCallback->next_followup_date);
+                                            } catch (\Exception $e) {
+                                                $cbDate = null;
+                                            }
+                                            $activity = ['type' => 'callback', 'item' => $pendingCallback, 'date' => $cbDate];
+                                        }
+
+                                        // Action to open Edit Status offcanvas (1st screenshot)
+                                        $openEditOffcanvas = "openEditStatusOffcanvas({$lead->id}, '" . addslashes($statusName) . "', '" . addslashes($lead->lead_engagement_status ?? '') . "', " . ($lead->lead_bucket_id ?? 46) . ")";
+
+                                        // 4. Format activity details
+                                        $title = '';
+                                        $subText = '';
+                                        $iconClass = 'icon-task';
+                                        $iconHtml = '<i class="feather-calendar"></i>';
+                                        $dotClass = 'dot-teal';
+                                        $clickAction = $openEditOffcanvas;
+
+                                        if ($activity) {
+                                            $userName = optional($lead->user)->name ?? 'Contact';
+                                            $fType = strtolower(trim($activity['item']->followup_type ?? ''));
+                                            $msgText = trim($activity['item']->message ?? '');
+
+                                            if (str_contains($fType, 'call')) {
+                                                $iconClass = 'icon-call';
+                                                $iconHtml = '<i class="feather-phone"></i>';
+                                                $title = 'Call ' . $userName;
+                                            } elseif (str_contains($fType, 'email')) {
+                                                $iconClass = 'icon-email';
+                                                $iconHtml = '<i class="feather-mail"></i>';
+                                                $title = 'Email ' . $userName;
+                                            } elseif (str_contains($fType, 'meet')) {
+                                                $iconClass = 'icon-meeting';
+                                                $iconHtml = '<i class="feather-calendar"></i>';
+                                                $title = 'Meeting w/ ' . $userName;
+                                            } elseif (str_contains($fType, 'whats')) {
+                                                $iconClass = 'icon-whatsapp';
+                                                $iconHtml = '<i class="fab fa-whatsapp"></i>';
+                                                $title = 'WhatsApp ' . $userName;
+                                            } else {
+                                                $iconClass = 'icon-task';
+                                                $iconHtml = '<i class="feather-calendar"></i>';
+                                                $title = !empty($msgText) ? \Illuminate\Support\Str::limit($msgText, 25) : ('Follow Up w/ ' . $userName);
+                                            }
+
+                                            if ($activity['date']) {
+                                                $actDate = $activity['date'];
+                                                if ($actDate->lt($now)) {
+                                                    $diffDays = $now->diffInDays($actDate);
+                                                    $diffHours = $now->diffInHours($actDate);
+                                                    $dotClass = 'dot-red';
+                                                    if ($diffDays >= 1) {
+                                                        $subText = 'Overdue by ' . $diffDays . ' ' . \Illuminate\Support\Str::plural('day', $diffDays);
+                                                    } elseif ($diffHours >= 1) {
+                                                        $subText = 'Overdue by ' . $diffHours . ' ' . \Illuminate\Support\Str::plural('hour', $diffHours);
+                                                    } else {
+                                                        $subText = 'Overdue today';
+                                                    }
+                                                } else {
+                                                    $diffDays = $actDate->diffInDays($now);
+                                                    $diffHours = $actDate->diffInHours($now);
+                                                    if ($actDate->isToday()) {
+                                                        $dotClass = 'dot-teal';
+                                                        if ($diffHours <= 1) {
+                                                            $subText = 'Due in an hour';
+                                                        } else {
+                                                            $subText = 'Due in ' . $diffHours . ' ' . \Illuminate\Support\Str::plural('hour', $diffHours);
+                                                        }
+                                                    } elseif ($actDate->isTomorrow() || $diffDays <= 1) {
+                                                        $dotClass = 'dot-teal';
+                                                        $subText = 'Due tomorrow';
+                                                    } elseif ($diffDays >= 2 && $diffDays <= 6) {
+                                                        $dotClass = 'dot-teal';
+                                                        $subText = 'Due in ' . $diffDays . ' days';
+                                                    } else {
+                                                        $dotClass = 'dot-muted';
+                                                        $subText = 'Due ' . $actDate->format('M d');
+                                                    }
+                                                }
+                                            } else {
+                                                $dotClass = 'dot-teal';
+                                                $subText = 'Scheduled';
+                                            }
+                                        }
+                                    @endphp
+
+                                    @if($activity)
+                                        <div class="deal-activity-wrap" onclick="{{ $clickAction }}" title="Next Activity: {{ $title }} - {{ $subText }} (Click to edit status & follow-up)">
+                                            <div class="deal-activity-icon {{ $iconClass }}">
+                                                {!! $iconHtml !!}
+                                            </div>
+                                            <div class="deal-activity-content">
+                                                <span class="deal-activity-title">{{ $title }}</span>
+                                                <span class="deal-activity-meta">
+                                                    <span class="activity-status-dot {{ $dotClass }}"></span>
+                                                    <span>{{ $subText }}</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="deal-activity-wrap" onclick="{{ $openEditOffcanvas }}" title="Click to schedule next activity & follow-up">
+                                            <div class="deal-activity-icon icon-empty">
+                                                <i class="feather-calendar"></i>
+                                            </div>
+                                            <div class="deal-activity-content">
+                                                <span class="text-muted fs-12 fw-medium">No activity scheduled</span>
+                                                <span class="deal-activity-meta">
+                                                    <span class="activity-schedule-btn">
+                                                        <i class="feather-plus" style="font-size: 10px;"></i> Schedule
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    @endif
+                                </td>
                                 {{-- <td>
                                     <div class="dropdown d-inline-block">
                                         <a href="javascript:void(0);" 
@@ -344,12 +622,14 @@
                                             <i class="feather-message-square"></i>
                                         </button>
 
-                                        {{-- To-Do Task --}}
+                                        {{-- To-Do Task (Commented out) --}}
+                                        {{--
                                         <button type="button" class="table-action-btn text-purple" 
                                                 onclick="openTodoOffcanvas({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
                                                 title="To-Do Task">
                                             <i class="feather-check-square"></i>
                                         </button>
+                                        --}}
 
                                         {{-- Delete Lead --}}
                                         <form action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this deal?');">
