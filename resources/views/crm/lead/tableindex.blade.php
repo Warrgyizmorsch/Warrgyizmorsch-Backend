@@ -703,9 +703,7 @@
             </button>
             <div class="lead-tab-scroll" id="lead-status-scroll">
                 @php
-                    $isAllActived = !empty($isDealView)
-                        ? request('lead_status') === 'all'
-                        : (empty(request('lead_status')) && !request('deleted_leads'));
+                    $isAllActived = (empty(request('lead_status')) || request('lead_status') === 'all') && !request('deleted_leads');
                 @endphp
                 <a href="{{ request()->fullUrlWithQuery(['lead_status' => (!empty($isDealView) ? 'all' : ''), 'deleted_leads' => '']) }}"
                     class="lead-status-tab status-primary {{ $isAllActived ? 'is-active' : '' }}">
@@ -717,8 +715,7 @@
                     @php
                         $childNames = $bucket->children ? $bucket->children->pluck('name')->toArray() : [];
                         $hasActiveChild = in_array(request('lead_status'), $childNames);
-                        $isDefaultDealBucket = !empty($isDealView) && empty(request('lead_status')) && strtolower(trim($bucket->name)) === 'deal created';
-                        $isActive = (request('lead_status') == $bucket->name || $hasActiveChild || $isDefaultDealBucket) && !request('deleted_leads');
+                        $isActive = (request('lead_status') == $bucket->name || $hasActiveChild) && !request('deleted_leads') && request('lead_status') !== 'all';
                         $statusColor = match(true) {
                             str_contains($bucket->bucket_color ?? '', 'success') => 'status-success',
                             str_contains($bucket->bucket_color ?? '', 'warning') => 'status-warning',
@@ -756,9 +753,6 @@
         @php
             $activeParentBucket = null;
             $currentStatus = request('lead_status');
-            if (!empty($isDealView) && empty($currentStatus) && !request('deleted_leads')) {
-                $currentStatus = 'Deal Created';
-            }
             if (!empty($currentStatus) && !request('deleted_leads') && $currentStatus !== 'all') {
                 foreach ($childBuckets as $b) {
                     $childNames = $b->children ? $b->children->pluck('name')->toArray() : [];

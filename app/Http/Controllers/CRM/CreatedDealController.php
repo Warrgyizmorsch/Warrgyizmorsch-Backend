@@ -152,9 +152,6 @@ class CreatedDealController extends Controller
         if ($request->filled('ad_name')) {
             $query->where('ad_name', 'like', '%' . $request->ad_name . '%');
         }
-        $dealCreatedBucket = $childBuckets->first(fn($b) => strtolower(trim($b->name)) === 'deal created');
-        $dealCreatedBucketIds = $dealCreatedBucket ? collect([$dealCreatedBucket->id])->merge($dealCreatedBucket->children->pluck('id'))->all() : [];
-
         $dealStatusFilter = $request->input('lead_status', $request->input('status'));
         if (!empty($dealStatusFilter) && strtolower($dealStatusFilter) !== 'all') {
             $matchingBucket = $childBuckets->first(fn($b) => strtolower(trim($b->name)) === strtolower(trim($dealStatusFilter)));
@@ -165,15 +162,6 @@ class CreatedDealController extends Controller
                   ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), strtolower(trim($dealStatusFilter)));
                 if (!empty($matchingBucketIds)) {
                     $q->orWhereIn('lead_bucket_id', $matchingBucketIds);
-                }
-            });
-        } elseif (empty($dealStatusFilter)) {
-            // By default on Created Deals view: strictly show leads whose status is 'Deal Created'
-            $query->where(function ($q) use ($dealCreatedBucketIds) {
-                $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%')
-                  ->orWhere('lead_status', 'Deal Created');
-                if (!empty($dealCreatedBucketIds)) {
-                    $q->orWhereIn('lead_bucket_id', $dealCreatedBucketIds);
                 }
             });
         }
