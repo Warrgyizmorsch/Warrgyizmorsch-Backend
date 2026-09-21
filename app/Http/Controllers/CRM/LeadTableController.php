@@ -725,7 +725,12 @@ class LeadTableController extends Controller
             ]);
         } catch (\Throwable $e) {}
 
-        return response()->json(['status' => true, 'message' => 'Status updated successfully']);
+        return response()->json([
+            'status' => true,
+            'message' => 'Status updated successfully',
+            'bucket_name' => $bucketName,
+            'status_name' => $statusName,
+        ]);
     }
 
     // BULK STATUS UPDATE: Sets lead_status, lead_bucket_name, and active lead_bucket_id

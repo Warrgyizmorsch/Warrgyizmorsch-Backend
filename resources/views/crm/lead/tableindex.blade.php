@@ -8,31 +8,39 @@
         ? ($isDeal ? 'Archive Deals' : 'Archive Leads')
         : ($isDeal ? 'Created Deals' : 'New Leads Table');
 
-    $getMondayStatusStyle = function($status) {
+    $styleCache = [];
+    $getMondayStatusStyle = function($status) use (&$styleCache) {
         $s = strtolower(trim($status ?? ''));
+        if (isset($styleCache[$s])) {
+            return $styleCache[$s];
+        }
         if (str_contains($s, 'qualified') || str_contains($s, 'won') || str_contains($s, 'deal created') || str_contains($s, 'converted') || str_contains($s, 'order placed') || str_contains($s, 'delivered')) {
-            return ['bg' => '#00c875', 'color' => '#ffffff'];
+            return $styleCache[$s] = ['bg' => '#00c875', 'color' => '#ffffff'];
         }
         if (str_contains($s, 'attempt') || str_contains($s, 'call back') || str_contains($s, 'pending') || str_contains($s, 'retry')) {
-            return ['bg' => '#fb275d', 'color' => '#ffffff'];
+            return $styleCache[$s] = ['bg' => '#fb275d', 'color' => '#ffffff'];
         }
         if (str_contains($s, 'contact') || str_contains($s, 'interested') || str_contains($s, 'in discuss') || str_contains($s, 'quote')) {
-            return ['bg' => '#ff642f', 'color' => '#ffffff'];
+            return $styleCache[$s] = ['bg' => '#ff642f', 'color' => '#ffffff'];
         }
         if (str_contains($s, 'new') || str_contains($s, 'yet to call') || str_contains($s, 'fresh')) {
-            return ['bg' => '#fdab3d', 'color' => '#ffffff'];
+            return $styleCache[$s] = ['bg' => '#fdab3d', 'color' => '#ffffff'];
         }
         if (str_contains($s, 'unqual') || str_contains($s, 'lost') || str_contains($s, 'dead') || str_contains($s, 'close') || str_contains($s, 'reject') || str_contains($s, 'wrong')) {
-            return ['bg' => '#797e93', 'color' => '#ffffff'];
+            return $styleCache[$s] = ['bg' => '#797e93', 'color' => '#ffffff'];
         }
         if (str_contains($s, 'cold')) {
-            return ['bg' => '#579bfc', 'color' => '#ffffff'];
+            return $styleCache[$s] = ['bg' => '#579bfc', 'color' => '#ffffff'];
         }
         if (str_contains($s, 'warm')) {
-            return ['bg' => '#a25ddc', 'color' => '#ffffff'];
+            return $styleCache[$s] = ['bg' => '#a25ddc', 'color' => '#ffffff'];
         }
-        return ['bg' => '#0086c0', 'color' => '#ffffff'];
+        return $styleCache[$s] = ['bg' => '#0086c0', 'color' => '#ffffff'];
     };
+
+    $rowSelectableBuckets = !empty($isDealView)
+        ? ($activeDealBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && $b->type === 'order'))
+        : ($activeLeadBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && ($b->type === 'lead' || empty($b->type))));
 @endphp
 
 @extends('layouts.app')
@@ -41,6 +49,7 @@
 
 @push('styles')
 <style>
+    @include('crm.lead.partials.lead-interaction-styles')
     /* Floating Bulk Action Bar */
     .floating-bulk-actions {
         position: fixed;
@@ -382,81 +391,137 @@
         margin-bottom: 2px;
     }
     .monday-picker-parent {
-        border-radius: 5px;
-        padding: 7px 12px;
-        font-size: 12px;
+        border-radius: 6px;
+        padding: 5px 8px;
+        font-size: 13px;
         font-weight: 700;
         cursor: pointer;
-        transition: all 0.15s ease;
+        transition: background-color 0.15s ease;
         text-decoration: none !important;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        color: #ffffff !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        background: transparent;
         border: none;
         user-select: none;
     }
     .monday-picker-parent:hover {
-        filter: brightness(0.92);
-        transform: scale(1.01);
+        background-color: #f1f5f9;
+    }
+    .monday-picker-leaf {
+        cursor: pointer;
     }
     .monday-expand-arrow {
-        font-size: 13px;
+        font-size: 12px;
+        color: #94a3b8;
         transition: transform 0.2s ease;
         margin-left: 6px;
     }
     .monday-expand-arrow.is-expanded {
         transform: rotate(180deg);
+        color: #64748b;
     }
     .monday-picker-subgroup {
         margin-left: 10px;
-        padding-left: 10px;
-        border-left: 2px dashed #cbd5e1;
-        margin-top: 4px;
+        padding-left: 2px;
+        margin-top: 2px;
         margin-bottom: 4px;
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
     }
     .monday-picker-child {
         border-radius: 4px;
-        padding: 5px 10px;
-        font-size: 11.5px;
+        padding: 4px 6px;
+        font-size: 12px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.15s ease;
+        transition: background-color 0.15s ease, transform 0.15s ease;
         text-decoration: none !important;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        color: #ffffff !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        background: transparent;
+        color: #1e293b !important;
         border: none;
     }
     .monday-picker-child:hover {
-        filter: brightness(0.92);
+        background-color: #f1f5f9;
         transform: translateX(2px);
     }
-    .monday-picker-badge-parent {
-        font-size: 8.5px;
-        background: rgba(0, 0, 0, 0.22);
-        color: #ffffff;
-        padding: 1px 6px;
-        border-radius: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        font-weight: 700;
+    .tree-folder-icon {
+        font-size: 14px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
     }
-    .monday-picker-badge-sub {
-        font-size: 8px;
-        background: rgba(255, 255, 255, 0.3);
-        color: #ffffff;
-        padding: 1px 5px;
-        border-radius: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
+    .tree-parent-title {
+        font-size: 12.5px;
         font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+    .tree-connector-line {
+        color: #94a3b8;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -1px;
+    }
+    .tree-cart-icon {
+        font-size: 12px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+    }
+    .tree-child-title {
+        font-size: 12px;
+        font-weight: 500;
+        color: #334155;
+    }
+
+    /* Modern Professional Parent Status Badge */
+    .parent-status-badge {
+        display: inline-flex;
+        align-items: center;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 2px 7px 2px 3px;
+        gap: 5px;
+        max-width: 145px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        cursor: default;
+    }
+    .parent-status-badge:hover {
+        background: #ffffff;
+        border-color: #cbd5e1;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+        transform: translateY(-0.5px);
+    }
+    .parent-badge-tag {
+        font-size: 8.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: #eef2ff;
+        color: #4f46e5;
+        padding: 1.5px 6px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        line-height: 1.1;
+        border: 1px solid #e0e7ff;
+    }
+    .parent-badge-name {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: #334155;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 80px;
+        line-height: 1.2;
     }
 
     /* Monday Action Button (Dark Green Move to Contacts / Convert to Deal) */
@@ -645,27 +710,6 @@
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
-    /* Monday Add Item Row */
-    .monday-add-row {
-        cursor: pointer;
-        background-color: #fafbfc;
-        transition: background-color 0.15s ease;
-    }
-    .monday-add-row:hover td {
-        background-color: #f0f3ff !important;
-    }
-    .monday-add-btn-text {
-        font-size: 13px;
-        color: #676879;
-        font-weight: 500;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .monday-add-row:hover .monday-add-btn-text {
-        color: #0073ea;
-    }
-
     /* Monday Summary Bar */
     .monday-summary-bar {
         background: #fafbfc;
@@ -769,16 +813,33 @@
                             ? ($activeDealBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && $b->type === 'order'))
                             : ($activeLeadBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && ($b->type === 'lead' || empty($b->type))));
                     @endphp
-                    <ul class="dropdown-menu shadow-lg fs-12 p-1 mb-2 border-0" style="max-height: 280px; overflow-y: auto; border-radius: 10px;">
+                    <ul class="dropdown-menu shadow-lg fs-12 p-1 mb-2 border-0" style="max-height: 280px; overflow-y: auto; border-radius: 10px; min-width: 200px;">
                         @foreach($bulkSelectableBuckets as $bucket)
                             @if(empty($bucket->is_deleted))
-                                <li><a class="dropdown-item fw-bold text-primary rounded-2 mb-1 py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $bucket->id }}, '{{ addslashes($bucket->name) }}')">{{ $bucket->name }}</a></li>
-                                @if($bucket->children)
+                                @php
+                                    $bHasChildren = $bucket->children && $bucket->children->filter(fn($c) => empty($c->is_deleted))->count() > 0;
+                                @endphp
+                                @if($bHasChildren)
+                                    <li class="px-2 py-1 text-muted fw-bold d-flex align-items-center gap-1.5" style="font-size: 11.5px;">
+                                        <span>📁</span> <span>{{ $bucket->name }}</span>
+                                    </li>
                                     @foreach($bucket->children as $child)
                                         @if(empty($child->is_deleted))
-                                            <li><a class="dropdown-item ms-2 rounded-2 mb-1 text-dark py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $child->id }}, '{{ addslashes($child->name) }}')"><i class="feather-corner-down-right text-muted me-1"></i> {{ $child->name }}</a></li>
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center gap-1.5 rounded-2 mb-0.5 py-1 px-3 text-dark" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $child->id }}, '{{ addslashes($child->name) }}')">
+                                                    <span style="color: #94a3b8; font-family: monospace; font-size: 12px; font-weight: bold;">└──</span>
+                                                    <span>🛒</span>
+                                                    <span>{{ $child->name }}</span>
+                                                </a>
+                                            </li>
                                         @endif
                                     @endforeach
+                                @else
+                                    <li>
+                                        <a class="dropdown-item d-flex align-items-center gap-1.5 fw-bold text-primary rounded-2 mb-0.5 py-1 px-2" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $bucket->id }}, '{{ addslashes($bucket->name) }}')">
+                                            <span>📁</span> <span>{{ $bucket->name }}</span>
+                                        </a>
+                                    </li>
                                 @endif
                             @endif
                         @endforeach
@@ -1076,47 +1137,45 @@
                                             <button class="monday-status-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-boundary="window" style="background-color: {{ $stStyle['bg'] }};" id="status-pill-{{ $lead->id }}">
                                                 <span id="status-text-{{ $lead->id }}">{{ $statusName }}</span>
                                             </button>
-                                            @php
-                                                $rowSelectableBuckets = !empty($isDealView)
-                                                    ? ($activeDealBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && $b->type === 'order'))
-                                                    : ($activeLeadBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && ($b->type === 'lead' || empty($b->type))));
-                                            @endphp
                                             <ul class="dropdown-menu monday-status-picker-menu shadow-lg border-0">
-                                                @foreach($rowSelectableBuckets as $bucket)
+                                                @foreach(($rowSelectableBuckets ?? collect()) as $bucket)
                                                     @if(empty($bucket->is_deleted))
                                                         @php 
                                                             $bStyle = $getMondayStatusStyle($bucket->name); 
                                                             $hasChildren = $bucket->children && $bucket->children->filter(fn($c) => empty($c->is_deleted))->count() > 0;
+                                                            $isCurrentGroup = (strtolower(trim($leadParentName ?? '')) === strtolower(trim($bucket->name))) || 
+                                                                              (strtolower(trim($statusName ?? '')) === strtolower(trim($bucket->name))) ||
+                                                                              ($bucket->children && $bucket->children->contains(fn($c) => strtolower(trim($c->name)) === strtolower(trim($statusName ?? ''))));
                                                         @endphp
                                                         <li class="monday-status-group">
                                                             @if($hasChildren)
-                                                                <div class="monday-picker-parent" onclick="toggleStatusSubgroup(event, 'subgroup-{{ $lead->id }}-{{ $bucket->id }}', this)" style="background-color: {{ $bStyle['bg'] }};">
-                                                                    <span>{{ $bucket->name }}</span>
-                                                                    <i class="feather-chevron-down monday-expand-arrow"></i>
+                                                                <div class="monday-picker-parent" onclick="toggleStatusSubgroup(event, 'subgroup-{{ $lead->id }}-{{ $bucket->id }}', this)">
+                                                                    <div class="d-flex align-items-center gap-1.5 text-truncate">
+                                                                        <span class="tree-folder-icon">📁</span>
+                                                                        <span class="tree-parent-title" style="color: {{ $bStyle['bg'] }};">{{ $bucket->name }}</span>
+                                                                    </div>
+                                                                    <i class="feather-chevron-down monday-expand-arrow {{ $isCurrentGroup ? 'is-expanded' : '' }}"></i>
                                                                 </div>
-                                                                <div id="subgroup-{{ $lead->id }}-{{ $bucket->id }}" class="monday-picker-subgroup d-none">
-                                                                    <a class="dropdown-item monday-picker-child mb-1" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this, '{{ $bStyle['bg'] }}')" style="background-color: {{ $bStyle['bg'] }}; opacity: 0.95;">
-                                                                        <span class="d-inline-flex align-items-center gap-1.5 text-truncate" title="{{ $bucket->name }}">
-                                                                            <i class="feather-check-circle" style="font-size: 10px;"></i>
-                                                                            <span>{{ $bucket->name }} (Main)</span>
-                                                                        </span>
-                                                                    </a>
+                                                                <div id="subgroup-{{ $lead->id }}-{{ $bucket->id }}" class="monday-picker-subgroup {{ $isCurrentGroup ? '' : 'd-none' }}">
                                                                     @foreach($bucket->children as $child)
                                                                         @if(empty($child->is_deleted))
                                                                             @php $cStyle = $getMondayStatusStyle($child->name); @endphp
-                                                                            <a class="dropdown-item monday-picker-child mb-1" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $child->id }}, '{{ addslashes($child->name) }}', this, '{{ $cStyle['bg'] }}')" style="background-color: {{ $cStyle['bg'] }};">
-                                                                                <span class="d-inline-flex align-items-center gap-1.5 text-truncate" title="{{ $child->name }}">
-                                                                                    <i class="feather-corner-down-right" style="font-size: 10px; opacity: 0.9;"></i>
-                                                                                    <span>{{ $child->name }}</span>
-                                                                                </span>
-                                                                                <span class="monday-picker-badge-sub">Sub</span>
+                                                                            <a class="dropdown-item monday-picker-child" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $child->id }}, '{{ addslashes($child->name) }}', this, '{{ $cStyle['bg'] }}')">
+                                                                                <div class="d-flex align-items-center gap-1.5 text-truncate">
+                                                                                    <span class="tree-connector-line">└──</span>
+                                                                                    <span class="tree-cart-icon">🛒</span>
+                                                                                    <span class="tree-child-title">{{ $child->name }}</span>
+                                                                                </div>
                                                                             </a>
                                                                         @endif
                                                                     @endforeach
                                                                 </div>
                                                             @else
-                                                                <a class="dropdown-item monday-picker-parent" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this, '{{ $bStyle['bg'] }}')" style="background-color: {{ $bStyle['bg'] }};">
-                                                                    <span>{{ $bucket->name }}</span>
+                                                                <a class="dropdown-item monday-picker-parent monday-picker-leaf" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this, '{{ $bStyle['bg'] }}')">
+                                                                    <div class="d-flex align-items-center gap-1.5 text-truncate">
+                                                                        <span class="tree-folder-icon">📁</span>
+                                                                        <span class="tree-parent-title" style="color: {{ $bStyle['bg'] }};">{{ $bucket->name }}</span>
+                                                                    </div>
                                                                 </a>
                                                             @endif
                                                         </li>
@@ -1125,9 +1184,19 @@
                                             </ul>
                                         </div>
                                         @if($leadParentName && strtolower(trim($leadParentName)) !== strtolower(trim($statusName)))
-                                            <span class="text-muted d-block mt-1" id="parent-text-{{ $lead->id }}" style="font-size: 10.5px;">
-                                                Parent: {{ $leadParentName }}
-                                            </span>
+                                            <div class="mt-1.5 d-flex align-items-center justify-content-center" id="parent-wrap-{{ $lead->id }}">
+                                                <span class="parent-status-badge" id="parent-badge-{{ $lead->id }}" title="Parent Status: {{ $leadParentName }}">
+                                                    <span class="parent-badge-tag"><i class="feather-folder fs-10 me-1"></i>Parent</span>
+                                                    <span class="parent-badge-name" id="parent-text-{{ $lead->id }}">{{ $leadParentName }}</span>
+                                                </span>
+                                            </div>
+                                        @else
+                                            <div class="mt-1.5 d-none align-items-center justify-content-center" id="parent-wrap-{{ $lead->id }}">
+                                                <span class="parent-status-badge" id="parent-badge-{{ $lead->id }}">
+                                                    <span class="parent-badge-tag"><i class="feather-folder fs-10 me-1"></i>Parent</span>
+                                                    <span class="parent-badge-name" id="parent-text-{{ $lead->id }}"></span>
+                                                </span>
+                                            </div>
                                         @endif
                                     </td>
 
@@ -1452,16 +1521,6 @@
                                     </td>
                                 </tr>
                             @endforelse
-
-                            {{-- Monday "+ Add lead" quick row --}}
-                            <tr class="monday-add-row" onclick="openCreateModal()">
-                                <td class="monday-select-col"><i class="feather-plus text-muted fs-13"></i></td>
-                                <td colspan="10">
-                                    <span class="monday-add-btn-text">
-                                        <i class="feather-plus-circle text-primary"></i> + Add {{ $isDeal ? 'deal' : 'lead' }}
-                                    </span>
-                                </td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -1817,6 +1876,22 @@
             // Success: Update UI
             if (btnSpan) btnSpan.innerText = statusName;
             if (pillBtn && newColor) pillBtn.style.backgroundColor = newColor;
+
+            const parentWrap = document.getElementById('parent-wrap-' + leadId);
+            const parentText = document.getElementById('parent-text-' + leadId);
+            const parentBadge = document.getElementById('parent-badge-' + leadId);
+            const returnedBucket = data.bucket_name || '';
+            if (parentWrap && parentText) {
+                if (returnedBucket && returnedBucket.toLowerCase() !== statusName.toLowerCase()) {
+                    parentText.innerText = returnedBucket;
+                    if (parentBadge) parentBadge.title = 'Parent Status: ' + returnedBucket;
+                    parentWrap.classList.remove('d-none');
+                    parentWrap.classList.add('d-flex');
+                } else {
+                    parentWrap.classList.add('d-none');
+                    parentWrap.classList.remove('d-flex');
+                }
+            }
             if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: data.message, showConfirmButton: false, timer: 1500 });
         } catch (error) {
             if (btnSpan) btnSpan.innerText = originalText;

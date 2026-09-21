@@ -311,55 +311,56 @@
 </div>
 
 @include('crm.lead.partials.lead-modal')
+<style>
+    @include('crm.lead.partials.lead-interaction-styles')
+</style>
+
 {{-- Comments & History Right Offcanvas --}}
-<div class="offcanvas offcanvas-end border-0 shadow-lg" tabindex="-1" id="commentsOffcanvas" aria-labelledby="cm_leadName" style="width: min(480px, 100vw);">
-    <div class="offcanvas-header border-0 px-4 py-3 text-white" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%);">
+<div class="offcanvas offcanvas-end border-0 shadow-lg" tabindex="-1" id="commentsOffcanvas" aria-labelledby="cm_leadName" style="width: min(500px, 100vw);">
+    <div class="offcanvas-header border-0 px-4 py-3 text-white" style="background: linear-gradient(135deg, #006FC9 0%, #005299 100%);">
         <div class="d-flex align-items-center gap-3 overflow-hidden">
-            <div class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25 flex-shrink-0" style="width: 38px; height: 38px;">
-                <i class="feather-clock fs-5 text-white"></i>
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" id="cm_header_avatar_box" style="width: 40px; height: 40px; background: rgba(255, 255, 255, 0.18); border: 1.5px solid rgba(255, 255, 255, 0.32); backdrop-filter: blur(8px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
+                <span class="fw-bold fs-16 text-white" id="cm_leadInitial"><i class="feather-activity fs-5"></i></span>
             </div>
             <div class="overflow-hidden">
                 <h5 class="offcanvas-title fw-bold text-white mb-0 fs-15 text-truncate" id="cm_leadName">Lead Activity & History</h5>
-                <small class="text-white opacity-75 fs-11" id="cm_leadSubtitle">Communication, Remarks & Status History</small>
+                <div class="d-flex align-items-center gap-1.5 opacity-75 fs-11 mt-0.5">
+                    <i class="feather-clock fs-10"></i>
+                    <span id="cm_leadSubtitle">Communication, Remarks & Status History</span>
+                </div>
             </div>
         </div>
-        <button type="button" class="btn-close btn-close-white flex-shrink-0" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <button type="button" class="btn-close btn-close-white opacity-75 flex-shrink-0 shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
 
     <!-- Navigation Tabs Header -->
-    <div class="bg-white border-bottom px-3 pt-2">
-        <ul class="nav nav-tabs border-0 gap-1 cm-nav-tabs" id="cm_tabs" role="tablist" style="font-size: 12.5px;">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active fw-semibold d-flex align-items-center gap-1.5 py-2 px-3 border-0 border-bottom border-2 cm-tab-btn" 
-                        id="cm_tab_comments_btn" 
-                        data-bs-toggle="tab" 
-                        data-bs-target="#cm_tab_comments" 
-                        type="button" 
-                        role="tab" 
-                        aria-controls="cm_tab_comments" 
-                        aria-selected="true"
-                        style="color: #006FC9; border-color: #006FC9 !important;">
-                    <i class="feather-message-square"></i>
-                    <span>Communication & Remarks</span>
-                    <span class="badge rounded-pill bg-primary-subtle text-primary ms-1 fs-11" id="cm_badge_comments_count">0</span>
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link fw-semibold d-flex align-items-center gap-1.5 py-2 px-3 border-0 border-bottom border-2 text-muted cm-tab-btn" 
-                        id="cm_tab_status_btn" 
-                        data-bs-toggle="tab" 
-                        data-bs-target="#cm_tab_status" 
-                        type="button" 
-                        role="tab" 
-                        aria-controls="cm_tab_status" 
-                        aria-selected="false"
-                        style="border-color: transparent !important;">
-                    <i class="feather-git-commit"></i>
-                    <span>Status History</span>
-                    <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-1 fs-11" id="cm_badge_status_count">0</span>
-                </button>
-            </li>
-        </ul>
+    <div class="bg-white border-bottom px-3 py-2.5">
+        <div class="nav nav-pills cm-segmented-pills d-flex gap-1" id="cm_tabs" role="tablist">
+            <button class="nav-link active flex-fill d-flex align-items-center justify-content-center gap-1.5 py-2 px-3 cm-tab-btn" 
+                    id="cm_tab_comments_btn" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#cm_tab_comments" 
+                    type="button" 
+                    role="tab" 
+                    aria-controls="cm_tab_comments" 
+                    aria-selected="true">
+                <i class="feather-message-square fs-13"></i>
+                <span>Communication & Remarks</span>
+                <span class="badge rounded-pill bg-primary text-white ms-1 fs-10 px-2 py-0.5" id="cm_badge_comments_count">0</span>
+            </button>
+            <button class="nav-link flex-fill d-flex align-items-center justify-content-center gap-1.5 py-2 px-3 cm-tab-btn" 
+                    id="cm_tab_status_btn" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#cm_tab_status" 
+                    type="button" 
+                    role="tab" 
+                    aria-controls="cm_tab_status" 
+                    aria-selected="false">
+                <i class="feather-git-commit fs-13"></i>
+                <span>Status History</span>
+                <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-1 fs-10 px-2 py-0.5" id="cm_badge_status_count">0</span>
+            </button>
+        </div>
     </div>
 
     <div class="offcanvas-body p-3" style="background: #f8fafc; overflow-y: auto;" id="cm_body">
@@ -381,7 +382,8 @@
             </div>
         </div>
     </div>
-    <div class="border-top bg-white px-3 py-3 d-flex justify-content-end">
-        <button type="button" class="btn btn-light text-secondary border px-4 fs-13 fw-semibold" data-bs-dismiss="offcanvas">Close</button>
+    <div class="border-top bg-white px-4 py-3 d-flex justify-content-between align-items-center">
+        <small class="text-muted fs-11 d-flex align-items-center gap-1"><i class="feather-shield text-primary"></i> Secure CRM Audit Trail</small>
+        <button type="button" class="btn btn-light border px-4 fs-12 fw-semibold text-secondary rounded-2 shadow-2xs" data-bs-dismiss="offcanvas">Close</button>
     </div>
 </div>

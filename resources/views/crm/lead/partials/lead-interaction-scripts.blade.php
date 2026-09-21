@@ -321,7 +321,7 @@
             if (subStatusWrap) subStatusWrap.classList.remove('d-none');
             let defaultOpt = document.createElement('option');
             defaultOpt.value = '';
-            defaultOpt.textContent = 'Select Sub Status (Optional)';
+            defaultOpt.textContent = 'Select Sub Status (Required)';
             subSelect.appendChild(defaultOpt);
             
             parentData.children.forEach(child => {
@@ -335,10 +335,12 @@
                 subSelect.appendChild(opt);
             });
             subSelect.disabled = false;
+            subSelect.required = true;
         } else {
             if (subStatusWrap) subStatusWrap.classList.add('d-none');
             subSelect.value = '';
             subSelect.disabled = true;
+            subSelect.required = false;
         }
     }
 
@@ -389,9 +391,15 @@
         let bucketInput = form.querySelector('[name="lead_bucket_id"]') || document.getElementById('editStatusBucketIdInput');
         if (bucketInput) bucketInput.value = bucketId || '';
 
-        form.onsubmit = function() {
+        form.onsubmit = function(e) {
             let subVal = subSelect ? subSelect.value : '';
             let mainVal = mainSelect ? mainSelect.value : '';
+            const pData = leadStatusMap[mainVal];
+            if (pData && pData.children && pData.children.length > 0 && !subVal) {
+                if (e) e.preventDefault();
+                alert('Please select a Sub Status. Main status cannot be selected directly.');
+                return false;
+            }
             let finalStatus = subVal || mainVal || leadStatus;
             let finalBucketName = mainVal || bucketName || '';
             let finalBucketId = bucketId;
@@ -1119,45 +1127,25 @@
         if (tabName === 'status' || tabName === 'status_history') {
             const tab = bootstrap.Tab.getOrCreateInstance(statusTabBtn);
             tab.show();
-            statusTabBtn.style.setProperty('color', '#006FC9', 'important');
-            statusTabBtn.style.setProperty('border-color', '#006FC9', 'important');
-            commentsTabBtn.style.setProperty('color', '#64748b', 'important');
-            commentsTabBtn.style.setProperty('border-color', 'transparent', 'important');
         } else {
             const tab = bootstrap.Tab.getOrCreateInstance(commentsTabBtn);
             tab.show();
-            commentsTabBtn.style.setProperty('color', '#006FC9', 'important');
-            commentsTabBtn.style.setProperty('border-color', '#006FC9', 'important');
-            statusTabBtn.style.setProperty('color', '#64748b', 'important');
-            statusTabBtn.style.setProperty('border-color', 'transparent', 'important');
         }
     }
     window.switchCommentsTab = switchCommentsTab;
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const cmTabs = document.getElementById('cm_tabs');
-        if (cmTabs) {
-            cmTabs.addEventListener('shown.bs.tab', function(e) {
-                const activeBtn = e.target;
-                const prevBtn = e.relatedTarget;
-                if (activeBtn) {
-                    activeBtn.style.setProperty('color', '#006FC9', 'important');
-                    activeBtn.style.setProperty('border-color', '#006FC9', 'important');
-                }
-                if (prevBtn) {
-                    prevBtn.style.setProperty('color', '#64748b', 'important');
-                    prevBtn.style.setProperty('border-color', 'transparent', 'important');
-                }
-            });
-        }
-    });
 
     function openCommentsModal(leadId, leadName, initialTab = 'comments') {
         let offcanvasEl = document.getElementById('commentsOffcanvas');
         let commentsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
         
+        const cleanLeadName = (leadName || '').trim();
         const titleEl = document.getElementById('cm_leadName');
-        if (titleEl) titleEl.textContent = (leadName || 'Lead') + ' - Activity & History';
+        if (titleEl) titleEl.textContent = (cleanLeadName || 'Lead') + ' - Activity & History';
+
+        const initialEl = document.getElementById('cm_leadInitial');
+        if (initialEl) {
+            initialEl.textContent = cleanLeadName ? cleanLeadName.charAt(0).toUpperCase() : 'L';
+        }
         
         const commentsTabPane = document.getElementById('cm_tab_comments');
         const statusTabPane = document.getElementById('cm_tab_status');
@@ -1165,14 +1153,29 @@
         const badgeStatusCount = document.getElementById('cm_badge_status_count');
 
         if (commentsTabPane) {
-            commentsTabPane.innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading communication & remarks...</div>';
+            commentsTabPane.innerHTML = '<div class="text-center py-5 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading communication & remarks...</div>';
         }
         if (statusTabPane) {
-            statusTabPane.innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading status change history...</div>';
+            statusTabPane.innerHTML = '<div class="text-center py-5 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading status change history...</div>';
         }
         
         switchCommentsTab(initialTab);
         commentsOffcanvas.show();
+
+        const getAvatarPalette = (name) => {
+            const palettes = [
+                { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' },
+                { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0' },
+                { bg: '#fff7ed', color: '#c2410c', border: '#ffedd5' },
+                { bg: '#fdf2f8', color: '#be185d', border: '#fbcfe8' },
+                { bg: '#f0fdfa', color: '#0f766e', border: '#99f6e4' }
+            ];
+            let code = 0;
+            const str = String(name || '');
+            for (let i = 0; i < str.length; i++) code += str.charCodeAt(i);
+            return palettes[code % palettes.length];
+        };
 
         fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
             .then(res => res.json())
@@ -1213,23 +1216,35 @@
 
                     if (messages.length === 0) {
                         commentsTabPane.innerHTML = `
-                            <div class="text-center py-5 bg-white rounded-3 border">
-                                <i class="feather-message-square text-muted fs-1 mb-2 opacity-50 d-block"></i>
-                                <p class="text-muted fs-13 mb-0">No communication, comments, or follow-ups found for this lead.</p>
+                            <div class="text-center py-5 px-3 bg-white rounded-3 border">
+                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-3" style="width: 52px; height: 52px;">
+                                    <i class="feather-message-square text-muted fs-3 opacity-50"></i>
+                                </div>
+                                <h6 class="fw-bold text-dark fs-13 mb-1">No Activity Records Yet</h6>
+                                <p class="text-muted fs-12 mb-0">No communication, comments, or follow-ups found for this lead.</p>
                             </div>`;
                     } else {
                         let html = `
-                            <div class="comment-history-summary mb-3 p-2.5 bg-white rounded-3 border d-flex align-items-center justify-content-between">
-                                <div class="d-flex align-items-center gap-2 text-primary fw-bold fs-12">
-                                    <i class="feather-message-circle"></i>
-                                    <span>Communication & Remarks</span>
+                            <div class="cm-history-summary">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="d-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 28px; height: 28px;">
+                                        <i class="feather-message-circle fs-13"></i>
+                                    </span>
+                                    <div>
+                                        <span class="fw-bold text-dark fs-12 d-block leading-tight">Communication & Remarks</span>
+                                        <small class="text-muted fs-11">Interaction logs & notes</small>
+                                    </div>
                                 </div>
-                                <span class="badge bg-primary rounded-pill">${messages.length} ${messages.length === 1 ? 'Entry' : 'Entries'}</span>
+                                <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${messages.length} ${messages.length === 1 ? 'Entry' : 'Entries'}</span>
                             </div>
-                            <div class="comment-timeline">`;
+                            <div class="cm-timeline">`;
 
                         messages.forEach((msg, index) => {
-                            const userName = escapeHistoryHtml(msg.user_name || 'System User');
+                            const rawUserName = (msg.user_name || 'System User').trim();
+                            const userName = escapeHistoryHtml(rawUserName);
+                            const userInitial = escapeHistoryHtml(rawUserName.charAt(0).toUpperCase() || 'U');
+                            const palette = getAvatarPalette(rawUserName);
+
                             const activityDate = escapeHistoryHtml(msg.created_at_formatted || 'Date unavailable');
                             const message = escapeHistoryHtml(msg.message || '');
                             const followupType = escapeHistoryHtml(msg.followup_type || '');
@@ -1238,43 +1253,97 @@
                             const docs = Array.isArray(msg.followup_documents) ? msg.followup_documents : [];
                             const callAudio = msg.call_recording || null;
 
+                            const fTypeLower = followupType.toLowerCase();
+                            let nodeIcon = 'feather-message-square';
+                            let nodeClass = 'node-note';
+                            if (fTypeLower.includes('call')) {
+                                nodeIcon = 'feather-phone';
+                                nodeClass = 'node-call';
+                            } else if (fTypeLower.includes('mail')) {
+                                nodeIcon = 'feather-mail';
+                                nodeClass = 'node-call';
+                            } else if (fTypeLower.includes('whats') || fTypeLower.includes('chat')) {
+                                nodeIcon = 'feather-message-circle';
+                                nodeClass = 'node-call';
+                            }
+
+                            const fStatusLower = followupStatus.toLowerCase();
+                            let statusChipClass = 'chip-info';
+                            if (fStatusLower.includes('unanswer') || fStatusLower.includes('busy') || fStatusLower.includes('reject') || fStatusLower.includes('no response') || fStatusLower.includes('not answer') || fStatusLower.includes('missed')) {
+                                statusChipClass = 'chip-danger';
+                            } else if (fStatusLower.includes('answer') || fStatusLower.includes('connect') || fStatusLower.includes('interest') || fStatusLower.includes('won') || fStatusLower.includes('done')) {
+                                statusChipClass = 'chip-success';
+                            }
+
                             html += `
-                                <div class="comment-timeline-item">
-                                    <span class="comment-timeline-dot"></span>
-                                    <div class="comment-history-card">
-                                        <div class="comment-history-meta">
+                                <div class="cm-timeline-item">
+                                    <span class="cm-timeline-node ${nodeClass}">
+                                        <i class="${nodeIcon}"></i>
+                                    </span>
+                                    <div class="cm-card">
+                                        <div class="cm-card-header">
                                             <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                                <span class="badge bg-primary-subtle text-primary border fs-10">#${index + 1}</span>
-                                                <span class="fw-bold text-dark fs-12 text-truncate"><i class="feather-user me-1 text-primary"></i>${userName}</span>
+                                                <div class="cm-user-avatar" style="background: ${palette.bg}; color: ${palette.color}; border: 1px solid ${palette.border};">
+                                                    ${userInitial}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-1.5 overflow-hidden">
+                                                    <span class="fw-bold text-dark fs-12 text-truncate">${userName}</span>
+                                                    <span class="badge bg-light text-secondary border fs-10 px-1.5 py-0.5 rounded">#${index + 1}</span>
+                                                </div>
                                             </div>
-                                            <span class="text-muted fs-10 text-nowrap"><i class="feather-clock me-1"></i>${activityDate}</span>
+                                            <div class="text-muted fs-11 text-nowrap d-flex align-items-center gap-1 flex-shrink-0">
+                                                <i class="feather-clock fs-11 opacity-75"></i>
+                                                <span>${activityDate}</span>
+                                            </div>
                                         </div>
-                                        <div class="comment-history-content">
-                                            ${message ? `<div class="comment-message-box mb-2 text-dark">${message}</div>` : ''}
+                                        <div class="cm-card-body">
+                                            ${message ? `<div class="cm-message-box mb-2">${message}</div>` : ''}
 
                                             ${(followupType || followupStatus || nextFollowup) ? `
-                                                <div class="d-flex align-items-center gap-2 flex-wrap pt-2 border-top fs-11">
-                                                    ${followupType ? `<span class="text-secondary fw-semibold"><i class="feather-phone-call me-1 text-primary"></i>${followupType}</span>` : ''}
-                                                    ${followupStatus ? `<span class="badge bg-info-subtle text-info border">${followupStatus}</span>` : ''}
-                                                    ${nextFollowup ? `<span class="text-warning-emphasis ms-auto fw-medium"><i class="feather-calendar me-1"></i>Next: ${nextFollowup}</span>` : ''}
+                                                <div class="d-flex align-items-center gap-1.5 flex-wrap ${message ? 'pt-2 mt-1 border-top' : ''}">
+                                                    ${followupType ? `
+                                                        <span class="cm-chip chip-type">
+                                                            <i class="${nodeIcon} text-primary" style="font-size: 11px;"></i>
+                                                            <span>${followupType}</span>
+                                                        </span>` : ''}
+                                                    ${followupStatus ? `
+                                                        <span class="cm-chip ${statusChipClass}">
+                                                            <span class="cm-chip-dot"></span>
+                                                            <span>${followupStatus}</span>
+                                                        </span>` : ''}
+                                                    ${nextFollowup ? `
+                                                        <span class="cm-chip chip-next ms-auto">
+                                                            <i class="feather-calendar text-warning" style="font-size: 11px;"></i>
+                                                            <span>Next: ${nextFollowup}</span>
+                                                        </span>` : ''}
                                                 </div>` : ''}
 
                                             ${callAudio ? `
-                                                <div class="mt-2 pt-2 border-top">
-                                                    <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-mic text-primary me-1"></i>Call Recording:</small>
-                                                    <audio controls class="w-100" style="height: 30px;" src="${callAudio}"></audio>
+                                                <div class="mt-2.5 pt-2 border-top">
+                                                    <div class="d-flex align-items-center gap-1 text-secondary fs-11 fw-semibold mb-1.5">
+                                                        <i class="feather-mic text-primary"></i>
+                                                        <span>Call Recording</span>
+                                                    </div>
+                                                    <div class="p-1.5 bg-light rounded-2 border">
+                                                        <audio controls class="w-100" style="height: 32px;" src="${callAudio}"></audio>
+                                                    </div>
                                                 </div>` : ''}
 
                                             ${docs.length > 0 ? `
-                                                <div class="mt-2 pt-2 border-top">
-                                                    <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-paperclip text-primary me-1"></i>Attachments (${docs.length}):</small>
-                                                    <div class="d-flex flex-wrap gap-1">
+                                                <div class="mt-2.5 pt-2 border-top">
+                                                    <div class="d-flex align-items-center gap-1 text-secondary fs-11 fw-semibold mb-1.5">
+                                                        <i class="feather-paperclip text-primary"></i>
+                                                        <span>Attachments (${docs.length})</span>
+                                                    </div>
+                                                    <div class="d-flex flex-wrap gap-1.5">
                                                         ${docs.map(doc => {
                                                             let docPath = typeof doc === 'object' ? doc.path : doc;
                                                             let docName = typeof doc === 'object' ? (doc.name || doc.file_name) : (docPath ? docPath.split('/').pop() : 'Attachment');
                                                             let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
-                                                            return `<a href="${viewUrl}" target="_blank" class="badge bg-light text-dark border p-1.5 rounded d-inline-flex align-items-center gap-1 text-decoration-none fs-10">
-                                                                <i class="feather-file text-primary"></i> <span class="text-truncate" style="max-width: 150px;">${escapeHistoryHtml(docName)}</span>
+                                                            return `<a href="${viewUrl}" target="_blank" class="cm-doc-chip">
+                                                                <i class="feather-file text-primary fs-11"></i>
+                                                                <span class="text-truncate" style="max-width: 160px;">${escapeHistoryHtml(docName)}</span>
+                                                                <i class="feather-download text-muted fs-10 ms-0.5"></i>
                                                             </a>`;
                                                         }).join('')}
                                                     </div>
@@ -1337,23 +1406,35 @@
 
                     if (statusHistoryList.length === 0) {
                         statusTabPane.innerHTML = `
-                            <div class="text-center py-5 bg-white rounded-3 border">
-                                <i class="feather-git-commit text-muted fs-1 mb-2 opacity-50 d-block"></i>
-                                <p class="text-muted fs-13 mb-0">No status change history recorded yet for this lead.</p>
+                            <div class="text-center py-5 px-3 bg-white rounded-3 border">
+                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-3" style="width: 52px; height: 52px;">
+                                    <i class="feather-git-commit text-muted fs-3 opacity-50"></i>
+                                </div>
+                                <h6 class="fw-bold text-dark fs-13 mb-1">No Status Changes Yet</h6>
+                                <p class="text-muted fs-12 mb-0">No status change history recorded yet for this lead.</p>
                             </div>`;
                     } else {
                         let sHtml = `
-                            <div class="comment-history-summary mb-3 p-2.5 bg-white rounded-3 border d-flex align-items-center justify-content-between">
-                                <div class="d-flex align-items-center gap-2 text-primary fw-bold fs-12">
-                                    <i class="feather-git-commit"></i>
-                                    <span>Status Change Timeline</span>
+                            <div class="cm-history-summary">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="d-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 28px; height: 28px;">
+                                        <i class="feather-git-commit fs-13"></i>
+                                    </span>
+                                    <div>
+                                        <span class="fw-bold text-dark fs-12 d-block leading-tight">Status Change Timeline</span>
+                                        <small class="text-muted fs-11">State transitions & updates</small>
+                                    </div>
                                 </div>
-                                <span class="badge bg-primary rounded-pill">${statusHistoryList.length} ${statusHistoryList.length === 1 ? 'Record' : 'Records'}</span>
+                                <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${statusHistoryList.length} ${statusHistoryList.length === 1 ? 'Record' : 'Records'}</span>
                             </div>
-                            <div class="comment-timeline">`;
+                            <div class="cm-timeline">`;
 
                         statusHistoryList.forEach((st, idx) => {
-                            const userName = escapeHistoryHtml(st.user_name || 'System User');
+                            const rawUserName = (st.user_name || 'System User').trim();
+                            const userName = escapeHistoryHtml(rawUserName);
+                            const userInitial = escapeHistoryHtml(rawUserName.charAt(0).toUpperCase() || 'U');
+                            const palette = getAvatarPalette(rawUserName);
+
                             const dateStr = escapeHistoryHtml(st.created_at_formatted || 'Date unavailable');
                             const message = escapeHistoryHtml(st.message || '');
                             const fromStatus = escapeHistoryHtml(st.from_status || '');
@@ -1365,41 +1446,51 @@
                             if (fromStatus && toStatus && fromStatus !== toStatus) {
                                 transitionContent = `
                                     <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                        <span class="badge bg-secondary-subtle text-secondary border fs-11">${fromStatus}</span>
-                                        <i class="feather-arrow-right text-primary fs-11"></i>
-                                        <span class="badge bg-primary text-white fs-11 fw-bold">${toStatus}</span>
+                                        <span class="badge bg-secondary-subtle text-secondary border fs-11 px-2 py-1 rounded">${fromStatus}</span>
+                                        <i class="feather-arrow-right text-primary fs-12"></i>
+                                        <span class="badge bg-primary text-white fs-11 fw-bold px-2 py-1 rounded">${toStatus}</span>
                                     </div>`;
                             } else if (currentStatus) {
                                 transitionContent = `
                                     <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                        <span class="badge bg-primary text-white fs-11 fw-bold">
+                                        <span class="badge bg-primary text-white fs-11 fw-bold px-2 py-1 rounded">
                                             <i class="feather-check-circle me-1 fs-10"></i>${currentStatus}
                                         </span>
-                                        ${bucketName && bucketName.toLowerCase() !== currentStatus.toLowerCase() ? `<span class="badge bg-light text-secondary border fs-10">Bucket: ${bucketName}</span>` : ''}
+                                        ${bucketName && bucketName.toLowerCase() !== currentStatus.toLowerCase() ? `<span class="badge bg-light text-secondary border fs-10 px-2 py-1 rounded">Bucket: ${bucketName}</span>` : ''}
                                     </div>`;
                             } else if (toStatus) {
                                 transitionContent = `
                                     <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                        <span class="badge bg-primary text-white fs-11 fw-bold">
+                                        <span class="badge bg-primary text-white fs-11 fw-bold px-2 py-1 rounded">
                                             <i class="feather-check-circle me-1 fs-10"></i>${toStatus}
                                         </span>
                                     </div>`;
                             }
 
                             sHtml += `
-                                <div class="comment-timeline-item">
-                                    <span class="comment-timeline-dot" style="background-color: #006FC9;"></span>
-                                    <div class="comment-history-card">
-                                        <div class="comment-history-meta">
+                                <div class="cm-timeline-item">
+                                    <span class="cm-timeline-node node-status">
+                                        <i class="feather-git-commit"></i>
+                                    </span>
+                                    <div class="cm-card">
+                                        <div class="cm-card-header">
                                             <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                                <span class="badge bg-primary-subtle text-primary border fs-10">#${idx + 1}</span>
-                                                <span class="fw-bold text-dark fs-12 text-truncate"><i class="feather-user me-1 text-primary"></i>${userName}</span>
+                                                <div class="cm-user-avatar" style="background: ${palette.bg}; color: ${palette.color}; border: 1px solid ${palette.border};">
+                                                    ${userInitial}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-1.5 overflow-hidden">
+                                                    <span class="fw-bold text-dark fs-12 text-truncate">${userName}</span>
+                                                    <span class="badge bg-light text-secondary border fs-10 px-1.5 py-0.5 rounded">#${idx + 1}</span>
+                                                </div>
                                             </div>
-                                            <span class="text-muted fs-10 text-nowrap"><i class="feather-clock me-1"></i>${dateStr}</span>
+                                            <div class="text-muted fs-11 text-nowrap d-flex align-items-center gap-1 flex-shrink-0">
+                                                <i class="feather-clock fs-11 opacity-75"></i>
+                                                <span>${dateStr}</span>
+                                            </div>
                                         </div>
-                                        <div class="comment-history-content pt-2">
+                                        <div class="cm-card-body">
                                             ${transitionContent}
-                                            ${message ? `<div class="fs-12 text-dark mt-1.5"><i class="feather-file-text me-1 text-muted"></i>${message}</div>` : ''}
+                                            ${message ? `<div class="cm-message-box mt-2" style="border-left-color: #8b5cf6;"><i class="feather-file-text me-1 text-muted"></i>${message}</div>` : ''}
                                         </div>
                                     </div>
                                 </div>`;
@@ -1410,8 +1501,8 @@
                 }
             })
             .catch(err => {
-                if (commentsTabPane) commentsTabPane.innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load comments.</div>';
-                if (statusTabPane) statusTabPane.innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load status history.</div>';
+                if (commentsTabPane) commentsTabPane.innerHTML = '<div class="text-center text-danger py-4 fs-13">Failed to load comments.</div>';
+                if (statusTabPane) statusTabPane.innerHTML = '<div class="text-center text-danger py-4 fs-13">Failed to load status history.</div>';
             });
     }
     window.openCommentsModal = openCommentsModal;
