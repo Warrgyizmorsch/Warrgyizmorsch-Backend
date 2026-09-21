@@ -312,23 +312,73 @@
 
 @include('crm.lead.partials.lead-modal')
 {{-- Comments & History Right Offcanvas --}}
-<div class="offcanvas offcanvas-end border-0 shadow-lg" tabindex="-1" id="commentsOffcanvas" aria-labelledby="cm_leadName" style="width: min(460px, 100vw);">
+<div class="offcanvas offcanvas-end border-0 shadow-lg" tabindex="-1" id="commentsOffcanvas" aria-labelledby="cm_leadName" style="width: min(480px, 100vw);">
     <div class="offcanvas-header border-0 px-4 py-3 text-white" style="background: linear-gradient(135deg, #006FC9 0%, #0056a3 100%);">
         <div class="d-flex align-items-center gap-3 overflow-hidden">
             <div class="d-flex align-items-center justify-content-center rounded-circle bg-white bg-opacity-25 flex-shrink-0" style="width: 38px; height: 38px;">
-                <i class="feather-message-square fs-5 text-white"></i>
+                <i class="feather-clock fs-5 text-white"></i>
             </div>
             <div class="overflow-hidden">
-                <h5 class="offcanvas-title fw-bold text-white mb-0 fs-15 text-truncate" id="cm_leadName">Communication & Comments</h5>
-                <small class="text-white opacity-75 fs-11">Communication, Remarks & Follow-ups</small>
+                <h5 class="offcanvas-title fw-bold text-white mb-0 fs-15 text-truncate" id="cm_leadName">Lead Activity & History</h5>
+                <small class="text-white opacity-75 fs-11" id="cm_leadSubtitle">Communication, Remarks & Status History</small>
             </div>
         </div>
         <button type="button" class="btn-close btn-close-white flex-shrink-0" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
+
+    <!-- Navigation Tabs Header -->
+    <div class="bg-white border-bottom px-3 pt-2">
+        <ul class="nav nav-tabs border-0 gap-1 cm-nav-tabs" id="cm_tabs" role="tablist" style="font-size: 12.5px;">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-semibold d-flex align-items-center gap-1.5 py-2 px-3 border-0 border-bottom border-2 cm-tab-btn" 
+                        id="cm_tab_comments_btn" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#cm_tab_comments" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="cm_tab_comments" 
+                        aria-selected="true"
+                        style="color: #006FC9; border-color: #006FC9 !important;">
+                    <i class="feather-message-square"></i>
+                    <span>Communication & Remarks</span>
+                    <span class="badge rounded-pill bg-primary-subtle text-primary ms-1 fs-11" id="cm_badge_comments_count">0</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-semibold d-flex align-items-center gap-1.5 py-2 px-3 border-0 border-bottom border-2 text-muted cm-tab-btn" 
+                        id="cm_tab_status_btn" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#cm_tab_status" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="cm_tab_status" 
+                        aria-selected="false"
+                        style="border-color: transparent !important;">
+                    <i class="feather-git-commit"></i>
+                    <span>Status History</span>
+                    <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-1 fs-11" id="cm_badge_status_count">0</span>
+                </button>
+            </li>
+        </ul>
+    </div>
+
     <div class="offcanvas-body p-3" style="background: #f8fafc; overflow-y: auto;" id="cm_body">
-        <div class="d-flex align-items-center justify-content-center gap-2 py-5 text-muted fs-13">
-            <span class="spinner-border spinner-border-sm text-primary"></span>
-            <span>Loading comments...</span>
+        <div class="tab-content" id="cm_tabContent">
+            <!-- TAB 1: Communication & Remarks -->
+            <div class="tab-pane fade show active" id="cm_tab_comments" role="tabpanel" aria-labelledby="cm_tab_comments_btn">
+                <div class="d-flex align-items-center justify-content-center gap-2 py-5 text-muted fs-13">
+                    <span class="spinner-border spinner-border-sm text-primary"></span>
+                    <span>Loading remarks...</span>
+                </div>
+            </div>
+
+            <!-- TAB 2: Status History -->
+            <div class="tab-pane fade" id="cm_tab_status" role="tabpanel" aria-labelledby="cm_tab_status_btn">
+                <div class="d-flex align-items-center justify-content-center gap-2 py-5 text-muted fs-13">
+                    <span class="spinner-border spinner-border-sm text-primary"></span>
+                    <span>Loading status history...</span>
+                </div>
+            </div>
         </div>
     </div>
     <div class="border-top bg-white px-3 py-3 d-flex justify-content-end">

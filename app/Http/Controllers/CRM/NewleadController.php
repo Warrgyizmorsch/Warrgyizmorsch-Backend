@@ -1456,6 +1456,20 @@ class NewleadController extends Controller
             ];
         });
 
+        $statusHistories = \App\Models\LeadHistory::with('user:id,name')
+            ->where('lead_id', $lead->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($h) {
+                return [
+                    'id' => $h->id,
+                    'action' => $h->action,
+                    'changes' => is_array($h->changes) ? $h->changes : (is_string($h->changes) ? json_decode($h->changes, true) : []),
+                    'user_name' => optional($h->user)->name ?? 'System',
+                    'created_at_formatted' => $h->created_at ? $h->created_at->format('d M y, h:i A') : '',
+                ];
+            });
+
         return response()->json([
             'status' => 'success',
             'lead' => $lead,
@@ -1463,6 +1477,7 @@ class NewleadController extends Controller
             'owner' => $lead->owner,
             'messages' => $messages,
             'todoTasks' => $todoTasks,
+            'statusHistories' => $statusHistories,
         ]);
     }
 

@@ -682,6 +682,9 @@ class LeadTableController extends Controller
             }
         }
 
+        $oldStatus = $leadObj->lead_status;
+        $oldBucket = $leadObj->lead_bucket_name;
+
         $updateData = [
             'lead_status' => $statusName,
             'lead_bucket_id' => $bucketId,
@@ -696,6 +699,31 @@ class LeadTableController extends Controller
             'order_bucket_id' => $bucketId,
             'order_status' => $statusName,
         ]);
+
+        \App\Models\CallBack::create([
+            'lead_id' => $leadObj->id,
+            'status' => $statusName,
+            'bucket' => $bucketName ?: $statusName,
+            'message' => $oldStatus && $oldStatus !== $statusName 
+                ? "Status changed from '{$oldStatus}' to '{$statusName}'"
+                : "Status set to '{$statusName}'",
+            'is_done' => 1,
+            'created_by' => auth()->id(),
+        ]);
+
+        try {
+            \App\Models\LeadHistory::create([
+                'lead_id' => $leadObj->id,
+                'user_id' => auth()->id(),
+                'action' => 'status_update',
+                'changes' => json_encode([
+                    'from_status' => $oldStatus,
+                    'to_status' => $statusName,
+                    'from_bucket' => $oldBucket,
+                    'to_bucket' => $bucketName,
+                ]),
+            ]);
+        } catch (\Throwable $e) {}
 
         return response()->json(['status' => true, 'message' => 'Status updated successfully']);
     }
@@ -743,6 +771,37 @@ class LeadTableController extends Controller
         $query = Leads::whereIn('id', $ids);
         if (auth()->user()->role_id == 3) {
             $query->where('lead_owner', auth()->id());
+        }
+
+        $leadsToUpdate = $query->get();
+        foreach ($leadsToUpdate as $leadObj) {
+            $oldStatus = $leadObj->lead_status;
+            $oldBucket = $leadObj->lead_bucket_name;
+
+            \App\Models\CallBack::create([
+                'lead_id' => $leadObj->id,
+                'status' => $statusName,
+                'bucket' => $bucketName ?: $statusName,
+                'message' => $oldStatus && $oldStatus !== $statusName 
+                    ? "Status changed from '{$oldStatus}' to '{$statusName}' (Bulk Action)"
+                    : "Status set to '{$statusName}' (Bulk Action)",
+                'is_done' => 1,
+                'created_by' => auth()->id(),
+            ]);
+
+            try {
+                \App\Models\LeadHistory::create([
+                    'lead_id' => $leadObj->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'bulk_status_update',
+                    'changes' => json_encode([
+                        'from_status' => $oldStatus,
+                        'to_status' => $statusName,
+                        'from_bucket' => $oldBucket,
+                        'to_bucket' => $bucketName,
+                    ]),
+                ]);
+            } catch (\Throwable $e) {}
         }
 
         $updateData = [

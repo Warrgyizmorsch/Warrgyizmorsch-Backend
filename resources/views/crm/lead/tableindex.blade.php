@@ -1403,6 +1403,13 @@
                                                             </a>
                                                         </li>
 
+                                                        {{-- Status History Action --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}', 'status_history')">
+                                                                <i class="feather-git-commit text-primary"></i> <span>Status History</span>
+                                                            </a>
+                                                        </li>
+
                                                         @unless($isDealView ?? false)
                                                         {{-- Convert Lead to Deal --}}
                                                         <li>

@@ -1111,23 +1111,94 @@
         }
     }
 
-    function openCommentsModal(leadId, leadName) {
+    function switchCommentsTab(tabName) {
+        const commentsTabBtn = document.getElementById('cm_tab_comments_btn');
+        const statusTabBtn = document.getElementById('cm_tab_status_btn');
+        if (!commentsTabBtn || !statusTabBtn) return;
+
+        if (tabName === 'status' || tabName === 'status_history') {
+            const tab = bootstrap.Tab.getOrCreateInstance(statusTabBtn);
+            tab.show();
+            statusTabBtn.style.setProperty('color', '#006FC9', 'important');
+            statusTabBtn.style.setProperty('border-color', '#006FC9', 'important');
+            commentsTabBtn.style.setProperty('color', '#64748b', 'important');
+            commentsTabBtn.style.setProperty('border-color', 'transparent', 'important');
+        } else {
+            const tab = bootstrap.Tab.getOrCreateInstance(commentsTabBtn);
+            tab.show();
+            commentsTabBtn.style.setProperty('color', '#006FC9', 'important');
+            commentsTabBtn.style.setProperty('border-color', '#006FC9', 'important');
+            statusTabBtn.style.setProperty('color', '#64748b', 'important');
+            statusTabBtn.style.setProperty('border-color', 'transparent', 'important');
+        }
+    }
+    window.switchCommentsTab = switchCommentsTab;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const cmTabs = document.getElementById('cm_tabs');
+        if (cmTabs) {
+            cmTabs.addEventListener('shown.bs.tab', function(e) {
+                const activeBtn = e.target;
+                const prevBtn = e.relatedTarget;
+                if (activeBtn) {
+                    activeBtn.style.setProperty('color', '#006FC9', 'important');
+                    activeBtn.style.setProperty('border-color', '#006FC9', 'important');
+                }
+                if (prevBtn) {
+                    prevBtn.style.setProperty('color', '#64748b', 'important');
+                    prevBtn.style.setProperty('border-color', 'transparent', 'important');
+                }
+            });
+        }
+    });
+
+    function openCommentsModal(leadId, leadName, initialTab = 'comments') {
         let offcanvasEl = document.getElementById('commentsOffcanvas');
         let commentsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
         
-        document.getElementById('cm_leadName').textContent = leadName + ' - Comments';
-        document.getElementById('cm_body').innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading comments...</div>';
+        const titleEl = document.getElementById('cm_leadName');
+        if (titleEl) titleEl.textContent = (leadName || 'Lead') + ' - Activity & History';
         
+        const commentsTabPane = document.getElementById('cm_tab_comments');
+        const statusTabPane = document.getElementById('cm_tab_status');
+        const badgeCommentsCount = document.getElementById('cm_badge_comments_count');
+        const badgeStatusCount = document.getElementById('cm_badge_status_count');
+
+        if (commentsTabPane) {
+            commentsTabPane.innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading communication & remarks...</div>';
+        }
+        if (statusTabPane) {
+            statusTabPane.innerHTML = '<div class="text-center py-4 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading status change history...</div>';
+        }
+        
+        switchCommentsTab(initialTab);
         commentsOffcanvas.show();
 
         fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
+                    const escapeHistoryHtml = (value) => {
+                        const element = document.createElement('div');
+                        element.textContent = value == null ? '' : String(value);
+                        return element.innerHTML;
+                    };
+
                     let rawMessages = data.messages || [];
 
-                    // Filter: ONLY Communication & Comment, Next Follow-up, Attachments (Exclude pure status changes)
+                    // =========================================================
+                    // TAB 1: Communication & Remarks (Excluded pure status changes)
+                    // =========================================================
                     let messages = rawMessages.filter(msg => {
+                        const rawMsgText = (msg.message || '').trim().toLowerCase();
+                        const isPureStatusLog = (
+                            rawMsgText.startsWith('status changed') || 
+                            rawMsgText.startsWith('status set to') ||
+                            rawMsgText.includes('converted to deal')
+                        ) && !msg.followup_type && !msg.call_recording && (!Array.isArray(msg.followup_documents) || msg.followup_documents.length === 0);
+
+                        if (isPureStatusLog) return false;
+
                         const hasMessage = msg.message && msg.message.trim() !== '';
                         const hasFollowup = msg.followup_type && msg.followup_type.trim() !== '';
                         const hasNextDate = msg.next_followup_date || msg.next_followup_date_formatted;
@@ -1136,92 +1207,211 @@
                         return hasMessage || hasFollowup || hasNextDate || hasDocs || hasAudio;
                     });
 
+                    if (badgeCommentsCount) badgeCommentsCount.textContent = messages.length;
+
+                    if (!commentsTabPane) return;
+
                     if (messages.length === 0) {
-                        document.getElementById('cm_body').innerHTML = `
+                        commentsTabPane.innerHTML = `
                             <div class="text-center py-5 bg-white rounded-3 border">
                                 <i class="feather-message-square text-muted fs-1 mb-2 opacity-50 d-block"></i>
                                 <p class="text-muted fs-13 mb-0">No communication, comments, or follow-ups found for this lead.</p>
                             </div>`;
-                        return;
+                    } else {
+                        let html = `
+                            <div class="comment-history-summary mb-3 p-2.5 bg-white rounded-3 border d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-2 text-primary fw-bold fs-12">
+                                    <i class="feather-message-circle"></i>
+                                    <span>Communication & Remarks</span>
+                                </div>
+                                <span class="badge bg-primary rounded-pill">${messages.length} ${messages.length === 1 ? 'Entry' : 'Entries'}</span>
+                            </div>
+                            <div class="comment-timeline">`;
+
+                        messages.forEach((msg, index) => {
+                            const userName = escapeHistoryHtml(msg.user_name || 'System User');
+                            const activityDate = escapeHistoryHtml(msg.created_at_formatted || 'Date unavailable');
+                            const message = escapeHistoryHtml(msg.message || '');
+                            const followupType = escapeHistoryHtml(msg.followup_type || '');
+                            const followupStatus = escapeHistoryHtml(msg.followup_status || '');
+                            const nextFollowup = escapeHistoryHtml(msg.next_followup_date_formatted || msg.next_followup_date || '');
+                            const docs = Array.isArray(msg.followup_documents) ? msg.followup_documents : [];
+                            const callAudio = msg.call_recording || null;
+
+                            html += `
+                                <div class="comment-timeline-item">
+                                    <span class="comment-timeline-dot"></span>
+                                    <div class="comment-history-card">
+                                        <div class="comment-history-meta">
+                                            <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                                <span class="badge bg-primary-subtle text-primary border fs-10">#${index + 1}</span>
+                                                <span class="fw-bold text-dark fs-12 text-truncate"><i class="feather-user me-1 text-primary"></i>${userName}</span>
+                                            </div>
+                                            <span class="text-muted fs-10 text-nowrap"><i class="feather-clock me-1"></i>${activityDate}</span>
+                                        </div>
+                                        <div class="comment-history-content">
+                                            ${message ? `<div class="comment-message-box mb-2 text-dark">${message}</div>` : ''}
+
+                                            ${(followupType || followupStatus || nextFollowup) ? `
+                                                <div class="d-flex align-items-center gap-2 flex-wrap pt-2 border-top fs-11">
+                                                    ${followupType ? `<span class="text-secondary fw-semibold"><i class="feather-phone-call me-1 text-primary"></i>${followupType}</span>` : ''}
+                                                    ${followupStatus ? `<span class="badge bg-info-subtle text-info border">${followupStatus}</span>` : ''}
+                                                    ${nextFollowup ? `<span class="text-warning-emphasis ms-auto fw-medium"><i class="feather-calendar me-1"></i>Next: ${nextFollowup}</span>` : ''}
+                                                </div>` : ''}
+
+                                            ${callAudio ? `
+                                                <div class="mt-2 pt-2 border-top">
+                                                    <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-mic text-primary me-1"></i>Call Recording:</small>
+                                                    <audio controls class="w-100" style="height: 30px;" src="${callAudio}"></audio>
+                                                </div>` : ''}
+
+                                            ${docs.length > 0 ? `
+                                                <div class="mt-2 pt-2 border-top">
+                                                    <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-paperclip text-primary me-1"></i>Attachments (${docs.length}):</small>
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        ${docs.map(doc => {
+                                                            let docPath = typeof doc === 'object' ? doc.path : doc;
+                                                            let docName = typeof doc === 'object' ? (doc.name || doc.file_name) : (docPath ? docPath.split('/').pop() : 'Attachment');
+                                                            let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
+                                                            return `<a href="${viewUrl}" target="_blank" class="badge bg-light text-dark border p-1.5 rounded d-inline-flex align-items-center gap-1 text-decoration-none fs-10">
+                                                                <i class="feather-file text-primary"></i> <span class="text-truncate" style="max-width: 150px;">${escapeHistoryHtml(docName)}</span>
+                                                            </a>`;
+                                                        }).join('')}
+                                                    </div>
+                                                </div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>`;
+                        });
+                        html += `</div>`;
+                        commentsTabPane.innerHTML = html;
                     }
 
-                    const escapeHistoryHtml = (value) => {
-                        const element = document.createElement('div');
-                        element.textContent = value == null ? '' : String(value);
-                        return element.innerHTML;
-                    };
+                    // =========================================================
+                    // TAB 2: Status Change History
+                    // =========================================================
+                    let statusHistoryList = [];
 
-                    let html = `
-                        <div class="comment-history-summary">
-                            <div class="d-flex align-items-center gap-2 text-primary fw-bold fs-12">
-                                <i class="feather-message-circle"></i>
-                                <span>Communication & Comments</span>
-                            </div>
-                            <span class="badge bg-primary rounded-pill">${messages.length} ${messages.length === 1 ? 'Entry' : 'Entries'}</span>
-                        </div>
-                        <div class="comment-timeline">`;
+                    // 1. Collect from rawMessages
+                    rawMessages.forEach(msg => {
+                        const rawMsgText = (msg.message || '').trim().toLowerCase();
+                        const isStatusMsg = rawMsgText.includes('status changed') || 
+                                           rawMsgText.includes('status set to') || 
+                                           rawMsgText.includes('converted to deal');
+                        const hasStatusField = (msg.status && msg.status.trim() !== '') || (msg.bucket && msg.bucket.trim() !== '');
 
-                    messages.forEach((msg, index) => {
-                        const userName = escapeHistoryHtml(msg.user_name || 'System User');
-                        const activityDate = escapeHistoryHtml(msg.created_at_formatted || 'Date unavailable');
-                        const message = escapeHistoryHtml(msg.message || '');
-                        const followupType = escapeHistoryHtml(msg.followup_type || '');
-                        const followupStatus = escapeHistoryHtml(msg.followup_status || '');
-                        const nextFollowup = escapeHistoryHtml(msg.next_followup_date_formatted || msg.next_followup_date || '');
-                        const docs = Array.isArray(msg.followup_documents) ? msg.followup_documents : [];
-                        const callAudio = msg.call_recording || null;
-
-                        html += `
-                            <div class="comment-timeline-item">
-                                <span class="comment-timeline-dot"></span>
-                                <div class="comment-history-card">
-                                    <div class="comment-history-meta">
-                                        <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                            <span class="badge bg-primary-subtle text-primary border fs-10">#${index + 1}</span>
-                                            <span class="fw-bold text-dark fs-12 text-truncate"><i class="feather-user me-1 text-primary"></i>${userName}</span>
-                                        </div>
-                                        <span class="text-muted fs-10 text-nowrap"><i class="feather-clock me-1"></i>${activityDate}</span>
-                                    </div>
-                                    <div class="comment-history-content">
-                                        ${message ? `<div class="comment-message-box mb-2 text-dark">${message}</div>` : ''}
-
-                                        ${(followupType || followupStatus || nextFollowup) ? `
-                                            <div class="d-flex align-items-center gap-2 flex-wrap pt-2 border-top fs-11">
-                                                ${followupType ? `<span class="text-secondary fw-semibold"><i class="feather-phone-call me-1 text-primary"></i>${followupType}</span>` : ''}
-                                                ${followupStatus ? `<span class="badge bg-info-subtle text-info border">${followupStatus}</span>` : ''}
-                                                ${nextFollowup ? `<span class="text-warning-emphasis ms-auto fw-medium"><i class="feather-calendar me-1"></i>Next: ${nextFollowup}</span>` : ''}
-                                            </div>` : ''}
-
-                                        ${callAudio ? `
-                                            <div class="mt-2 pt-2 border-top">
-                                                <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-mic text-primary me-1"></i>Call Recording:</small>
-                                                <audio controls class="w-100" style="height: 30px;" src="${callAudio}"></audio>
-                                            </div>` : ''}
-
-                                        ${docs.length > 0 ? `
-                                            <div class="mt-2 pt-2 border-top">
-                                                <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-paperclip text-primary me-1"></i>Attachments (${docs.length}):</small>
-                                                <div class="d-flex flex-wrap gap-1">
-                                                    ${docs.map(doc => {
-                                                        let docPath = typeof doc === 'object' ? doc.path : doc;
-                                                        let docName = typeof doc === 'object' ? (doc.name || doc.file_name) : (docPath ? docPath.split('/').pop() : 'Attachment');
-                                                        let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
-                                                        return `<a href="${viewUrl}" target="_blank" class="badge bg-light text-dark border p-1.5 rounded d-inline-flex align-items-center gap-1 text-decoration-none fs-10">
-                                                            <i class="feather-file text-primary"></i> <span class="text-truncate" style="max-width: 150px;">${escapeHistoryHtml(docName)}</span>
-                                                        </a>`;
-                                                    }).join('')}
-                                                </div>
-                                            </div>` : ''}
-                                    </div>
-                                </div>
-                            </div>`;
+                        if (isStatusMsg || hasStatusField) {
+                            statusHistoryList.push({
+                                source: 'callback',
+                                user_name: msg.user_name || 'System User',
+                                created_at_formatted: msg.created_at_formatted || 'Date unavailable',
+                                status: msg.status || '',
+                                bucket: msg.bucket || '',
+                                message: msg.message || '',
+                                raw_date: msg.created_at_raw || ''
+                            });
+                        }
                     });
-                    html += `</div>`;
-                    document.getElementById('cm_body').innerHTML = html;
+
+                    // 2. Collect from audit logs (LeadHistory)
+                    if (Array.isArray(data.statusHistories)) {
+                        data.statusHistories.forEach(h => {
+                            const ch = h.changes || {};
+                            statusHistoryList.push({
+                                source: 'audit',
+                                user_name: h.user_name || 'System User',
+                                created_at_formatted: h.created_at_formatted || 'Date unavailable',
+                                from_status: ch.from_status || '',
+                                to_status: ch.to_status || '',
+                                from_bucket: ch.from_bucket || '',
+                                to_bucket: ch.to_bucket || '',
+                                message: h.action === 'pipeline_drag_update' ? 'Updated via Kanban Drag & Drop' : '',
+                                raw_date: ''
+                            });
+                        });
+                    }
+
+                    if (badgeStatusCount) badgeStatusCount.textContent = statusHistoryList.length;
+
+                    if (!statusTabPane) return;
+
+                    if (statusHistoryList.length === 0) {
+                        statusTabPane.innerHTML = `
+                            <div class="text-center py-5 bg-white rounded-3 border">
+                                <i class="feather-git-commit text-muted fs-1 mb-2 opacity-50 d-block"></i>
+                                <p class="text-muted fs-13 mb-0">No status change history recorded yet for this lead.</p>
+                            </div>`;
+                    } else {
+                        let sHtml = `
+                            <div class="comment-history-summary mb-3 p-2.5 bg-white rounded-3 border d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-2 text-primary fw-bold fs-12">
+                                    <i class="feather-git-commit"></i>
+                                    <span>Status Change Timeline</span>
+                                </div>
+                                <span class="badge bg-primary rounded-pill">${statusHistoryList.length} ${statusHistoryList.length === 1 ? 'Record' : 'Records'}</span>
+                            </div>
+                            <div class="comment-timeline">`;
+
+                        statusHistoryList.forEach((st, idx) => {
+                            const userName = escapeHistoryHtml(st.user_name || 'System User');
+                            const dateStr = escapeHistoryHtml(st.created_at_formatted || 'Date unavailable');
+                            const message = escapeHistoryHtml(st.message || '');
+                            const fromStatus = escapeHistoryHtml(st.from_status || '');
+                            const toStatus = escapeHistoryHtml(st.to_status || '');
+                            const currentStatus = escapeHistoryHtml(st.status || '');
+                            const bucketName = escapeHistoryHtml(st.bucket || '');
+
+                            let transitionContent = '';
+                            if (fromStatus && toStatus && fromStatus !== toStatus) {
+                                transitionContent = `
+                                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                        <span class="badge bg-secondary-subtle text-secondary border fs-11">${fromStatus}</span>
+                                        <i class="feather-arrow-right text-primary fs-11"></i>
+                                        <span class="badge bg-primary text-white fs-11 fw-bold">${toStatus}</span>
+                                    </div>`;
+                            } else if (currentStatus) {
+                                transitionContent = `
+                                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                        <span class="badge bg-primary text-white fs-11 fw-bold">
+                                            <i class="feather-check-circle me-1 fs-10"></i>${currentStatus}
+                                        </span>
+                                        ${bucketName && bucketName.toLowerCase() !== currentStatus.toLowerCase() ? `<span class="badge bg-light text-secondary border fs-10">Bucket: ${bucketName}</span>` : ''}
+                                    </div>`;
+                            } else if (toStatus) {
+                                transitionContent = `
+                                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                        <span class="badge bg-primary text-white fs-11 fw-bold">
+                                            <i class="feather-check-circle me-1 fs-10"></i>${toStatus}
+                                        </span>
+                                    </div>`;
+                            }
+
+                            sHtml += `
+                                <div class="comment-timeline-item">
+                                    <span class="comment-timeline-dot" style="background-color: #006FC9;"></span>
+                                    <div class="comment-history-card">
+                                        <div class="comment-history-meta">
+                                            <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                                <span class="badge bg-primary-subtle text-primary border fs-10">#${idx + 1}</span>
+                                                <span class="fw-bold text-dark fs-12 text-truncate"><i class="feather-user me-1 text-primary"></i>${userName}</span>
+                                            </div>
+                                            <span class="text-muted fs-10 text-nowrap"><i class="feather-clock me-1"></i>${dateStr}</span>
+                                        </div>
+                                        <div class="comment-history-content pt-2">
+                                            ${transitionContent}
+                                            ${message ? `<div class="fs-12 text-dark mt-1.5"><i class="feather-file-text me-1 text-muted"></i>${message}</div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>`;
+                        });
+                        sHtml += `</div>`;
+                        statusTabPane.innerHTML = sHtml;
+                    }
                 }
             })
             .catch(err => {
-                document.getElementById('cm_body').innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load comments.</div>';
+                if (commentsTabPane) commentsTabPane.innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load comments.</div>';
+                if (statusTabPane) statusTabPane.innerHTML = '<div class="text-center text-danger py-3 fs-13">Failed to load status history.</div>';
             });
     }
     window.openCommentsModal = openCommentsModal;

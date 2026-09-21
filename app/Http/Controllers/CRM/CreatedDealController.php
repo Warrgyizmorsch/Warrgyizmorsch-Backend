@@ -656,6 +656,37 @@ class CreatedDealController extends Controller
             $query->where('lead_owner', auth()->id());
         }
 
+        $dealsToUpdate = $query->get();
+        foreach ($dealsToUpdate as $leadObj) {
+            $oldStatus = $leadObj->lead_status;
+            $oldBucket = $leadObj->lead_bucket_name;
+
+            \App\Models\CallBack::create([
+                'lead_id' => $leadObj->id,
+                'status' => $statusName,
+                'bucket' => $bucketName ?: $statusName,
+                'message' => $oldStatus && $oldStatus !== $statusName 
+                    ? "Deal status changed from '{$oldStatus}' to '{$statusName}' (Bulk Action)"
+                    : "Deal status set to '{$statusName}' (Bulk Action)",
+                'is_done' => 1,
+                'created_by' => auth()->id(),
+            ]);
+
+            try {
+                \App\Models\LeadHistory::create([
+                    'lead_id' => $leadObj->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'bulk_deal_status_update',
+                    'changes' => json_encode([
+                        'from_status' => $oldStatus,
+                        'to_status' => $statusName,
+                        'from_bucket' => $oldBucket,
+                        'to_bucket' => $bucketName,
+                    ]),
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
         $updateData = [
             'lead_status' => $statusName,
             'lead_bucket_id' => $bucketId,
