@@ -587,6 +587,7 @@
     }
 
     function openViewDetailsModalLazy(leadId) {
+        window.currentActiveLeadId = leadId;
         let modalEl = document.getElementById('viewLeadDetailsModal');
         let bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
         
@@ -597,6 +598,11 @@
         document.getElementById('vd_leadInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
         document.getElementById('vd_addressInfo').innerHTML = '<div class="col-12 text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading details...</div>';
         
+        const vdEventsContainer = document.getElementById('vd_events_container');
+        if (vdEventsContainer) {
+            vdEventsContainer.innerHTML = '<div class="text-center py-3 text-muted fs-12"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading events...</div>';
+        }
+
         bsModal.show();
 
         fetch("{{ url('/modern-leads') }}/" + leadId + "/details-data")
@@ -661,10 +667,18 @@
                     aInfo += fItem('feather-hash', 'Pincode', lead.pincode);
                     aInfo += fItem('feather-home', 'Address', lead.address);
                     document.getElementById('vd_addressInfo').innerHTML = aInfo;
+
+                    // Upcoming Events & Meetings
+                    if (vdEventsContainer) {
+                        renderLeadEventsCards(vdEventsContainer, data.leadEvents || [], leadId, false);
+                    }
                 }
             })
             .catch(err => {
                 document.getElementById('vd_personalInfo').innerHTML = '<div class="col-12 text-danger py-2 fs-12">Failed to load lead details.</div>';
+                if (vdEventsContainer) {
+                    vdEventsContainer.innerHTML = '<div class="text-danger text-center py-2 fs-12">Failed to load events.</div>';
+                }
             });
     }
 
@@ -1121,15 +1135,15 @@
 
     function switchCommentsTab(tabName) {
         const commentsTabBtn = document.getElementById('cm_tab_comments_btn');
+        const eventsTabBtn = document.getElementById('cm_tab_events_btn');
         const statusTabBtn = document.getElementById('cm_tab_status_btn');
-        if (!commentsTabBtn || !statusTabBtn) return;
 
         if (tabName === 'status' || tabName === 'status_history') {
-            const tab = bootstrap.Tab.getOrCreateInstance(statusTabBtn);
-            tab.show();
+            if (statusTabBtn) bootstrap.Tab.getOrCreateInstance(statusTabBtn).show();
+        } else if (tabName === 'events') {
+            if (eventsTabBtn) bootstrap.Tab.getOrCreateInstance(eventsTabBtn).show();
         } else {
-            const tab = bootstrap.Tab.getOrCreateInstance(commentsTabBtn);
-            tab.show();
+            if (commentsTabBtn) bootstrap.Tab.getOrCreateInstance(commentsTabBtn).show();
         }
     }
     window.switchCommentsTab = switchCommentsTab;
@@ -1137,6 +1151,7 @@
     function openCommentsModal(leadId, leadName, initialTab = 'comments') {
         let offcanvasEl = document.getElementById('commentsOffcanvas');
         let commentsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+        window.currentActiveLeadId = leadId;
         
         const cleanLeadName = (leadName || '').trim();
         const titleEl = document.getElementById('cm_leadName');
@@ -1148,12 +1163,17 @@
         }
         
         const commentsTabPane = document.getElementById('cm_tab_comments');
+        const eventsTabPane = document.getElementById('cm_tab_events');
         const statusTabPane = document.getElementById('cm_tab_status');
         const badgeCommentsCount = document.getElementById('cm_badge_comments_count');
+        const badgeEventsCount = document.getElementById('cm_badge_events_count');
         const badgeStatusCount = document.getElementById('cm_badge_status_count');
 
         if (commentsTabPane) {
             commentsTabPane.innerHTML = '<div class="text-center py-5 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading communication & remarks...</div>';
+        }
+        if (eventsTabPane) {
+            eventsTabPane.innerHTML = '<div class="text-center py-5 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading events & schedule...</div>';
         }
         if (statusTabPane) {
             statusTabPane.innerHTML = '<div class="text-center py-5 text-muted fs-13"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading status change history...</div>';
@@ -1212,152 +1232,108 @@
 
                     if (badgeCommentsCount) badgeCommentsCount.textContent = messages.length;
 
-                    if (!commentsTabPane) return;
-
-                    if (messages.length === 0) {
-                        commentsTabPane.innerHTML = `
-                            <div class="text-center py-5 px-3 bg-white rounded-3 border">
-                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-3" style="width: 52px; height: 52px;">
-                                    <i class="feather-message-square text-muted fs-3 opacity-50"></i>
-                                </div>
-                                <h6 class="fw-bold text-dark fs-13 mb-1">No Activity Records Yet</h6>
-                                <p class="text-muted fs-12 mb-0">No communication, comments, or follow-ups found for this lead.</p>
-                            </div>`;
-                    } else {
-                        let html = `
-                            <div class="cm-history-summary">
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="d-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 28px; height: 28px;">
-                                        <i class="feather-message-circle fs-13"></i>
-                                    </span>
-                                    <div>
-                                        <span class="fw-bold text-dark fs-12 d-block leading-tight">Communication & Remarks</span>
-                                        <small class="text-muted fs-11">Interaction logs & notes</small>
+                    if (commentsTabPane) {
+                        if (messages.length === 0) {
+                            commentsTabPane.innerHTML = `
+                                <div class="text-center py-5 px-3 bg-white rounded-3 border">
+                                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-3" style="width: 52px; height: 52px;">
+                                        <i class="feather-message-square text-muted fs-3 opacity-50"></i>
                                     </div>
-                                </div>
-                                <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${messages.length} ${messages.length === 1 ? 'Entry' : 'Entries'}</span>
-                            </div>
-                            <div class="cm-timeline">`;
-
-                        messages.forEach((msg, index) => {
-                            const rawUserName = (msg.user_name || 'System User').trim();
-                            const userName = escapeHistoryHtml(rawUserName);
-                            const userInitial = escapeHistoryHtml(rawUserName.charAt(0).toUpperCase() || 'U');
-                            const palette = getAvatarPalette(rawUserName);
-
-                            const activityDate = escapeHistoryHtml(msg.created_at_formatted || 'Date unavailable');
-                            const message = escapeHistoryHtml(msg.message || '');
-                            const followupType = escapeHistoryHtml(msg.followup_type || '');
-                            const followupStatus = escapeHistoryHtml(msg.followup_status || '');
-                            const nextFollowup = escapeHistoryHtml(msg.next_followup_date_formatted || msg.next_followup_date || '');
-                            const docs = Array.isArray(msg.followup_documents) ? msg.followup_documents : [];
-                            const callAudio = msg.call_recording || null;
-
-                            const fTypeLower = followupType.toLowerCase();
-                            let nodeIcon = 'feather-message-square';
-                            let nodeClass = 'node-note';
-                            if (fTypeLower.includes('call')) {
-                                nodeIcon = 'feather-phone';
-                                nodeClass = 'node-call';
-                            } else if (fTypeLower.includes('mail')) {
-                                nodeIcon = 'feather-mail';
-                                nodeClass = 'node-call';
-                            } else if (fTypeLower.includes('whats') || fTypeLower.includes('chat')) {
-                                nodeIcon = 'feather-message-circle';
-                                nodeClass = 'node-call';
-                            }
-
-                            const fStatusLower = followupStatus.toLowerCase();
-                            let statusChipClass = 'chip-info';
-                            if (fStatusLower.includes('unanswer') || fStatusLower.includes('busy') || fStatusLower.includes('reject') || fStatusLower.includes('no response') || fStatusLower.includes('not answer') || fStatusLower.includes('missed')) {
-                                statusChipClass = 'chip-danger';
-                            } else if (fStatusLower.includes('answer') || fStatusLower.includes('connect') || fStatusLower.includes('interest') || fStatusLower.includes('won') || fStatusLower.includes('done')) {
-                                statusChipClass = 'chip-success';
-                            }
-
-                            html += `
-                                <div class="cm-timeline-item">
-                                    <span class="cm-timeline-node ${nodeClass}">
-                                        <i class="${nodeIcon}"></i>
-                                    </span>
-                                    <div class="cm-card">
-                                        <div class="cm-card-header">
-                                            <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                                <div class="cm-user-avatar" style="background: ${palette.bg}; color: ${palette.color}; border: 1px solid ${palette.border};">
-                                                    ${userInitial}
-                                                </div>
-                                                <div class="d-flex align-items-center gap-1.5 overflow-hidden">
-                                                    <span class="fw-bold text-dark fs-12 text-truncate">${userName}</span>
-                                                    <span class="badge bg-light text-secondary border fs-10 px-1.5 py-0.5 rounded">#${index + 1}</span>
-                                                </div>
-                                            </div>
-                                            <div class="text-muted fs-11 text-nowrap d-flex align-items-center gap-1 flex-shrink-0">
-                                                <i class="feather-clock fs-11 opacity-75"></i>
-                                                <span>${activityDate}</span>
-                                            </div>
-                                        </div>
-                                        <div class="cm-card-body">
-                                            ${message ? `<div class="cm-message-box mb-2">${message}</div>` : ''}
-
-                                            ${(followupType || followupStatus || nextFollowup) ? `
-                                                <div class="d-flex align-items-center gap-1.5 flex-wrap ${message ? 'pt-2 mt-1 border-top' : ''}">
-                                                    ${followupType ? `
-                                                        <span class="cm-chip chip-type">
-                                                            <i class="${nodeIcon} text-primary" style="font-size: 11px;"></i>
-                                                            <span>${followupType}</span>
-                                                        </span>` : ''}
-                                                    ${followupStatus ? `
-                                                        <span class="cm-chip ${statusChipClass}">
-                                                            <span class="cm-chip-dot"></span>
-                                                            <span>${followupStatus}</span>
-                                                        </span>` : ''}
-                                                    ${nextFollowup ? `
-                                                        <span class="cm-chip chip-next ms-auto">
-                                                            <i class="feather-calendar text-warning" style="font-size: 11px;"></i>
-                                                            <span>Next: ${nextFollowup}</span>
-                                                        </span>` : ''}
-                                                </div>` : ''}
-
-                                            ${callAudio ? `
-                                                <div class="mt-2.5 pt-2 border-top">
-                                                    <div class="d-flex align-items-center gap-1 text-secondary fs-11 fw-semibold mb-1.5">
-                                                        <i class="feather-mic text-primary"></i>
-                                                        <span>Call Recording</span>
-                                                    </div>
-                                                    <div class="p-1.5 bg-light rounded-2 border">
-                                                        <audio controls class="w-100" style="height: 32px;" src="${callAudio}"></audio>
-                                                    </div>
-                                                </div>` : ''}
-
-                                            ${docs.length > 0 ? `
-                                                <div class="mt-2.5 pt-2 border-top">
-                                                    <div class="d-flex align-items-center gap-1 text-secondary fs-11 fw-semibold mb-1.5">
-                                                        <i class="feather-paperclip text-primary"></i>
-                                                        <span>Attachments (${docs.length})</span>
-                                                    </div>
-                                                    <div class="d-flex flex-wrap gap-1.5">
-                                                        ${docs.map(doc => {
-                                                            let docPath = typeof doc === 'object' ? doc.path : doc;
-                                                            let docName = typeof doc === 'object' ? (doc.name || doc.file_name) : (docPath ? docPath.split('/').pop() : 'Attachment');
-                                                            let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
-                                                            return `<a href="${viewUrl}" target="_blank" class="cm-doc-chip">
-                                                                <i class="feather-file text-primary fs-11"></i>
-                                                                <span class="text-truncate" style="max-width: 160px;">${escapeHistoryHtml(docName)}</span>
-                                                                <i class="feather-download text-muted fs-10 ms-0.5"></i>
-                                                            </a>`;
-                                                        }).join('')}
-                                                    </div>
-                                                </div>` : ''}
-                                        </div>
-                                    </div>
+                                    <h6 class="fw-bold text-dark fs-13 mb-1">No Activity Records Yet</h6>
+                                    <p class="text-muted fs-12 mb-0">No communication, comments, or follow-ups found for this lead.</p>
                                 </div>`;
-                        });
-                        html += `</div>`;
-                        commentsTabPane.innerHTML = html;
+                        } else {
+                            let html = `
+                                <div class="cm-history-summary">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="d-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 28px; height: 28px;">
+                                            <i class="feather-message-square fs-13"></i>
+                                        </span>
+                                        <div>
+                                            <span class="fw-bold text-dark fs-12 d-block leading-tight">Remarks & Follow-ups</span>
+                                            <small class="text-muted fs-11">Interaction records</small>
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${messages.length} ${messages.length === 1 ? 'Entry' : 'Entries'}</span>
+                                </div>
+                                <div class="cm-timeline">`;
+
+                            messages.forEach(msg => {
+                                const userName = msg.user_name || 'Team Member';
+                                const userInitial = userName.charAt(0).toUpperCase();
+                                const palette = getAvatarPalette(userName);
+                                const dateStr = msg.created_at_formatted || 'Date unavailable';
+
+                                html += `
+                                    <div class="cm-timeline-item">
+                                        <span class="cm-timeline-node node-comment">
+                                            <i class="feather-message-circle"></i>
+                                        </span>
+                                        <div class="cm-card">
+                                            <div class="cm-card-header">
+                                                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                                    <div class="cm-user-avatar" style="background: ${palette.bg}; color: ${palette.color}; border: 1px solid ${palette.border};">
+                                                        ${userInitial}
+                                                    </div>
+                                                    <span class="fw-bold text-dark fs-12 text-truncate">${userName}</span>
+                                                </div>
+                                                <div class="text-muted fs-11 text-nowrap d-flex align-items-center gap-1 flex-shrink-0">
+                                                    <i class="feather-clock fs-11 opacity-75"></i>
+                                                    <span>${dateStr}</span>
+                                                </div>
+                                            </div>
+                                            <div class="cm-card-body">
+                                                ${msg.message ? `<div class="cm-message-box"><i class="feather-align-left me-1 text-muted"></i>${escapeHistoryHtml(msg.message)}</div>` : ''}
+                                                ${(msg.followup_type || msg.followup_status || msg.next_followup_date || msg.next_followup_date_formatted) ? `
+                                                    <div class="cm-followup-pill mt-2">
+                                                        <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                                                            ${msg.followup_type ? `<span class="badge bg-white text-dark border fs-10 fw-semibold px-2 py-0.5"><i class="feather-tag me-1 text-primary"></i>${escapeHistoryHtml(msg.followup_type)}</span>` : ''}
+                                                            ${msg.followup_status ? `<span class="badge bg-white text-dark border fs-10 fw-semibold px-2 py-0.5"><i class="feather-activity me-1 text-info"></i>${escapeHistoryHtml(msg.followup_status)}</span>` : ''}
+                                                            ${(msg.next_followup_date || msg.next_followup_date_formatted) ? `
+                                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-10 fw-semibold px-2 py-0.5">
+                                                                    <i class="feather-calendar me-1"></i>Next: ${escapeHistoryHtml(msg.next_followup_date_formatted || msg.next_followup_date)}
+                                                                </span>` : ''}
+                                                        </div>
+                                                    </div>` : ''}
+                                                ${msg.call_recording ? `
+                                                    <div class="mt-2 p-2 rounded bg-light border">
+                                                        <div class="d-flex align-items-center gap-1.5 mb-1 text-muted fs-11">
+                                                            <i class="feather-mic text-danger"></i>
+                                                            <span class="fw-semibold">Voice Recording</span>
+                                                        </div>
+                                                        <audio controls class="w-100" style="height: 32px;">
+                                                            <source src="${msg.call_recording}" type="audio/mpeg">
+                                                            Your browser does not support audio playback.
+                                                        </audio>
+                                                    </div>` : ''}
+                                                ${(Array.isArray(msg.followup_documents) && msg.followup_documents.length > 0) ? `
+                                                    <div class="mt-2 d-flex flex-wrap gap-1">
+                                                        ${msg.followup_documents.map(doc => `
+                                                            <a href="{{ asset('storage') }}/${doc}" target="_blank" class="badge bg-light text-primary border text-decoration-none py-1 px-2 fs-10">
+                                                                <i class="feather-paperclip me-1"></i>Document
+                                                            </a>
+                                                        `).join('')}
+                                                    </div>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>`;
+                            });
+                            html += `</div>`;
+                            commentsTabPane.innerHTML = html;
+                        }
                     }
 
                     // =========================================================
-                    // TAB 2: Status Change History
+                    // TAB 2: Events & Meetings
+                    // =========================================================
+                    const leadEvents = data.leadEvents || [];
+                    if (badgeEventsCount) badgeEventsCount.textContent = leadEvents.length;
+                    if (eventsTabPane) {
+                        renderLeadEventsCards(eventsTabPane, leadEvents, leadId, true);
+                    }
+
+                    // =========================================================
+                    // TAB 3: Status Change History
                     // =========================================================
                     let statusHistoryList = [];
 
@@ -1394,7 +1370,7 @@
                                 to_status: ch.to_status || '',
                                 from_bucket: ch.from_bucket || '',
                                 to_bucket: ch.to_bucket || '',
-                                message: h.action === 'pipeline_drag_update' ? 'Updated via Kanban Drag & Drop' : '',
+                                message: h.action === 'pipeline_drag_update' ? 'Updated via Kanban Drag & Drop' : (h.action || ''),
                                 raw_date: ''
                             });
                         });
@@ -1402,110 +1378,440 @@
 
                     if (badgeStatusCount) badgeStatusCount.textContent = statusHistoryList.length;
 
-                    if (!statusTabPane) return;
-
-                    if (statusHistoryList.length === 0) {
-                        statusTabPane.innerHTML = `
-                            <div class="text-center py-5 px-3 bg-white rounded-3 border">
-                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-3" style="width: 52px; height: 52px;">
-                                    <i class="feather-git-commit text-muted fs-3 opacity-50"></i>
-                                </div>
-                                <h6 class="fw-bold text-dark fs-13 mb-1">No Status Changes Yet</h6>
-                                <p class="text-muted fs-12 mb-0">No status change history recorded yet for this lead.</p>
-                            </div>`;
-                    } else {
-                        let sHtml = `
-                            <div class="cm-history-summary">
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="d-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 28px; height: 28px;">
-                                        <i class="feather-git-commit fs-13"></i>
-                                    </span>
-                                    <div>
-                                        <span class="fw-bold text-dark fs-12 d-block leading-tight">Status Change Timeline</span>
-                                        <small class="text-muted fs-11">State transitions & updates</small>
+                    if (statusTabPane) {
+                        if (statusHistoryList.length === 0) {
+                            statusTabPane.innerHTML = `
+                                <div class="text-center py-5 px-3 bg-white rounded-3 border">
+                                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-3" style="width: 52px; height: 52px;">
+                                        <i class="feather-git-commit text-muted fs-3 opacity-50"></i>
                                     </div>
-                                </div>
-                                <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${statusHistoryList.length} ${statusHistoryList.length === 1 ? 'Record' : 'Records'}</span>
-                            </div>
-                            <div class="cm-timeline">`;
-
-                        statusHistoryList.forEach((st, idx) => {
-                            const rawUserName = (st.user_name || 'System User').trim();
-                            const userName = escapeHistoryHtml(rawUserName);
-                            const userInitial = escapeHistoryHtml(rawUserName.charAt(0).toUpperCase() || 'U');
-                            const palette = getAvatarPalette(rawUserName);
-
-                            const dateStr = escapeHistoryHtml(st.created_at_formatted || 'Date unavailable');
-                            const message = escapeHistoryHtml(st.message || '');
-                            const fromStatus = escapeHistoryHtml(st.from_status || '');
-                            const toStatus = escapeHistoryHtml(st.to_status || '');
-                            const currentStatus = escapeHistoryHtml(st.status || '');
-                            const bucketName = escapeHistoryHtml(st.bucket || '');
-
-                            let transitionContent = '';
-                            if (fromStatus && toStatus && fromStatus !== toStatus) {
-                                transitionContent = `
-                                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                        <span class="badge bg-secondary-subtle text-secondary border fs-11 px-2 py-1 rounded">${fromStatus}</span>
-                                        <i class="feather-arrow-right text-primary fs-12"></i>
-                                        <span class="badge bg-primary text-white fs-11 fw-bold px-2 py-1 rounded">${toStatus}</span>
-                                    </div>`;
-                            } else if (currentStatus) {
-                                transitionContent = `
-                                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                        <span class="badge bg-primary text-white fs-11 fw-bold px-2 py-1 rounded">
-                                            <i class="feather-check-circle me-1 fs-10"></i>${currentStatus}
-                                        </span>
-                                        ${bucketName && bucketName.toLowerCase() !== currentStatus.toLowerCase() ? `<span class="badge bg-light text-secondary border fs-10 px-2 py-1 rounded">Bucket: ${bucketName}</span>` : ''}
-                                    </div>`;
-                            } else if (toStatus) {
-                                transitionContent = `
-                                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                        <span class="badge bg-primary text-white fs-11 fw-bold px-2 py-1 rounded">
-                                            <i class="feather-check-circle me-1 fs-10"></i>${toStatus}
-                                        </span>
-                                    </div>`;
-                            }
-
-                            sHtml += `
-                                <div class="cm-timeline-item">
-                                    <span class="cm-timeline-node node-status">
-                                        <i class="feather-git-commit"></i>
-                                    </span>
-                                    <div class="cm-card">
-                                        <div class="cm-card-header">
-                                            <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                                <div class="cm-user-avatar" style="background: ${palette.bg}; color: ${palette.color}; border: 1px solid ${palette.border};">
-                                                    ${userInitial}
-                                                </div>
-                                                <div class="d-flex align-items-center gap-1.5 overflow-hidden">
-                                                    <span class="fw-bold text-dark fs-12 text-truncate">${userName}</span>
-                                                    <span class="badge bg-light text-secondary border fs-10 px-1.5 py-0.5 rounded">#${idx + 1}</span>
-                                                </div>
-                                            </div>
-                                            <div class="text-muted fs-11 text-nowrap d-flex align-items-center gap-1 flex-shrink-0">
-                                                <i class="feather-clock fs-11 opacity-75"></i>
-                                                <span>${dateStr}</span>
-                                            </div>
-                                        </div>
-                                        <div class="cm-card-body">
-                                            ${transitionContent}
-                                            ${message ? `<div class="cm-message-box mt-2" style="border-left-color: #8b5cf6;"><i class="feather-file-text me-1 text-muted"></i>${message}</div>` : ''}
-                                        </div>
-                                    </div>
+                                    <h6 class="fw-bold text-dark fs-13 mb-1">No Status Changes Yet</h6>
+                                    <p class="text-muted fs-12 mb-0">No status change history recorded yet for this lead.</p>
                                 </div>`;
-                        });
-                        sHtml += `</div>`;
-                        statusTabPane.innerHTML = sHtml;
+                        } else {
+                            let sHtml = `
+                                <div class="cm-history-summary">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="d-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 28px; height: 28px;">
+                                            <i class="feather-git-commit fs-13"></i>
+                                        </span>
+                                        <div>
+                                            <span class="fw-bold text-dark fs-12 d-block leading-tight">Status Change Timeline</span>
+                                            <small class="text-muted fs-11">State transitions & updates</small>
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${statusHistoryList.length} ${statusHistoryList.length === 1 ? 'Record' : 'Records'}</span>
+                                </div>
+                                <div class="cm-timeline">`;
+
+                            statusHistoryList.forEach((item, idx) => {
+                                const userName = item.user_name || 'System';
+                                const userInitial = userName.charAt(0).toUpperCase();
+                                const palette = getAvatarPalette(userName);
+                                const dateStr = item.created_at_formatted || 'Date unavailable';
+
+                                sHtml += `
+                                    <div class="cm-timeline-item">
+                                        <span class="cm-timeline-node node-status">
+                                            <i class="feather-git-commit"></i>
+                                        </span>
+                                        <div class="cm-card">
+                                            <div class="cm-card-header">
+                                                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                                    <div class="cm-user-avatar" style="background: ${palette.bg}; color: ${palette.color}; border: 1px solid ${palette.border};">
+                                                        ${userInitial}
+                                                    </div>
+                                                    <span class="fw-bold text-dark fs-12 text-truncate">${userName}</span>
+                                                </div>
+                                                <div class="text-muted fs-11 text-nowrap d-flex align-items-center gap-1 flex-shrink-0">
+                                                    <i class="feather-clock fs-11 opacity-75"></i>
+                                                    <span>${dateStr}</span>
+                                                </div>
+                                            </div>
+                                            <div class="cm-card-body">
+                                                ${item.message ? `<div class="cm-message-box"><i class="feather-info me-1 text-primary"></i>${escapeHistoryHtml(item.message)}</div>` : ''}
+                                                ${item.status ? `<span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-10 px-2 py-0.5 mt-1">${escapeHistoryHtml(item.status)}</span>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>`;
+                            });
+                            sHtml += `</div>`;
+                            statusTabPane.innerHTML = sHtml;
+                        }
                     }
                 }
             })
             .catch(err => {
                 if (commentsTabPane) commentsTabPane.innerHTML = '<div class="text-center text-danger py-4 fs-13">Failed to load comments.</div>';
+                if (eventsTabPane) eventsTabPane.innerHTML = '<div class="text-center text-danger py-4 fs-13">Failed to load events.</div>';
                 if (statusTabPane) statusTabPane.innerHTML = '<div class="text-center text-danger py-4 fs-13">Failed to load status history.</div>';
             });
     }
     window.openCommentsModal = openCommentsModal;
+
+    // =========================================================================
+    // UPCOMING LEAD EVENTS HELPER FUNCTIONS
+    // =========================================================================
+    function renderLeadEventsCards(container, events, leadId, isOffcanvas = false) {
+        if (!container) return;
+
+        if (!Array.isArray(events) || events.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 px-3 bg-white rounded-3 border border-dashed">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-2" style="width: 44px; height: 44px;">
+                        <i class="feather-calendar text-muted fs-4 opacity-50"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark fs-12 mb-1">No Upcoming Events</h6>
+                    <p class="text-muted fs-11 mb-2">No meetings, calls, or projection events scheduled for this lead.</p>
+                    <button type="button" class="btn btn-xs btn-primary rounded px-3" onclick="${isOffcanvas ? "document.getElementById('ue_schedule_form')?.scrollIntoView({behavior: 'smooth'}); document.getElementById('ue_event_type')?.focus();" : `openCreateLeadEventModal(${leadId})`}">
+                        <i class="feather-plus me-1"></i> Schedule Event
+                    </button>
+                </div>`;
+            return;
+        }
+
+        let html = '<div class="d-flex flex-column gap-2">';
+        events.forEach(ev => {
+            let typeBadgeStyle = 'background:#ede9fe; color:#6d28d9; border: 1px solid #ddd6fe;';
+            let typeIcon = 'feather-users';
+            if (ev.event_type === 'discovery_call') {
+                typeBadgeStyle = 'background:#e0f2fe; color:#0369a1; border: 1px solid #bae6fd;';
+                typeIcon = 'feather-phone-call';
+            } else if (ev.event_type === 'projection_call') {
+                typeBadgeStyle = 'background:#fef3c7; color:#b45309; border: 1px solid #fde68a;';
+                typeIcon = 'feather-trending-up';
+            } else if (ev.event_type === 'conversion') {
+                typeBadgeStyle = 'background:#dcfce7; color:#15803d; border: 1px solid #bbf7d0;';
+                typeIcon = 'feather-check-circle';
+            }
+
+            let statusBadge = '';
+            if (ev.status === 'scheduled') {
+                statusBadge = '<span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-10 px-2 py-0.5 rounded-pill">Scheduled</span>';
+            } else if (ev.status === 'completed') {
+                statusBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle fs-10 px-2 py-0.5 rounded-pill">Completed</span>';
+            } else if (ev.status === 'cancelled') {
+                statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-10 px-2 py-0.5 rounded-pill">Cancelled</span>';
+            } else if (ev.status === 'rescheduled') {
+                statusBadge = '<span class="badge bg-warning-subtle text-warning border border-warning-subtle fs-10 px-2 py-0.5 rounded-pill">Rescheduled</span>';
+            }
+
+            let dateBadge = '';
+            if (ev.is_today) {
+                dateBadge = '<span class="badge bg-primary-subtle text-primary fs-10 px-1.5 py-0.5 ms-1">Today</span>';
+            } else if (ev.is_overdue) {
+                dateBadge = '<span class="badge bg-danger-subtle text-danger fs-10 px-1.5 py-0.5 ms-1">Overdue</span>';
+            }
+
+            let actions = '';
+            if (ev.status === 'scheduled') {
+                actions = `
+                    <div class="d-flex align-items-center gap-1">
+                        <button type="button" class="btn btn-xs btn-outline-success py-0.5 px-1.5 rounded fs-10" onclick="quickCompleteLeadEvent(${ev.id}, ${leadId})" title="Mark Completed">
+                            <i class="feather-check"></i>
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-danger py-0.5 px-1.5 rounded fs-10" onclick="quickCancelLeadEvent(${ev.id}, ${leadId})" title="Cancel Event">
+                            <i class="feather-x"></i>
+                        </button>
+                    </div>`;
+            }
+
+            html += `
+                <div class="p-2.5 rounded-3 border bg-white shadow-2xs">
+                    <div class="d-flex align-items-start justify-content-between gap-2 mb-1.5">
+                        <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                            <span class="badge px-2 py-0.5 rounded-pill fs-10 fw-semibold d-inline-flex align-items-center gap-1" style="${typeBadgeStyle}">
+                                <i class="${typeIcon} fs-10"></i> ${ev.event_type_label || ev.event_type}
+                            </span>
+                            ${statusBadge}
+                            ${dateBadge}
+                        </div>
+                        ${actions}
+                    </div>
+                    ${ev.title ? `<div class="fw-bold text-dark fs-12 mb-1">${ev.title}</div>` : ''}
+                    ${ev.description ? `<div class="text-muted fs-11 mb-2 bg-light p-1.5 rounded">${ev.description}</div>` : ''}
+                    <div class="d-flex align-items-center justify-content-between text-muted fs-11 border-top pt-1.5 mt-1">
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="feather-calendar fs-10 text-primary"></i>
+                            <span class="fw-semibold text-dark">${ev.event_date_formatted || ev.event_date}</span>
+                            <span class="opacity-50">•</span>
+                            <i class="feather-clock fs-10 text-primary"></i>
+                            <span>${ev.start_time_formatted || ev.start_time}${ev.end_time_formatted ? ' - ' + ev.end_time_formatted : ''}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="feather-user fs-10 text-muted"></i>
+                            <span>${ev.assigned_user_name || 'Unassigned'}</span>
+                        </div>
+                    </div>
+                </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    window.renderLeadEventsCards = renderLeadEventsCards;
+
+    function openCreateLeadEventModal(leadId) {
+        const targetLeadId = leadId || window.currentActiveLeadId;
+        if (!targetLeadId) {
+            alert('Please select a lead first.');
+            return;
+        }
+
+        document.getElementById('lem_event_id').value = '';
+        document.getElementById('lem_lead_id').value = targetLeadId;
+        document.getElementById('lem_event_type').value = 'meeting_schedule';
+        document.getElementById('lem_title').value = '';
+        document.getElementById('lem_event_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('lem_start_time').value = '10:00';
+        document.getElementById('lem_end_time').value = '';
+        document.getElementById('lem_description').value = '';
+        document.getElementById('leadEventModalTitle').textContent = 'Schedule Lead Event';
+        document.getElementById('lem_submit_btn').textContent = 'Save Event';
+
+        const modalEl = document.getElementById('leadEventModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+    window.openCreateLeadEventModal = openCreateLeadEventModal;
+
+    function handleLeadEventFormSubmit(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('lem_submit_btn');
+        const leadId = document.getElementById('lem_lead_id').value;
+        const eventId = document.getElementById('lem_event_id').value;
+
+        if (!leadId) {
+            alert('Lead ID is missing.');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+        const payload = {
+            event_type: document.getElementById('lem_event_type').value,
+            title: document.getElementById('lem_title').value,
+            event_date: document.getElementById('lem_event_date').value,
+            start_time: document.getElementById('lem_start_time').value,
+            end_time: document.getElementById('lem_end_time').value || null,
+            assigned_to: document.getElementById('lem_assigned_to').value || null,
+            description: document.getElementById('lem_description').value || null,
+        };
+
+        const url = eventId ? `{{ url('/upcoming-events') }}/${eventId}` : `{{ url('/upcoming-events/lead') }}/${leadId}`;
+        const method = eventId ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Event';
+
+            if (data.status === 'success') {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('leadEventModal'));
+                if (modal) modal.hide();
+
+                refreshLeadEventsData(leadId);
+            } else {
+                alert(data.message || 'Failed to save event.');
+            }
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Event';
+            alert('Network error occurred while saving event.');
+        });
+    }
+    window.handleLeadEventFormSubmit = handleLeadEventFormSubmit;
+
+    function refreshLeadEventsData(leadId) {
+        fetch(`{{ url('/modern-leads') }}/${leadId}/details-data`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const vdEventsContainer = document.getElementById('vd_events_container');
+                    if (vdEventsContainer) {
+                        renderLeadEventsCards(vdEventsContainer, data.leadEvents || [], leadId, false);
+                    }
+                    const eventsTabPane = document.getElementById('cm_tab_events');
+                    const badgeEventsCount = document.getElementById('cm_badge_events_count');
+                    if (badgeEventsCount) badgeEventsCount.textContent = (data.leadEvents || []).length;
+                    if (eventsTabPane) {
+                        renderLeadEventsCards(eventsTabPane, data.leadEvents || [], leadId, true);
+                    }
+                }
+            });
+        if (typeof loadUpcomingEventsList === 'function') {
+            loadUpcomingEventsList(leadId);
+        }
+    }
+    window.refreshLeadEventsData = refreshLeadEventsData;
+
+    function quickCompleteLeadEvent(eventId, leadId) {
+        if (!confirm('Mark this event as completed?')) return;
+
+        fetch(`{{ url('/upcoming-events') }}/${eventId}/complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                refreshLeadEventsData(leadId);
+            } else {
+                alert(data.message || 'Failed to complete event.');
+            }
+        })
+        .catch(() => alert('Network error occurred.'));
+    }
+    window.quickCompleteLeadEvent = quickCompleteLeadEvent;
+
+    function quickCancelLeadEvent(eventId, leadId) {
+        if (!confirm('Are you sure you want to cancel this event?')) return;
+
+        fetch(`{{ url('/upcoming-events') }}/${eventId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                refreshLeadEventsData(leadId);
+            } else {
+                alert(data.message || 'Failed to cancel event.');
+            }
+        })
+        .catch(() => alert('Network error occurred.'));
+    }
+    window.quickCancelLeadEvent = quickCancelLeadEvent;
+
+    function openUpcomingEventsOffcanvas(leadId, leadDisplayName) {
+        window.currentActiveLeadId = leadId;
+        const offcanvasEl = document.getElementById('upcomingEventsOffcanvas');
+        if (!offcanvasEl) return;
+
+        const idInp = document.getElementById('ue_lead_id');
+        if (idInp) idInp.value = leadId;
+
+        const titleEl = document.getElementById('ue_lead_title');
+        if (titleEl) titleEl.textContent = leadDisplayName || ('Lead #' + leadId);
+
+        const subTitleEl = document.getElementById('ue_lead_subtitle');
+        if (subTitleEl) subTitleEl.textContent = 'Lead ID: #' + leadId + ' • Upcoming Activity & History';
+
+        const eventsContainer = document.getElementById('ue_events_container');
+        if (eventsContainer) {
+            eventsContainer.innerHTML = '<div class="text-center py-4 text-muted fs-12"><div class="spinner-border spinner-border-sm me-2 text-primary"></div> Loading activity history...</div>';
+        }
+
+        const form = document.getElementById('ue_schedule_form');
+        if (form) {
+            form.reset();
+            if (idInp) idInp.value = leadId;
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('ue_event_date');
+            if (dateInput) dateInput.value = today;
+            const timeInput = document.getElementById('ue_start_time');
+            if (timeInput) timeInput.value = '10:00';
+        }
+
+        const bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+        bsOffcanvas.show();
+
+        loadUpcomingEventsList(leadId);
+    }
+    window.openUpcomingEventsOffcanvas = openUpcomingEventsOffcanvas;
+
+    function loadUpcomingEventsList(leadId) {
+        const eventsContainer = document.getElementById('ue_events_container');
+        const badgeCount = document.getElementById('ue_events_count');
+        if (!eventsContainer) return;
+
+        fetch("{{ url('/upcoming-events/lead') }}/" + leadId)
+            .then(res => res.json())
+            .then(data => {
+                const events = data.events || [];
+                if (badgeCount) badgeCount.textContent = events.length;
+                renderLeadEventsCards(eventsContainer, events, leadId, true);
+            })
+            .catch(() => {
+                eventsContainer.innerHTML = '<div class="text-center text-danger py-4 fs-12">Failed to load activity history.</div>';
+            });
+    }
+    window.loadUpcomingEventsList = loadUpcomingEventsList;
+
+    async function handleUpcomingEventSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        const submitBtn = document.getElementById('ue_submit_btn');
+        const leadId = document.getElementById('ue_lead_id').value;
+        if (!leadId) return;
+
+        const originalBtnText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Scheduling...';
+
+        const formData = new FormData(form);
+        const payload = {};
+        formData.forEach((val, key) => payload[key] = val);
+
+        try {
+            const token = (typeof getSafeCsrfToken === 'function') ? getSafeCsrfToken() : (document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}');
+            const response = await fetch("{{ url('/upcoming-events/lead') }}/" + leadId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Failed to schedule event');
+            }
+
+            form.reset();
+            document.getElementById('ue_lead_id').value = leadId;
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('ue_event_date');
+            if (dateInput) dateInput.value = today;
+
+            if (window.Swal) {
+                Swal.fire({ icon: 'success', title: 'Scheduled!', text: data.message || 'Activity scheduled successfully', timer: 1500, showConfirmButton: false });
+            } else {
+                alert(data.message || 'Activity scheduled successfully');
+            }
+
+            loadUpcomingEventsList(leadId);
+        } catch (err) {
+            if (window.Swal) {
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            } else {
+                alert(err.message);
+            }
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+        }
+    }
+    window.handleUpcomingEventSubmit = handleUpcomingEventSubmit;
 
     async function toggleLeadTag(event, leadId, tagId, optionButton) {
         event.preventDefault();

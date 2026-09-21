@@ -2213,6 +2213,7 @@ class LeadController extends Controller
             DB::table('taggables')->where('taggable_type', Leads::class)->whereIn('taggable_id', $ids)->delete();
             DB::table('callbacks')->whereIn('lead_id', $ids)->delete();
             DB::table('lead_histories')->whereIn('lead_id', $ids)->delete();
+            DB::table('lead_events')->whereIn('lead_id', $ids)->delete();
             Order::whereIn('lead_id', $ids)->delete();
             Leads::whereIn('id', $ids)->delete();
 

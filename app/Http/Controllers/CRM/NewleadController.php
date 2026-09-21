@@ -647,10 +647,24 @@ class NewleadController extends Controller
             $bucketId = $bucketObj ? $bucketObj->id : 1;
         }
 
-        $isLeadBucket = false;
+        $isOrderBucket = false;
         if ($bucketObj) {
-            $isLeadBucket = str_contains(strtolower($bucketObj->name), 'lead') || $bucketObj->id == 1;
+            $bType = strtolower($bucketObj->type ?? '');
+            $bName = strtolower(trim($bucketObj->name ?? ''));
+            if ($bType === 'order' || str_contains($bName, 'deal created') || str_contains($bName, 'deal')) {
+                $isOrderBucket = true;
+            } elseif ($bucketObj->parent_id) {
+                $parentObj = Bucket::find($bucketObj->parent_id);
+                if ($parentObj) {
+                    $pbType = strtolower($parentObj->type ?? '');
+                    $pbName = strtolower(trim($parentObj->name ?? ''));
+                    if ($pbType === 'order' || str_contains($pbName, 'deal created') || str_contains($pbName, 'deal')) {
+                        $isOrderBucket = true;
+                    }
+                }
+            }
         }
+        $isLeadBucket = !$isOrderBucket;
 
         $bucketName = null;
         if ($bucketObj) {
@@ -670,6 +684,9 @@ class NewleadController extends Controller
         if ($bucketName) {
             $updateData['lead_bucket_name'] = $bucketName;
         }
+
+        $validEngStatuses = ['new', 'hot', 'warm', 'cold', 'dead'];
+        $engStatus = strtolower(trim((string)$request->input('lead_engagement_status', '')));
 
         if (in_array($engStatus, $validEngStatuses)) {
             $updateData['lead_engagement_status'] = $engStatus;
@@ -704,12 +721,19 @@ class NewleadController extends Controller
             $audioPath = $request->file('call_recording')->store('call_recordings', 'public');
         }
         $bucketName = $bucketObj ? $bucketObj->name : '';
+        if (!empty($request->next_followup_date)) {
+            CallBack::where('lead_id', $lead->id)
+                ->where(function($q) {
+                    $q->where('is_done', 0)->orWhereNull('is_done');
+                })
+                ->update(['is_done' => 1]);
+        }
         CallBack::create([
             'lead_id' => $lead->id,
             'message' => $request->message,
             'status' => $request->lead_status,
             'bucket' => $bucketName,
-            'lead_engagement_status' => in_array($engStatus, $validEngStatuses) ? $engStatus : null,
+            'lead_engagement_status' => in_array($engStatus, $validEngStatuses) ? $engStatus : ($lead->lead_engagement_status ?? null),
             'followup_type' => $request->followup_type,
             'followup_status' => $request->followup_status ?? null,
             'created_by' => auth()->user()->id,
@@ -823,8 +847,20 @@ class NewleadController extends Controller
             $lead->lead_bucket_id = $request->lead_bucket_id;
             $tBucket = Bucket::find($request->lead_bucket_id);
             if ($tBucket) {
-                $isLeadB = str_contains(strtolower($tBucket->name), 'lead') || $tBucket->id == 1;
-                $lead->is_converted = $isLeadB ? 0 : 1;
+                $bType = strtolower($tBucket->type ?? '');
+                $bName = strtolower(trim($tBucket->name ?? ''));
+                $isOrderB = ($bType === 'order' || str_contains($bName, 'deal created') || str_contains($bName, 'deal'));
+                if (!$isOrderB && $tBucket->parent_id) {
+                    $pBucket = Bucket::find($tBucket->parent_id);
+                    if ($pBucket) {
+                        $pbType = strtolower($pBucket->type ?? '');
+                        $pbName = strtolower(trim($pBucket->name ?? ''));
+                        if ($pbType === 'order' || str_contains($pbName, 'deal created') || str_contains($pbName, 'deal')) {
+                            $isOrderB = true;
+                        }
+                    }
+                }
+                $lead->is_converted = $isOrderB ? 1 : 0;
             }
         }
 
@@ -1421,6 +1457,8 @@ class NewleadController extends Controller
             'messages.user',
             'todoTasks.assignee',
             'tags:id,name,color',
+            'events.assignedUser',
+            'events.creator',
         ]);
 
         $messages = $lead->messages->sortByDesc('created_at')->values()->map(function ($msg) {
@@ -1470,6 +1508,31 @@ class NewleadController extends Controller
                 ];
             });
 
+        $leadEvents = ($lead->events ?? collect())->sortBy('event_date')->values()->map(function ($ev) {
+            return [
+                'id' => $ev->id,
+                'lead_id' => $ev->lead_id,
+                'event_type' => $ev->event_type,
+                'event_type_label' => $ev->type_label,
+                'title' => $ev->title,
+                'description' => $ev->description,
+                'event_date' => $ev->event_date ? $ev->event_date->format('Y-m-d') : null,
+                'event_date_formatted' => $ev->event_date ? $ev->event_date->format('d M Y') : '',
+                'start_time' => $ev->start_time,
+                'start_time_formatted' => $ev->start_time ? \Carbon\Carbon::parse($ev->start_time)->format('h:i A') : '',
+                'end_time' => $ev->end_time,
+                'end_time_formatted' => $ev->end_time ? \Carbon\Carbon::parse($ev->end_time)->format('h:i A') : '',
+                'status' => $ev->status,
+                'status_label' => $ev->status_label,
+                'assigned_to' => $ev->assigned_to,
+                'assigned_user_name' => optional($ev->assignedUser)->name ?? 'Unassigned',
+                'creator_name' => optional($ev->creator)->name ?? 'System',
+                'completed_at' => $ev->completed_at ? $ev->completed_at->format('d M Y, h:i A') : null,
+                'is_overdue' => ($ev->status === \App\Models\LeadEvent::STATUS_SCHEDULED && $ev->event_date && $ev->event_date->isPast() && !$ev->event_date->isToday()),
+                'is_today' => ($ev->event_date && $ev->event_date->isToday()),
+            ];
+        });
+
         return response()->json([
             'status' => 'success',
             'lead' => $lead,
@@ -1478,6 +1541,7 @@ class NewleadController extends Controller
             'messages' => $messages,
             'todoTasks' => $todoTasks,
             'statusHistories' => $statusHistories,
+            'leadEvents' => $leadEvents,
         ]);
     }
 
@@ -1834,6 +1898,7 @@ class NewleadController extends Controller
                 'owner:id,name',
                 'bucket:id,name,bucket_color',
                 'category:id,category_name',
+                'tags:id,name,color',
                 'latestMessage.user:id,name'
             ]);
 
@@ -1902,6 +1967,7 @@ class NewleadController extends Controller
             'owner:id,name',
             'bucket:id,name,bucket_color',
             'category:id,category_name',
+            'tags:id,name,color',
             'latestMessage.user:id,name'
         ]);
 

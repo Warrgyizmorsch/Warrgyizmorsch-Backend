@@ -302,10 +302,108 @@
                         <div class="row g-3" id="vd_addressInfo"></div>
                     </div>
                 </div>
+
+                <!-- Upcoming Events & Meetings -->
+                <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
+                    <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center justify-content-between">
+                        <h6 class="fs-12 fw-bold text-primary mb-0 text-uppercase tracking-wider">
+                            <i class="feather-calendar me-1"></i> Upcoming Events & Meetings
+                        </h6>
+                        <button type="button" class="btn btn-xs btn-primary rounded-2 px-2.5 py-1" onclick="openCreateLeadEventModal()">
+                            <i class="feather-plus me-1"></i> Schedule Event
+                        </button>
+                    </div>
+                    <div class="card-body p-3">
+                        <div id="vd_events_container">
+                            <div class="text-center py-3 text-muted fs-12">Loading events...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer border-top bg-white px-4 py-2.5">
                 <button type="button" class="btn btn-light text-secondary border px-4 fs-13 fw-semibold" data-bs-dismiss="modal">Close</button>
             </div>
+        </div>
+    </div>
+</div>
+
+{{-- Lead Event Modal (Schedule/Edit Event) --}}
+<div class="modal fade" id="leadEventModal" tabindex="-1" aria-labelledby="leadEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-0 text-white px-4 py-3" style="background: linear-gradient(135deg, #006FC9 0%, #005299 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="feather-calendar fs-5"></i>
+                    <h5 class="modal-title fw-bold text-white mb-0 fs-15" id="leadEventModalTitle">Schedule Event</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="leadEventForm" onsubmit="handleLeadEventFormSubmit(event)">
+                @csrf
+                <input type="hidden" id="lem_event_id" name="event_id">
+                <input type="hidden" id="lem_lead_id" name="lead_id">
+
+                <div class="modal-body p-4 bg-light">
+                    <!-- Event Type -->
+                    <div class="mb-3">
+                        <label class="form-label fs-12 fw-bold text-dark mb-1">Event Type <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="lem_event_type" name="event_type" required>
+                            <option value="meeting_schedule">Meeting Schedule</option>
+                            <option value="discovery_call">Discovery Call</option>
+                            <option value="projection_call">Projection Call</option>
+                            <option value="conversion">Conversion</option>
+                        </select>
+                    </div>
+
+                    <!-- Title -->
+                    <div class="mb-3">
+                        <label class="form-label fs-12 fw-bold text-dark mb-1">Title / Purpose</label>
+                        <input type="text" class="form-control form-control-sm" id="lem_title" name="title" placeholder="e.g. Initial Demo, Product Consultation">
+                    </div>
+
+                    <!-- Date & Start Time -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 fw-bold text-dark mb-1">Event Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-sm" id="lem_event_date" name="event_date" required min="{{ date('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 fw-bold text-dark mb-1">Start Time <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control form-control-sm" id="lem_start_time" name="start_time" required>
+                        </div>
+                    </div>
+
+                    <!-- End Time & Assignee -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 fw-bold text-dark mb-1">End Time</label>
+                            <input type="time" class="form-control form-control-sm" id="lem_end_time" name="end_time">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 fw-bold text-dark mb-1">Assigned To</label>
+                            <select class="form-select form-select-sm" id="lem_assigned_to" name="assigned_to">
+                                <option value="">Lead Owner / Default</option>
+                                @if(isset($users))
+                                    @foreach($users as $u)
+                                        <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-2">
+                        <label class="form-label fs-12 fw-bold text-dark mb-1">Notes / Description</label>
+                        <textarea class="form-control form-control-sm" id="lem_description" name="description" rows="3" placeholder="Key agenda or preparation notes..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top bg-white px-4 py-2.5 d-flex justify-content-between">
+                    <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-primary px-4 fw-semibold" id="lem_submit_btn">Save Event</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -326,7 +424,7 @@
                 <h5 class="offcanvas-title fw-bold text-white mb-0 fs-15 text-truncate" id="cm_leadName">Lead Activity & History</h5>
                 <div class="d-flex align-items-center gap-1.5 opacity-75 fs-11 mt-0.5">
                     <i class="feather-clock fs-10"></i>
-                    <span id="cm_leadSubtitle">Communication, Remarks & Status History</span>
+                    <span id="cm_leadSubtitle">Communication, Remarks & Events</span>
                 </div>
             </div>
         </div>
@@ -336,7 +434,7 @@
     <!-- Navigation Tabs Header -->
     <div class="bg-white border-bottom px-3 py-2.5">
         <div class="nav nav-pills cm-segmented-pills d-flex gap-1" id="cm_tabs" role="tablist">
-            <button class="nav-link active flex-fill d-flex align-items-center justify-content-center gap-1.5 py-2 px-3 cm-tab-btn" 
+            <button class="nav-link active flex-fill d-flex align-items-center justify-content-center gap-1 py-2 px-2 cm-tab-btn" 
                     id="cm_tab_comments_btn" 
                     data-bs-toggle="tab" 
                     data-bs-target="#cm_tab_comments" 
@@ -344,11 +442,11 @@
                     role="tab" 
                     aria-controls="cm_tab_comments" 
                     aria-selected="true">
-                <i class="feather-message-square fs-13"></i>
-                <span>Communication & Remarks</span>
-                <span class="badge rounded-pill bg-primary text-white ms-1 fs-10 px-2 py-0.5" id="cm_badge_comments_count">0</span>
+                <i class="feather-message-square fs-12"></i>
+                <span class="fs-12">Remarks</span>
+                <span class="badge rounded-pill bg-primary text-white ms-0.5 fs-10 px-1.5 py-0.5" id="cm_badge_comments_count">0</span>
             </button>
-            <button class="nav-link flex-fill d-flex align-items-center justify-content-center gap-1.5 py-2 px-3 cm-tab-btn" 
+            <button class="nav-link flex-fill d-flex align-items-center justify-content-center gap-1 py-2 px-2 cm-tab-btn" 
                     id="cm_tab_status_btn" 
                     data-bs-toggle="tab" 
                     data-bs-target="#cm_tab_status" 
@@ -356,9 +454,9 @@
                     role="tab" 
                     aria-controls="cm_tab_status" 
                     aria-selected="false">
-                <i class="feather-git-commit fs-13"></i>
-                <span>Status History</span>
-                <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-1 fs-10 px-2 py-0.5" id="cm_badge_status_count">0</span>
+                <i class="feather-git-commit fs-12"></i>
+                <span class="fs-12">History</span>
+                <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-0.5 fs-10 px-1.5 py-0.5" id="cm_badge_status_count">0</span>
             </button>
         </div>
     </div>
@@ -385,5 +483,113 @@
     <div class="border-top bg-white px-4 py-3 d-flex justify-content-between align-items-center">
         <small class="text-muted fs-11 d-flex align-items-center gap-1"><i class="feather-shield text-primary"></i> Secure CRM Audit Trail</small>
         <button type="button" class="btn btn-light border px-4 fs-12 fw-semibold text-secondary rounded-2 shadow-2xs" data-bs-dismiss="offcanvas">Close</button>
+    </div>
+</div>
+
+{{-- Dedicated Upcoming Events & Activities Offcanvas --}}
+<div class="offcanvas offcanvas-end shadow-lg" tabindex="-1" id="upcomingEventsOffcanvas" aria-labelledby="upcomingEventsOffcanvasLabel" style="width: 480px; max-width: 95vw; z-index: 1065;">
+    <!-- Offcanvas Header -->
+    <div class="offcanvas-header text-white px-4 py-3" style="background: linear-gradient(135deg, #006FC9 0%, #005299 100%);">
+        <div class="d-flex align-items-center gap-2 overflow-hidden">
+            <div class="rounded-circle p-2 d-flex align-items-center justify-content-center text-white" style="width: 38px; height: 38px; background: rgba(255,255,255,0.2);">
+                <i class="feather-calendar fs-5"></i>
+            </div>
+            <div class="text-truncate">
+                <h5 class="offcanvas-title fw-bold text-white mb-0 fs-15 text-truncate" id="ue_lead_title">Upcoming Activities & Events</h5>
+                <small class="text-white-50 fs-11" id="ue_lead_subtitle">Lead Activities & Schedule</small>
+            </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white opacity-75 flex-shrink-0 shadow-none" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+
+    <!-- Offcanvas Body -->
+    <div class="offcanvas-body p-0 d-flex flex-column" style="background: #f8fafc; overflow-y: auto;">
+        {{-- Section 1: Schedule Form Box --}}
+        <div class="p-3 bg-white border-bottom shadow-2xs">
+            <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom">
+                <span class="fs-12 fw-bold text-dark text-uppercase d-flex align-items-center gap-1.5">
+                    <i class="feather-plus-circle text-primary fs-14"></i> Schedule New Activity / Event
+                </span>
+            </div>
+
+            <form id="ue_schedule_form" onsubmit="handleUpcomingEventSubmit(event)">
+                @csrf
+                <input type="hidden" id="ue_lead_id" name="lead_id">
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label fs-11 fw-bold text-muted mb-0.5">Event Type <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="ue_event_type" name="event_type" required style="font-size: 12px;">
+                            <option value="meeting_schedule">Meeting Schedule</option>
+                            <option value="discovery_call">Discovery Call</option>
+                            <option value="projection_call">Projection Call</option>
+                            <option value="conversion">Conversion</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fs-11 fw-bold text-muted mb-0.5">Assigned To</label>
+                        <select class="form-select form-select-sm" id="ue_assigned_to" name="assigned_to" style="font-size: 12px;">
+                            <option value="">Lead Owner / Default</option>
+                            @if(isset($users))
+                                @foreach($users as $u)
+                                    <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                @endforeach
+                            @elseif(isset($owners))
+                                @foreach($owners as $u)
+                                    <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label fs-11 fw-bold text-muted mb-0.5">Title / Subject</label>
+                    <input type="text" class="form-control form-control-sm" id="ue_title" name="title" placeholder="e.g. Initial Demo, Product Consultation" style="font-size: 12px;">
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label fs-11 fw-bold text-muted mb-0.5">Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control form-control-sm" id="ue_event_date" name="event_date" required min="{{ date('Y-m-d') }}" style="font-size: 12px;">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fs-11 fw-bold text-muted mb-0.5">Start Time <span class="text-danger">*</span></label>
+                        <input type="time" class="form-control form-control-sm" id="ue_start_time" name="start_time" required style="font-size: 12px;">
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label fs-11 fw-bold text-muted mb-0.5">Notes / Description</label>
+                    <textarea class="form-control form-control-sm" id="ue_description" name="description" rows="2" placeholder="Key agenda or preparation notes..." style="font-size: 12px;"></textarea>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1" id="ue_submit_btn">
+                        <i class="feather-calendar fs-12"></i> Schedule Activity
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {{-- Section 2: Events & Activities History --}}
+        <div class="p-3 flex-grow-1">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="fs-12 fw-bold text-dark text-uppercase">
+                    <i class="feather-clock text-primary me-1"></i> Activity History & Events
+                </span>
+                <span class="badge bg-primary text-white rounded-pill px-2 py-0.5 fs-10" id="ue_events_count">0</span>
+            </div>
+
+            <div id="ue_events_container">
+                <div class="text-center py-4 text-muted fs-12">Loading events...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Offcanvas Footer -->
+    <div class="border-top bg-white px-4 py-2.5 d-flex justify-content-between align-items-center">
+        <small class="text-muted fs-11 d-flex align-items-center gap-1"><i class="feather-calendar text-primary"></i> Dedicated Lead Activity Center</small>
+        <button type="button" class="btn btn-sm btn-light border px-4 fs-12 fw-semibold text-secondary rounded-2" data-bs-dismiss="offcanvas">Close</button>
     </div>
 </div>

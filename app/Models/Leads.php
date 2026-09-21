@@ -135,4 +135,18 @@ class Leads extends Model
     {
         return $this->hasMany(EmailLog::class, 'lead_id')->latest();
     }
+
+    public function events()
+    {
+        return $this->hasMany(LeadEvent::class, 'lead_id')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+    }
+
+    public function upcomingEvents()
+    {
+        return $this->hasMany(LeadEvent::class, 'lead_id')
+            ->where('status', LeadEvent::STATUS_SCHEDULED)
+            ->where('event_date', '>=', \Carbon\Carbon::today()->toDateString())
+            ->orderBy('event_date', 'asc')
+            ->orderBy('start_time', 'asc');
+    }
 }

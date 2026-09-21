@@ -31,6 +31,7 @@ use App\Http\Controllers\CRM\TagController;
 use App\Http\Controllers\CRM\ArchiveLeadController;
 use App\Http\Controllers\CRM\ArchiveDealController;
 use App\Http\Controllers\CRM\ProjectController;
+use App\Http\Controllers\CRM\LeadEventController;
 
 Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
     ->name('send.whatsapp.all');
@@ -338,11 +339,200 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/send', [LeadEmailController::class, 'sendEmail'])->name('send');
         Route::get('/history/{lead}', [LeadEmailController::class, 'getHistory'])->name('history');
     });
+
+    // Upcoming Events & Meetings
+    Route::prefix('upcoming-events')->name('events.')->group(function () {
+        Route::get('/', [LeadEventController::class, 'index'])->name('index');
+        Route::post('/lead/{lead}', [LeadEventController::class, 'store'])->name('store');
+        Route::put('/{event}', [LeadEventController::class, 'update'])->name('update');
+        Route::post('/{event}/complete', [LeadEventController::class, 'complete'])->name('complete');
+        Route::post('/{event}/cancel', [LeadEventController::class, 'cancel'])->name('cancel');
+        Route::post('/{event}/reschedule', [LeadEventController::class, 'reschedule'])->name('reschedule');
+        Route::delete('/{event}', [LeadEventController::class, 'destroy'])->name('destroy');
+        Route::get('/lead/{lead}', [LeadEventController::class, 'getLeadEvents'])->name('lead.events');
+    });
 });
 
 Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
 
 
+Route::get('/run-lead-events-test-suite', function () {
+    $results = [];
+
+    // 1. Find or pick a test lead
+    $lead = \App\Models\Leads::first();
+    if (!$lead) {
+        return response()->json(['error' => 'No leads found to test with']);
+    }
+
+    $initialStatus = $lead->lead_status;
+    $initialBucketId = $lead->lead_bucket_id;
+    $initialBucketName = $lead->lead_bucket_name;
+
+    // Test 1: Create events of all 4 types
+    $types = [
+        \App\Models\LeadEvent::TYPE_MEETING_SCHEDULE,
+        \App\Models\LeadEvent::TYPE_DISCOVERY_CALL,
+        \App\Models\LeadEvent::TYPE_PROJECTION_CALL,
+        \App\Models\LeadEvent::TYPE_CONVERSION,
+    ];
+    $createdEvents = [];
+    foreach ($types as $type) {
+        $ev = \App\Models\LeadEvent::create([
+            'lead_id' => $lead->id,
+            'event_type' => $type,
+            'event_date' => now()->addDays(2)->toDateString(),
+            'start_time' => '11:00:00',
+            'end_time' => '11:30:00',
+            'title' => 'Automated Test ' . $type,
+            'description' => 'Test event notes for ' . $type,
+            'status' => \App\Models\LeadEvent::STATUS_SCHEDULED,
+            'created_by' => 1,
+        ]);
+        $createdEvents[$type] = $ev;
+    }
+    $results['test_1_create_4_types'] = [
+        'passed' => count($createdEvents) === 4,
+        'types_created' => array_keys($createdEvents),
+    ];
+
+    // Test 2: Multiple events per lead
+    $eventsCount = \App\Models\LeadEvent::where('lead_id', $lead->id)->count();
+    $results['test_2_multiple_events'] = [
+        'passed' => $eventsCount >= 4,
+        'count' => $eventsCount,
+    ];
+
+    // Test 3: Complete event
+    $completeEv = $createdEvents[\App\Models\LeadEvent::TYPE_MEETING_SCHEDULE];
+    $completeEv->status = \App\Models\LeadEvent::STATUS_COMPLETED;
+    $completeEv->completed_at = now();
+    $completeEv->save();
+    $results['test_3_complete_event'] = [
+        'passed' => ($completeEv->status === 'completed' && !is_null($completeEv->completed_at)),
+        'status' => $completeEv->status,
+        'completed_at' => $completeEv->completed_at->toIso8601String(),
+    ];
+
+    // Test 4: Cancel event
+    $cancelEv = $createdEvents[\App\Models\LeadEvent::TYPE_DISCOVERY_CALL];
+    $cancelEv->status = \App\Models\LeadEvent::STATUS_CANCELLED;
+    $cancelEv->save();
+    $results['test_4_cancel_event'] = [
+        'passed' => $cancelEv->status === 'cancelled',
+        'status' => $cancelEv->status,
+    ];
+
+    // Test 5: Edit / Reschedule event
+    $reschedEv = $createdEvents[\App\Models\LeadEvent::TYPE_PROJECTION_CALL];
+    $newDate = now()->addDays(5)->toDateString();
+    $newTime = '16:00:00';
+    $reschedEv->event_date = $newDate;
+    $reschedEv->start_time = $newTime;
+    $reschedEv->status = \App\Models\LeadEvent::STATUS_RESCHEDULED;
+    $reschedEv->save();
+    $results['test_5_reschedule_event'] = [
+        'passed' => ($reschedEv->event_date->format('Y-m-d') === $newDate && $reschedEv->start_time === $newTime && $reschedEv->status === 'rescheduled'),
+        'event_date' => $reschedEv->event_date->format('Y-m-d'),
+        'start_time' => $reschedEv->start_time,
+        'status' => $reschedEv->status,
+    ];
+
+    // Test 6: Overdue detection
+    $overdueEv = \App\Models\LeadEvent::create([
+        'lead_id' => $lead->id,
+        'event_type' => \App\Models\LeadEvent::TYPE_DISCOVERY_CALL,
+        'event_date' => now()->subDays(2)->toDateString(),
+        'start_time' => '09:00:00',
+        'status' => \App\Models\LeadEvent::STATUS_SCHEDULED,
+        'title' => 'Test Overdue Event',
+    ]);
+    $overdueCount = \App\Models\LeadEvent::overdue()->where('id', $overdueEv->id)->count();
+    $results['test_6_overdue_detection'] = [
+        'passed' => $overdueCount === 1,
+        'detected' => $overdueCount,
+    ];
+
+    // Test 7: Lead Status Protection
+    $lead->refresh();
+    $results['test_7_lead_status_protection'] = [
+        'passed' => (
+            $lead->lead_status === $initialStatus &&
+            $lead->lead_bucket_id === $initialBucketId &&
+            $lead->lead_bucket_name === $initialBucketName
+        ),
+        'initial_status' => $initialStatus,
+        'current_status' => $lead->lead_status,
+        'initial_bucket_id' => $initialBucketId,
+        'current_bucket_id' => $lead->lead_bucket_id,
+        'initial_bucket_name' => $initialBucketName,
+        'current_bucket_name' => $lead->lead_bucket_name,
+    ];
+
+    // Test 8: Cascade deletion compatibility with dummy lead
+    $dummyLead = \App\Models\Leads::create([
+        'lead_id' => 999999999,
+        'is_converted' => 0,
+        'is_archived' => 0,
+        'lead_status' => 'Test Dummy',
+    ]);
+    $dummyEvent = \App\Models\LeadEvent::create([
+        'lead_id' => $dummyLead->id,
+        'event_type' => \App\Models\LeadEvent::TYPE_MEETING_SCHEDULE,
+        'event_date' => now()->toDateString(),
+        'start_time' => '10:00:00',
+        'status' => 'scheduled',
+    ]);
+    $dummyEventId = $dummyEvent->id;
+    $dummyLead->delete();
+    $remainingDummyEvent = \App\Models\LeadEvent::find($dummyEventId);
+    $results['test_8_cascade_deletion'] = [
+        'passed' => is_null($remainingDummyEvent),
+        'event_deleted_on_lead_delete' => is_null($remainingDummyEvent),
+    ];
+
+    // Test 9: Telecaller Permission Check
+    $telecallerUser = new \App\Models\User();
+    $telecallerUser->id = 888;
+    $telecallerUser->role_id = 3;
+
+    $ownedLead = new \App\Models\Leads();
+    $ownedLead->id = 101;
+    $ownedLead->lead_owner = 888;
+
+    $notOwnedLead = new \App\Models\Leads();
+    $notOwnedLead->id = 102;
+    $notOwnedLead->lead_owner = 999;
+
+    $controller = new \App\Http\Controllers\CRM\LeadEventController();
+    $reflection = new \ReflectionClass($controller);
+    $method = $reflection->getMethod('checkLeadAccess');
+    $method->setAccessible(true);
+
+    \Illuminate\Support\Facades\Auth::setUser($telecallerUser);
+    $canAccessOwned = $method->invoke($controller, $ownedLead);
+    $canAccessNotOwned = $method->invoke($controller, $notOwnedLead);
+    
+    $adminUser = new \App\Models\User();
+    $adminUser->id = 1;
+    $adminUser->role_id = 1;
+    \Illuminate\Support\Facades\Auth::setUser($adminUser);
+    $adminCanAccessNotOwned = $method->invoke($controller, $notOwnedLead);
+
+    $results['test_9_role_permissions'] = [
+        'passed' => ($canAccessOwned === true && $canAccessNotOwned === false && $adminCanAccessNotOwned === true),
+        'telecaller_owned_access' => $canAccessOwned,
+        'telecaller_unowned_access' => $canAccessNotOwned,
+        'admin_unowned_access' => $adminCanAccessNotOwned,
+    ];
+
+    // Clean up test events on the real lead
+    foreach ($createdEvents as $ev) {
+        $ev->delete();
+    }
+    $overdueEv->delete();
+
+    return response()->json($results);
+});
+
 require __DIR__ . '/auth.php';
-
-

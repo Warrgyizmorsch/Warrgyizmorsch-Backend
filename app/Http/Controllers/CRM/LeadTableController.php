@@ -157,6 +157,9 @@ class LeadTableController extends Controller
             'category',
             'latestMessage.user:id,name',
             'tags:id,name,color',
+            'events' => function ($eQ) {
+                $eQ->with('assignedUser:id,name')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+            },
             'messages' => function ($mQ) {
                 $mQ->where(function($q) {
                     $q->where('is_done', 0)->orWhereNull('is_done');

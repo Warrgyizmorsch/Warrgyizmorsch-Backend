@@ -47,13 +47,9 @@ class CreatedDealController extends Controller
             'category',
             'latestMessage.user:id,name',
             'tags:id,name,color',
-            /*
-            'todoTasks' => function ($tQ) {
-                $tQ->where(function ($sub) {
-                    $sub->whereNull('status')->orWhere('status', '!=', 'completed');
-                })->orderBy('due_date', 'asc');
+            'events' => function ($eQ) {
+                $eQ->with('assignedUser:id,name')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
             },
-            */
             'messages' => function ($mQ) {
                 $mQ->where(function($q) {
                     $q->where('is_done', 0)->orWhereNull('is_done');

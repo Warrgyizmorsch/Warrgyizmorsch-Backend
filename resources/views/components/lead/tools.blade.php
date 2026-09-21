@@ -225,6 +225,10 @@
             <i class="feather-trello"></i>
             <span>Pipeline view</span>
         </a>
+        <a href="{{ route('events.index') }}" class="monday-tab-btn {{ request()->routeIs('events.*') ? 'is-active' : '' }}">
+            <i class="feather-calendar"></i>
+            <span>Upcoming Events</span>
+        </a>
     </div>
     @endif
 
