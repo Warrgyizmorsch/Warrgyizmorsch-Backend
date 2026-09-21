@@ -35,6 +35,24 @@ class FollowupController extends Controller
 
         $now = Carbon::now();
 
+        // Auto-heal: Ensure leads in lead buckets are not wrongly marked as converted deals
+        DB::table('leads')
+            ->where('is_converted', 1)
+            ->whereIn('lead_bucket_id', function ($sub) {
+                $sub->select('id')->from('buckets')
+                    ->where(function ($bq) {
+                        $bq->where('type', 'lead')->orWhereNull('type');
+                    })
+                    ->where('name', 'NOT LIKE', '%deal%');
+            })
+            ->update(['is_converted' => 0]);
+
+        DB::table('orders')
+            ->whereIn('lead_id', function ($sub) {
+                $sub->select('id')->from('leads')->where('is_converted', 0);
+            })
+            ->delete();
+
         // Pre-fetch latest callback IDs for active followups using index for speed
         $latestCallbackIds = DB::table('callback_messages')
             ->where('is_done', 0)
@@ -74,7 +92,9 @@ class FollowupController extends Controller
         if ($tab === 'lead') {
             $query->where('next_followup_date', '>=', $now)
                   ->whereHas('lead', function ($q) {
-                      $q->where('is_converted', 0);
+                      $q->where(function ($sub) {
+                          $sub->where('is_converted', 0)->orWhereNull('is_converted');
+                      });
                   });
         } elseif ($tab === 'deal') {
             $query->where('next_followup_date', '>=', $now)

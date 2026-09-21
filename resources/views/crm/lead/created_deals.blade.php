@@ -109,8 +109,8 @@
 
     /* Next Activity Styling (HubSpot style) */
     .deal-next-activity-cell {
-        min-width: 210px;
-        max-width: 260px;
+        min-width: 220px;
+        max-width: 280px;
     }
     .deal-activity-wrap {
         display: inline-flex;
@@ -203,6 +203,21 @@
         align-items: center;
         gap: 5px;
         white-space: nowrap;
+    }
+    .deal-activity-date {
+        font-size: 11px;
+        color: #334155;
+        white-space: nowrap;
+        line-height: 1.25;
+    }
+    .deal-activity-comment {
+        font-size: 11px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+        line-height: 1.25;
     }
     .activity-status-dot {
         width: 6px;
@@ -436,11 +451,20 @@
                                         $now = \Carbon\Carbon::now();
 
                                         // 1. Check upcoming active callback/followup
-                                        $pendingCallback = $lead->messages
-                                            ? $lead->messages->filter(function($m) {
-                                                return empty($m->is_done) && !empty($m->next_followup_date);
-                                            })->sortBy('next_followup_date')->first()
-                                            : null;
+                                        $pendingCallback = null;
+                                        if ($lead->messages && $lead->messages->isNotEmpty()) {
+                                            // Prioritize upcoming active followup (future date or within past 30 mins)
+                                            $pendingCallback = $lead->messages->filter(function($m) use ($now) {
+                                                return empty($m->is_done) && !empty($m->next_followup_date) && \Carbon\Carbon::parse($m->next_followup_date)->gte($now->copy()->subMinutes(30));
+                                            })->sortBy('next_followup_date')->first();
+
+                                            // If no future followup, pick the latest scheduled pending followup
+                                            if (!$pendingCallback) {
+                                                $pendingCallback = $lead->messages->filter(function($m) {
+                                                    return empty($m->is_done) && !empty($m->next_followup_date);
+                                                })->sortByDesc('next_followup_date')->first();
+                                            }
+                                        }
 
                                         // Fallback to latestMessage if it has a next_followup_date
                                         if (!$pendingCallback && $lead->latestMessage && !empty($lead->latestMessage->next_followup_date)) {
@@ -465,14 +489,16 @@
                                         // 4. Format activity details
                                         $title = '';
                                         $subText = '';
+                                        $formattedDate = '';
                                         $iconClass = 'icon-task';
                                         $iconHtml = '<i class="feather-calendar"></i>';
                                         $dotClass = 'dot-teal';
                                         $clickAction = $openEditOffcanvas;
 
                                         if ($activity) {
-                                            $userName = optional($lead->user)->name ?? 'Contact';
+                                            $userName = optional($lead->user)->name ?: ($lead->business_name ?: 'Contact');
                                             $fType = strtolower(trim($activity['item']->followup_type ?? ''));
+                                            $rawType = trim($activity['item']->followup_type ?? '');
                                             $msgText = trim($activity['item']->message ?? '');
 
                                             if (str_contains($fType, 'call')) {
@@ -491,6 +517,10 @@
                                                 $iconClass = 'icon-whatsapp';
                                                 $iconHtml = '<i class="fab fa-whatsapp"></i>';
                                                 $title = 'WhatsApp ' . $userName;
+                                            } elseif (!empty($rawType)) {
+                                                $iconClass = 'icon-task';
+                                                $iconHtml = '<i class="feather-calendar"></i>';
+                                                $title = $rawType . ' w/ ' . $userName;
                                             } else {
                                                 $iconClass = 'icon-task';
                                                 $iconHtml = '<i class="feather-calendar"></i>';
@@ -499,6 +529,8 @@
 
                                             if ($activity['date']) {
                                                 $actDate = $activity['date'];
+                                                $formattedDate = $actDate->format('d M, h:i A');
+
                                                 if ($actDate->lt($now)) {
                                                     $diffDays = $now->diffInDays($actDate);
                                                     $diffHours = $now->diffInHours($actDate);
@@ -539,16 +571,28 @@
                                     @endphp
 
                                     @if($activity)
-                                        <div class="deal-activity-wrap" onclick="{{ $clickAction }}" title="Next Activity: {{ $title }} - {{ $subText }} (Click to edit status & follow-up)">
+                                        <div class="deal-activity-wrap" onclick="{{ $clickAction }}" title="Next Activity: {{ $title }}&#10;Date: {{ $formattedDate }} ({{ $subText }})&#10;Comment: {{ $msgText ?: 'None' }}&#10;(Click to edit status & follow-up)">
                                             <div class="deal-activity-icon {{ $iconClass }}">
                                                 {!! $iconHtml !!}
                                             </div>
                                             <div class="deal-activity-content">
-                                                <span class="deal-activity-title">{{ $title }}</span>
-                                                <span class="deal-activity-meta">
+                                                <div class="d-flex align-items-center gap-1.5 flex-nowrap">
+                                                    <span class="deal-activity-title">{{ $title }}</span>
                                                     <span class="activity-status-dot {{ $dotClass }}"></span>
-                                                    <span>{{ $subText }}</span>
-                                                </span>
+                                                    <span class="fs-10 {{ $dotClass == 'dot-red' ? 'text-danger fw-semibold' : 'text-muted' }} text-nowrap">{{ $subText }}</span>
+                                                </div>
+                                                @if($formattedDate)
+                                                    <div class="deal-activity-date text-dark fs-11 fw-medium d-flex align-items-center gap-1">
+                                                        <i class="feather-calendar text-primary" style="font-size: 10px;"></i>
+                                                        <span>{{ $formattedDate }}</span>
+                                                    </div>
+                                                @endif
+                                                @if(!empty($msgText))
+                                                    <div class="deal-activity-comment text-secondary fs-11 text-truncate" style="max-width: 190px;" title="{{ $msgText }}">
+                                                        <i class="feather-message-square text-muted me-0.5" style="font-size: 10px;"></i>
+                                                        <span>{{ $msgText }}</span>
+                                                    </div>
+                                                @endif
                                             </div>
                                         </div>
                                     @else

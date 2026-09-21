@@ -63,6 +63,17 @@
             @endif
         </div>
 
+        {{-- Tags --}}
+        @if(!empty($lead->tags) && $lead->tags->isNotEmpty())
+            <div class="d-flex flex-wrap gap-1 mb-2">
+                @foreach($lead->tags as $tag)
+                    <span class="badge rounded-pill text-white shadow-2xs" style="background-color: {{ $tag->color ?: '#0073ea' }}; font-size: 10px; padding: 2px 8px; font-weight: 600;">
+                        <i class="fas fa-tag me-1" style="font-size: 8px;"></i>{{ $tag->name }}
+                    </span>
+                @endforeach
+            </div>
+        @endif
+
         {{-- Last Follow-up Note Preview --}}
         @if($lastNote)
             <div class="bg-light p-2 rounded-2 fs-11 text-dark mb-2 border-start border-2 border-primary text-truncate" title="{{ $lastNote }}">

@@ -560,8 +560,8 @@
 
     /* Next Activity Styling (HubSpot style) */
     .deal-next-activity-cell {
-        min-width: 210px;
-        max-width: 260px;
+        min-width: 220px;
+        max-width: 280px;
     }
     .deal-activity-wrap {
         display: inline-flex;
@@ -654,6 +654,21 @@
         align-items: center;
         gap: 5px;
         white-space: nowrap;
+    }
+    .deal-activity-date {
+        font-size: 11px;
+        color: #334155;
+        white-space: nowrap;
+        line-height: 1.25;
+    }
+    .deal-activity-comment {
+        font-size: 11px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+        line-height: 1.25;
     }
     .activity-status-dot {
         width: 6px;
@@ -1041,6 +1056,7 @@
                         <thead>
                             <tr>
                                 <th class="monday-select-col lead-select-column"><input type="checkbox" class="form-check-input" id="checkAll"></th>
+                                <th style="width: 175px; min-width: 175px; text-align: center;" class="lead-actions-column">Actions</th>
                                 <th style="min-width: 230px;" class="lead-info-column">Lead</th>
                                 <th style="width: 175px; min-width: 175px; text-align: center;" class="lead-status-column">Status</th>
                                 <th style="min-width: 210px;" class="lead-activity-column">
@@ -1058,7 +1074,6 @@
                                 <th style="min-width: 140px;">Phone</th>
                                 <th style="min-width: 140px;" class="lead-owner-column">Owner</th>
                                 <th style="min-width: 110px;" class="lead-date-column">Created Date</th>
-                                <th style="width: 140px; min-width: 140px; text-align: center;" class="lead-actions-column">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="lead-table-body" id="lead-table-body">
@@ -1072,6 +1087,120 @@
                                     {{-- Checkbox --}}
                                     <td class="monday-select-col lead-select-column">
                                         <input type="checkbox" class="form-check-input lead-checkbox" value="{{ $lead->id }}">
+                                    </td>
+
+                                    {{-- Actions (Left Aligned) --}}
+                                    <td class="lead-actions-column">
+                                        <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                            @if($isArchive)
+                                                {{-- Restore from Archive Button --}}
+                                                <button type="button" class="table-action-btn text-success" 
+                                                        onclick="restoreSingleLead({{ $lead->id }}, this)"
+                                                        title="Restore Lead">
+                                                    <i class="feather-rotate-ccw"></i>
+                                                </button>
+
+                                                {{-- View Details Modal --}}
+                                                <button type="button" class="table-action-btn text-info" 
+                                                        onclick="openViewDetailsModalLazy({{ $lead->id }})"
+                                                        title="View Details">
+                                                    <i class="feather-eye"></i>
+                                                </button>
+
+                                                {{-- View Comments / Messages --}}
+                                                <button type="button" class="table-action-btn text-warning" 
+                                                        onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
+                                                        title="View Comments & History">
+                                                    <i class="feather-message-square"></i>
+                                                </button>
+
+                                                {{-- Delete Permanently --}}
+                                                <button type="button" class="table-action-btn text-danger" 
+                                                        onclick="deleteSingleLeadPermanently({{ $lead->id }}, this)"
+                                                        title="Delete Permanently">
+                                                    <i class="feather-trash-2"></i>
+                                                </button>
+                                            @else
+                                                {{-- Edit Status Offcanvas Button --}}
+                                                <button type="button" class="table-action-btn text-primary" 
+                                                        onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 'null' }}, '{{ addslashes($leadParentName ?? '') }}')"
+                                                        title="Edit Status">
+                                                    <i class="feather-settings"></i>
+                                                </button>
+
+                                                {{-- Edit Lead Button --}}
+                                                <button type="button" class="table-action-btn text-success" title="Edit Lead"
+                                                        onclick="openLeadEditModal({{ $lead->id }})">
+                                                    <i class="feather-edit"></i>
+                                                </button>
+
+                                                {{-- View Comments / History Button --}}
+                                                <button type="button" class="table-action-btn text-warning" 
+                                                        onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
+                                                        title="View Comments & History">
+                                                    <i class="feather-clock"></i>
+                                                </button>
+
+                                                {{-- Archive Button (A) --}}
+                                                <button type="button" class="table-action-btn text-warning fw-bold" 
+                                                        onclick="archiveSingleLead({{ $lead->id }}, this)"
+                                                        title="Move to Archive"
+                                                        style="font-size: 12.5px; font-weight: 700; color: #d97706; border-color: #fde68a; background-color: #fffbeb;">
+                                                    A
+                                                </button>
+
+                                                {{-- 3 Dots More Actions Dropdown --}}
+                                                <div class="dropdown d-inline">
+                                                    <button type="button" class="table-action-btn text-muted" data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
+                                                        <i class="feather-more-vertical"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 12.5px; min-width: 165px; z-index: 1060;">
+                                                        {{-- View Details Modal --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="openViewDetailsModalLazy({{ $lead->id }})">
+                                                                <i class="feather-eye text-info"></i> <span>View Details</span>
+                                                            </a>
+                                                        </li>
+
+                                                        {{-- Status History Action --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}', 'status_history')">
+                                                                <i class="feather-git-commit text-primary"></i> <span>Status History</span>
+                                                            </a>
+                                                        </li>
+
+                                                        @unless($isDealView ?? false)
+                                                        {{-- Convert Lead to Deal --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="convertLeadToDeal({{ $lead->id }}, this)">
+                                                                <i class="feather-check-circle text-success"></i> <span>Convert to Deal</span>
+                                                            </a>
+                                                        </li>
+                                                        @endunless
+
+                                                        {{-- Move to Archive --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-warning" href="javascript:void(0);" onclick="archiveSingleLead({{ $lead->id }}, this)">
+                                                                <i class="feather-archive"></i> <span>Move to Archive</span>
+                                                            </a>
+                                                        </li>
+
+                                                        <li><hr class="dropdown-divider my-1"></li>
+
+                                                        {{-- Delete Lead --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-danger" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this lead?')) { document.getElementById('delete-lead-form-{{ $lead->id }}').submit(); }">
+                                                                <i class="feather-trash-2"></i> <span>Delete Lead</span>
+                                                            </a>
+                                                            <form id="delete-lead-form-{{ $lead->id }}" action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-none">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                            </form>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            @endif
+                                        </div>
                                     </td>
 
                                     {{-- Lead Contact & Tags --}}
@@ -1208,11 +1337,20 @@
                                                 $now = \Carbon\Carbon::now();
 
                                                 // 1. Check upcoming active callback/followup
-                                                $pendingCallback = $lead->messages
-                                                    ? $lead->messages->filter(function($m) {
-                                                        return empty($m->is_done) && !empty($m->next_followup_date);
-                                                    })->sortBy('next_followup_date')->first()
-                                                    : null;
+                                                $pendingCallback = null;
+                                                if ($lead->messages && $lead->messages->isNotEmpty()) {
+                                                    // Prioritize upcoming active followup (future date or within past 30 mins)
+                                                    $pendingCallback = $lead->messages->filter(function($m) use ($now) {
+                                                        return empty($m->is_done) && !empty($m->next_followup_date) && \Carbon\Carbon::parse($m->next_followup_date)->gte($now->copy()->subMinutes(30));
+                                                    })->sortBy('next_followup_date')->first();
+
+                                                    // If no future followup, pick the latest scheduled pending followup
+                                                    if (!$pendingCallback) {
+                                                        $pendingCallback = $lead->messages->filter(function($m) {
+                                                            return empty($m->is_done) && !empty($m->next_followup_date);
+                                                        })->sortByDesc('next_followup_date')->first();
+                                                    }
+                                                }
 
                                                 // Fallback to latestMessage if it has a next_followup_date
                                                 if (!$pendingCallback && $lead->latestMessage && !empty($lead->latestMessage->next_followup_date)) {
@@ -1241,14 +1379,16 @@
                                                 // 4. Format activity details
                                                 $title = '';
                                                 $subText = '';
+                                                $formattedDate = '';
                                                 $iconClass = 'icon-task';
                                                 $iconHtml = '<i class="feather-calendar"></i>';
                                                 $dotClass = 'dot-teal';
                                                 $clickAction = $activity ? $openCommentsOffcanvas : $openEditOffcanvas;
 
                                                 if ($activity) {
-                                                    $userName = optional($lead->user)->name ?? 'Contact';
+                                                    $userName = optional($lead->user)->name ?: ($lead->business_name ?: 'Contact');
                                                     $fType = strtolower(trim($activity['item']->followup_type ?? ''));
+                                                    $rawType = trim($activity['item']->followup_type ?? '');
                                                     $msgText = trim($activity['item']->message ?? '');
 
                                                     if (str_contains($fType, 'call')) {
@@ -1267,6 +1407,10 @@
                                                         $iconClass = 'icon-whatsapp';
                                                         $iconHtml = '<i class="fab fa-whatsapp"></i>';
                                                         $title = 'WhatsApp ' . $userName;
+                                                    } elseif (!empty($rawType)) {
+                                                        $iconClass = 'icon-task';
+                                                        $iconHtml = '<i class="feather-calendar"></i>';
+                                                        $title = $rawType . ' w/ ' . $userName;
                                                     } else {
                                                         $iconClass = 'icon-task';
                                                         $iconHtml = '<i class="feather-calendar"></i>';
@@ -1275,6 +1419,8 @@
 
                                                     if ($activity['date']) {
                                                         $actDate = $activity['date'];
+                                                        $formattedDate = $actDate->format('d M, h:i A');
+
                                                         if ($actDate->lt($now)) {
                                                             $diffDays = $now->diffInDays($actDate);
                                                             $diffHours = $now->diffInHours($actDate);
@@ -1315,16 +1461,28 @@
                                             @endphp
 
                                             @if($activity)
-                                                <div class="deal-activity-wrap" onclick="{{ $clickAction }}" title="Next Activity: {{ $title }} - {{ $subText }} (Click to view activity tracking & history)">
+                                                <div class="deal-activity-wrap" onclick="{{ $clickAction }}" title="Next Activity: {{ $title }}&#10;Date: {{ $formattedDate }} ({{ $subText }})&#10;Comment: {{ $msgText ?: 'None' }}&#10;(Click to view history)">
                                                     <div class="deal-activity-icon {{ $iconClass }}">
                                                         {!! $iconHtml !!}
                                                     </div>
                                                     <div class="deal-activity-content">
-                                                        <span class="deal-activity-title">{{ $title }}</span>
-                                                        <span class="deal-activity-meta">
+                                                        <div class="d-flex align-items-center gap-1.5 flex-nowrap">
+                                                            <span class="deal-activity-title">{{ $title }}</span>
                                                             <span class="activity-status-dot {{ $dotClass }}"></span>
-                                                            <span>{{ $subText }}</span>
-                                                        </span>
+                                                            <span class="fs-10 {{ $dotClass == 'dot-red' ? 'text-danger fw-semibold' : 'text-muted' }} text-nowrap">{{ $subText }}</span>
+                                                        </div>
+                                                        @if($formattedDate)
+                                                            <div class="deal-activity-date text-dark fs-11 fw-medium d-flex align-items-center gap-1">
+                                                                <i class="feather-calendar text-primary" style="font-size: 10px;"></i>
+                                                                <span>{{ $formattedDate }}</span>
+                                                            </div>
+                                                        @endif
+                                                        @if(!empty($msgText))
+                                                            <div class="deal-activity-comment text-secondary fs-11 text-truncate" style="max-width: 190px;" title="{{ $msgText }}">
+                                                                <i class="feather-message-square text-muted me-0.5" style="font-size: 10px;"></i>
+                                                                <span>{{ $msgText }}</span>
+                                                            </div>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             @else
@@ -1406,116 +1564,10 @@
                                     <td>
                                         <span class="text-muted fs-12">{{ $lead->created_at ? $lead->created_at->format('M d, Y') : '—' }}</span>
                                     </td>
-
-                                    {{-- Actions --}}
-                                    <td class="lead-actions-column">
-                                        <div class="d-inline-flex align-items-center justify-content-center gap-1">
-                                            @if($isArchive)
-                                                {{-- Restore from Archive Button --}}
-                                                <button type="button" class="table-action-btn text-success" 
-                                                        onclick="restoreSingleLead({{ $lead->id }}, this)"
-                                                        title="Restore Lead">
-                                                    <i class="feather-rotate-ccw"></i>
-                                                </button>
-
-                                                {{-- View Details Modal --}}
-                                                <button type="button" class="table-action-btn text-info" 
-                                                        onclick="openViewDetailsModalLazy({{ $lead->id }})"
-                                                        title="View Details">
-                                                    <i class="feather-eye"></i>
-                                                </button>
-
-                                                {{-- View Comments / Messages --}}
-                                                <button type="button" class="table-action-btn text-warning" 
-                                                        onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
-                                                        title="View Comments & History">
-                                                    <i class="feather-message-square"></i>
-                                                </button>
-
-                                                {{-- Delete Permanently --}}
-                                                <button type="button" class="table-action-btn text-danger" 
-                                                        onclick="deleteSingleLeadPermanently({{ $lead->id }}, this)"
-                                                        title="Delete Permanently">
-                                                    <i class="feather-trash-2"></i>
-                                                </button>
-                                            @else
-                                                {{-- Edit Status Offcanvas Button --}}
-                                                <button type="button" class="table-action-btn text-primary" 
-                                                        onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 'null' }}, '{{ addslashes($leadParentName ?? '') }}')"
-                                                        title="Edit Status">
-                                                    <i class="feather-settings"></i>
-                                                </button>
-
-                                                {{-- Edit Lead Button --}}
-                                                <button type="button" class="table-action-btn text-success" title="Edit Lead"
-                                                        onclick="openLeadEditModal({{ $lead->id }})">
-                                                    <i class="feather-edit"></i>
-                                                </button>
-
-                                                {{-- View Comments / History Button --}}
-                                                <button type="button" class="table-action-btn text-warning" 
-                                                        onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
-                                                        title="View Comments & History">
-                                                    <i class="feather-clock"></i>
-                                                </button>
-
-                                                {{-- 3 Dots More Actions Dropdown --}}
-                                                <div class="dropdown d-inline">
-                                                    <button type="button" class="table-action-btn text-muted" data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
-                                                        <i class="feather-more-vertical"></i>
-                                                    </button>
-                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 12.5px; min-width: 165px; z-index: 1060;">
-                                                        {{-- View Details Modal --}}
-                                                        <li>
-                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="openViewDetailsModalLazy({{ $lead->id }})">
-                                                                <i class="feather-eye text-info"></i> <span>View Details</span>
-                                                            </a>
-                                                        </li>
-
-                                                        {{-- Status History Action --}}
-                                                        <li>
-                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}', 'status_history')">
-                                                                <i class="feather-git-commit text-primary"></i> <span>Status History</span>
-                                                            </a>
-                                                        </li>
-
-                                                        @unless($isDealView ?? false)
-                                                        {{-- Convert Lead to Deal --}}
-                                                        <li>
-                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="convertLeadToDeal({{ $lead->id }}, this)">
-                                                                <i class="feather-check-circle text-success"></i> <span>Convert to Deal</span>
-                                                            </a>
-                                                        </li>
-                                                        @endunless
-
-                                                        {{-- Move to Archive --}}
-                                                        <li>
-                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-warning" href="javascript:void(0);" onclick="archiveSingleLead({{ $lead->id }}, this)">
-                                                                <i class="feather-archive"></i> <span>Move to Archive</span>
-                                                            </a>
-                                                        </li>
-
-                                                        <li><hr class="dropdown-divider my-1"></li>
-
-                                                        {{-- Delete Lead --}}
-                                                        <li>
-                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-danger" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this lead?')) { document.getElementById('delete-lead-form-{{ $lead->id }}').submit(); }">
-                                                                <i class="feather-trash-2"></i> <span>Delete Lead</span>
-                                                            </a>
-                                                            <form id="delete-lead-form-{{ $lead->id }}" action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-none">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                            </form>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="11" class="text-center py-5 text-muted">
+                                    <td colspan="{{ ($isDeal ?? false) ? 11 : 12 }}" class="text-center py-5 text-muted">
                                         <i class="feather-inbox fs-2 mb-2 d-block text-secondary"></i>
                                         {{ ($isDealView ?? false) ? 'No created deals found in this view.' : 'No leads found in this view.' }}
                                     </td>

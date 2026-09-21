@@ -21,6 +21,24 @@ class CreatedDealController extends Controller
         }
         @session_write_close();
 
+        // Auto-heal: Ensure leads in lead buckets are not wrongly marked as converted deals
+        DB::table('leads')
+            ->where('is_converted', 1)
+            ->whereIn('lead_bucket_id', function ($sub) {
+                $sub->select('id')->from('buckets')
+                    ->where(function ($bq) {
+                        $bq->where('type', 'lead')->orWhereNull('type');
+                    })
+                    ->where('name', 'NOT LIKE', '%deal%');
+            })
+            ->update(['is_converted' => 0]);
+
+        DB::table('orders')
+            ->whereIn('lead_id', function ($sub) {
+                $sub->select('id')->from('leads')->where('is_converted', 0);
+            })
+            ->delete();
+
         // 1. Eager Load Essential Relations
         $query = Leads::with([
             'user:id,name,email,contact_no,city,state,pincode,address',
@@ -37,9 +55,11 @@ class CreatedDealController extends Controller
             },
             */
             'messages' => function ($mQ) {
-                $mQ->where('is_done', 0)
-                   ->whereNotNull('next_followup_date')
-                   ->orderBy('next_followup_date', 'asc');
+                $mQ->where(function($q) {
+                    $q->where('is_done', 0)->orWhereNull('is_done');
+                })
+                ->whereNotNull('next_followup_date')
+                ->orderBy('next_followup_date', 'asc');
             },
         ]);
 
@@ -485,6 +505,7 @@ class CreatedDealController extends Controller
                 'owner:id,name',
                 'bucket:id,name,bucket_color',
                 'category:id,category_name',
+                'tags:id,name,color',
                 'latestMessage.user:id,name'
             ]);
 
@@ -553,6 +574,7 @@ class CreatedDealController extends Controller
             'owner:id,name',
             'bucket:id,name,bucket_color',
             'category:id,category_name',
+            'tags:id,name,color',
             'latestMessage.user:id,name'
         ]);
 

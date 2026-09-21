@@ -158,9 +158,11 @@ class LeadTableController extends Controller
             'latestMessage.user:id,name',
             'tags:id,name,color',
             'messages' => function ($mQ) {
-                $mQ->where('is_done', 0)
-                   ->whereNotNull('next_followup_date')
-                   ->orderBy('next_followup_date', 'asc');
+                $mQ->where(function($q) {
+                    $q->where('is_done', 0)->orWhereNull('is_done');
+                })
+                ->whereNotNull('next_followup_date')
+                ->orderBy('next_followup_date', 'asc');
             },
         ]);
 
@@ -1103,6 +1105,7 @@ class LeadTableController extends Controller
                 'owner:id,name',
                 'bucket:id,name,bucket_color',
                 'category:id,category_name',
+                'tags:id,name,color',
                 'latestMessage.user:id,name'
             ]);
 
@@ -1173,6 +1176,7 @@ class LeadTableController extends Controller
             'owner:id,name',
             'bucket:id,name,bucket_color',
             'category:id,category_name',
+            'tags:id,name,color',
             'latestMessage.user:id,name'
         ]);
 
