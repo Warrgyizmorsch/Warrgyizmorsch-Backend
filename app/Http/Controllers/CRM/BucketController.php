@@ -171,28 +171,14 @@ class BucketController extends Controller
     {
         $type = $bucket->type ?? 'lead';
 
-        // Delete Protection 1: Check active child statuses
-        $hasChildren = Bucket::where('parent_id', $bucket->id)->where('is_deleted', 0)->exists();
-        if ($hasChildren) {
-            return redirect()->route('bucket.index', ['type' => $type])
-                ->with('error', "Cannot delete status '{$bucket->name}' because it has active sub-statuses.");
-        }
+        // When a parent status is deleted, soft-delete its child statuses as well
+        Bucket::where('parent_id', $bucket->id)->update(['is_deleted' => 1]);
 
-        // Delete Protection 2: Check active Leads usage
-        $leadCount = \App\Models\Leads::where('lead_bucket_id', $bucket->id)->count();
-        if ($leadCount > 0) {
-            return redirect()->route('bucket.index', ['type' => $type])
-                ->with('error', "Cannot delete status '{$bucket->name}' because it is currently assigned to {$leadCount} lead(s).");
-        }
-
-        // Delete Protection 3: Check active Orders usage
-        $orderCount = \App\Models\Order::where('order_bucket_id', $bucket->id)->count();
-        if ($orderCount > 0) {
-            return redirect()->route('bucket.index', ['type' => $type])
-                ->with('error', "Cannot delete status '{$bucket->name}' because it is currently assigned to {$orderCount} order(s).");
-        }
-
+        // Soft-delete this bucket (marks is_deleted = 1)
         $bucket->delete();
+
+        // STRICT RULE: Existing lead data must NEVER be modified or reclassified during bucket deletion.
+        // leads.lead_bucket_id, leads.lead_bucket_name, and leads.lead_status remain permanently untouched.
 
         return redirect()->route('bucket.index', ['type' => $type])
             ->with('success', 'Status deleted successfully.');

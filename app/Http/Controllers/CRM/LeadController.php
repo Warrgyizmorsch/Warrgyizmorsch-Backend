@@ -376,6 +376,20 @@ class LeadController extends Controller
         $leadData['lead_bucket_id'] = !empty($leadData['lead_bucket_id']) ? $leadData['lead_bucket_id'] : $defaultBucketId;
         $leadData['lead_status'] = !empty($leadData['lead_status']) ? $leadData['lead_status'] : $defaultSubStatus;
 
+        if (empty($leadData['lead_bucket_name']) && !empty($leadData['lead_bucket_id'])) {
+            $bObj = Bucket::find($leadData['lead_bucket_id']);
+            if ($bObj) {
+                if ($bObj->parent_id) {
+                    $pObj = Bucket::find($bObj->parent_id);
+                    $leadData['lead_bucket_name'] = $pObj ? $pObj->name : $bObj->name;
+                } else {
+                    $leadData['lead_bucket_name'] = $bObj->name;
+                }
+            } else {
+                $leadData['lead_bucket_name'] = 'Lead';
+            }
+        }
+
         $tableColumns = \Illuminate\Support\Facades\Schema::getColumnListing('leads');
         if (!empty($tableColumns)) {
             $leadData = array_intersect_key($leadData, array_flip($tableColumns));

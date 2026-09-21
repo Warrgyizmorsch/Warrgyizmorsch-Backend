@@ -964,13 +964,22 @@
         }
     }
 
-    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId) {
+    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId, bucketName) {
         let offcanvasEl = document.getElementById('editStatusOffcanvas');
         let form = document.getElementById('sharedQuickUpdateForm');
         form.action = "{{ url('/modern-leads/quick-update') }}/" + leadId;
         
         let engSelect = form.querySelector('[name="lead_engagement_status"]');
         if (engSelect) engSelect.value = (engagementStatus || '').toLowerCase();
+
+        // 1. Display Current Stored Status & Bucket Name
+        const statusBadge = document.getElementById('currentLeadStatusBadge');
+        const bucketBadge = document.getElementById('currentLeadBucketBadge');
+        if (statusBadge) statusBadge.textContent = leadStatus || 'None';
+        if (bucketBadge) {
+            bucketBadge.textContent = bucketName ? 'Bucket: ' + bucketName : '';
+            bucketBadge.style.display = bucketName ? 'inline-block' : 'none';
+        }
         
         let mainSelect = document.getElementById('editStatusMainSelect');
         let subSelect = document.getElementById('editStatusSubSelect');
@@ -991,22 +1000,41 @@
             }
         }
 
-        if (!matchedMainStatus && mainSelect && mainSelect.options.length > 1) {
-            matchedMainStatus = mainSelect.options[1].value;
-        }
-
+        // If not matched (i.e. status is deleted from master), do not permanently add it to active dropdown
         if (mainSelect) mainSelect.value = matchedMainStatus;
         onOffcanvasMainStatusChange(matchedMainStatus, matchedSubStatus);
         
-        let bucketInput = form.querySelector('[name="lead_bucket_id"]');
-        if (bucketInput) bucketInput.value = bucketId || 46;
+        let bucketInput = form.querySelector('[name="lead_bucket_id"]') || document.getElementById('editStatusBucketIdInput');
+        if (bucketInput) bucketInput.value = bucketId || '';
 
         form.onsubmit = function() {
             let subVal = subSelect ? subSelect.value : '';
             let mainVal = mainSelect ? mainSelect.value : '';
-            let finalStatus = subVal ? subVal : mainVal;
+            let finalStatus = subVal || mainVal || leadStatus;
+            let finalBucketName = mainVal || bucketName || '';
+            let finalBucketId = bucketId;
+
+            if (subSelect && subSelect.selectedIndex >= 0) {
+                let selectedOpt = subSelect.options[subSelect.selectedIndex];
+                if (selectedOpt && selectedOpt.dataset.bucketId) {
+                    finalBucketId = selectedOpt.dataset.bucketId;
+                }
+            } else if (mainVal && leadStatusMap[mainVal]) {
+                finalBucketId = leadStatusMap[mainVal].id;
+            }
+
+            if (bucketInput && finalBucketId) bucketInput.value = finalBucketId;
+
+            let bucketNameInput = form.querySelector('[name="lead_bucket_name"]') || document.getElementById('editStatusBucketNameInput');
+            if (!bucketNameInput) {
+                bucketNameInput = document.createElement('input');
+                bucketNameInput.type = 'hidden';
+                bucketNameInput.name = 'lead_bucket_name';
+                form.appendChild(bucketNameInput);
+            }
+            bucketNameInput.value = finalBucketName;
             
-            let hiddenStatusInput = form.querySelector('input[name="lead_status"]');
+            let hiddenStatusInput = form.querySelector('input[name="lead_status"]') || document.getElementById('editStatusFinalStatusInput');
             if (!hiddenStatusInput) {
                 hiddenStatusInput = document.createElement('input');
                 hiddenStatusInput.type = 'hidden';
@@ -1014,13 +1042,6 @@
                 form.appendChild(hiddenStatusInput);
             }
             hiddenStatusInput.value = finalStatus;
-
-            if (subSelect && subSelect.selectedIndex >= 0) {
-                let selectedOpt = subSelect.options[subSelect.selectedIndex];
-                if (selectedOpt && selectedOpt.dataset.bucketId) {
-                    if (bucketInput) bucketInput.value = selectedOpt.dataset.bucketId;
-                }
-            }
         };
 
         let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
@@ -1149,18 +1170,28 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    let messages = data.messages || [];
+                    let rawMessages = data.messages || [];
+                    let messages = rawMessages.filter(msg => {
+                        const hasMessage = msg.message && msg.message.trim() !== '';
+                        const hasFollowup = msg.followup_type && msg.followup_type.trim() !== '';
+                        const hasNextDate = msg.next_followup_date || msg.next_followup_date_formatted;
+                        const hasDocs = Array.isArray(msg.followup_documents) && msg.followup_documents.length > 0;
+                        const hasAudio = msg.call_recording && msg.call_recording.trim() !== '';
+                        return hasMessage || hasFollowup || hasNextDate || hasDocs || hasAudio;
+                    });
+
                     if (messages.length === 0) {
                         document.getElementById('cm_body').innerHTML = `
                             <div class="text-center py-5 bg-white rounded-3 border">
                                 <i class="feather-message-square text-muted fs-1 mb-2 opacity-50 d-block"></i>
-                                <p class="text-muted fs-13 mb-0">No comments or activity logs found for this lead.</p>
+                                <p class="text-muted fs-13 mb-0">No communication, comments, or follow-ups found for this lead.</p>
                             </div>`;
                         return;
                     }
 
                     let html = `<div class="d-flex flex-column gap-2.5">`;
                     messages.forEach(msg => {
+                        const docs = Array.isArray(msg.followup_documents) ? msg.followup_documents : [];
                         html += `
                             <div class="card border shadow-2xs rounded-3 bg-white">
                                 <div class="card-body p-3">
@@ -1171,18 +1202,29 @@
                                         </div>
                                         <span class="text-muted fs-10"><i class="feather-clock me-1"></i>${msg.created_at_formatted || ''}</span>
                                     </div>
-                                    ${(msg.bucket || msg.status) ? `
-                                        <div class="p-1.5 px-2 bg-light rounded border d-flex align-items-center gap-2 mb-2 flex-wrap fs-11">
-                                            <span class="fw-bold text-muted fs-10">Stage:</span>
-                                            ${msg.bucket ? `<span class="badge bg-white text-dark border fw-medium px-2 py-0.5"><i class="feather-layers text-primary me-1"></i> ${msg.bucket}</span>` : ''}
-                                            ${msg.status ? `<span class="badge bg-white text-dark border fw-medium px-2 py-0.5"><i class="feather-flag text-success me-1"></i> ${msg.status}</span>` : ''}
+                                    ${msg.message ? `<p class="text-dark mb-1.5 fs-13" style="line-height: 1.5;">${msg.message}</p>` : ''}
+                                    ${(msg.followup_type || msg.followup_status || msg.next_followup_date_formatted) ? `
+                                        <div class="d-flex align-items-center gap-2 fs-11 text-muted flex-wrap">
+                                            ${msg.followup_type ? `<span><i class="feather-phone-call me-1 text-primary"></i> ${msg.followup_type}</span>` : ''}
+                                            ${msg.followup_status ? `<span class="badge bg-info-subtle text-info border px-2 py-0.5">${msg.followup_status}</span>` : ''}
+                                            ${msg.next_followup_date_formatted ? `<span class="text-warning-emphasis ms-auto"><i class="feather-calendar me-1"></i> Next: ${msg.next_followup_date_formatted}</span>` : ''}
                                         </div>
                                     ` : ''}
-                                    ${msg.message ? `<p class="text-dark mb-1.5 fs-13" style="line-height: 1.5;">${msg.message}</p>` : ''}
-                                    ${(msg.followup_type || msg.followup_status) ? `
-                                        <div class="d-flex align-items-center gap-2 fs-11 text-muted">
-                                            ${msg.followup_type ? `<span><i class="feather-phone me-1 text-primary"></i> ${msg.followup_type}</span>` : ''}
-                                            ${msg.followup_status ? `<span class="badge bg-info-subtle text-info border px-2 py-0.5">${msg.followup_status}</span>` : ''}
+                                    ${msg.call_recording ? `
+                                        <div class="mt-2 pt-2 border-top">
+                                            <audio controls class="w-100" style="height: 30px;" src="${msg.call_recording}"></audio>
+                                        </div>
+                                    ` : ''}
+                                    ${docs.length > 0 ? `
+                                        <div class="mt-2 pt-2 border-top d-flex flex-wrap gap-1">
+                                            ${docs.map(doc => {
+                                                let docPath = typeof doc === 'object' ? doc.path : doc;
+                                                let docName = typeof doc === 'object' ? (doc.name || doc.file_name) : (docPath ? docPath.split('/').pop() : 'Attachment');
+                                                let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
+                                                return `<a href="${viewUrl}" target="_blank" class="badge bg-light text-dark border p-1 rounded d-inline-flex align-items-center gap-1 text-decoration-none fs-10">
+                                                    <i class="feather-paperclip text-primary"></i> <span>${docName}</span>
+                                                </a>`;
+                                            }).join('')}
                                         </div>
                                     ` : ''}
                                 </div>

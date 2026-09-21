@@ -49,20 +49,34 @@ class CreatedDealController extends Controller
         }
 
         // 3. Fetch Deal/Order Buckets to strictly isolate Deals from standard Leads
-        $childBuckets = Bucket::with('children')
+        $activeOrderBuckets = Bucket::with(['children' => function($cq) {
+                $cq->where('is_deleted', 0);
+            }])
             ->whereNull('parent_id')
             ->where('is_deleted', 0)
             ->where('type', 'order')
+            ->orderBy('id', 'asc')
             ->get();
 
-        $orderBucketIds = $childBuckets->pluck('id')
-            ->merge($childBuckets->pluck('children')->flatten()->pluck('id'))
+        $deletedOrderBuckets = Bucket::with(['children' => function($cq) {
+                $cq->where('is_deleted', 0);
+            }])
+            ->whereNull('parent_id')
+            ->where('is_deleted', 1)
+            ->where('type', 'order')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $allOrderBuckets = $activeOrderBuckets->concat($deletedOrderBuckets);
+
+        $orderBucketIds = $allOrderBuckets->pluck('id')
+            ->merge($allOrderBuckets->pluck('children')->flatten()->pluck('id'))
             ->filter()
             ->unique()
             ->toArray();
 
-        $orderStatusNames = $childBuckets->pluck('name')
-            ->merge($childBuckets->pluck('children')->flatten()->pluck('name'))
+        $orderStatusNames = $allOrderBuckets->pluck('name')
+            ->merge($allOrderBuckets->pluck('children')->flatten()->pluck('name'))
             ->filter()
             ->map(fn($n) => strtolower(trim($n)))
             ->unique()
@@ -70,8 +84,10 @@ class CreatedDealController extends Controller
 
         // Must strictly belong to deal/order buckets or Deal Created status, and non-archived
         $query->where(function ($q) use ($orderBucketIds, $orderStatusNames) {
-            $q->whereIn('lead_bucket_id', $orderBucketIds)
+            $q->where('is_converted', 1)
+              ->orWhereIn('lead_bucket_id', $orderBucketIds)
               ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+              ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_bucket_name, "")))'), $orderStatusNames)
               ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
         })->where(function ($q) {
             $q->where('is_archived', 0)->orWhereNull('is_archived');
@@ -175,33 +191,52 @@ class CreatedDealController extends Controller
 
         // Pre-aggregate deal counts in 1 fast query strictly for deal buckets
         $dealCounts = Leads::where(function ($q) use ($orderBucketIds, $orderStatusNames) {
-                $q->whereIn('lead_bucket_id', $orderBucketIds)
+                $q->where('is_converted', 1)
+                  ->orWhereIn('lead_bucket_id', $orderBucketIds)
                   ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+                  ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_bucket_name, "")))'), $orderStatusNames)
                   ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
             })
             ->where(function ($q) {
                 $q->where('is_archived', 0)->orWhereNull('is_archived');
             })
             ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
-            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
-            ->groupBy('lead_status', 'lead_bucket_id')
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, LOWER(TRIM(COALESCE(lead_bucket_name, ""))) as bucket_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_name', 'lead_bucket_id')
             ->get();
 
-        $childBuckets->each(function ($bucket) use ($dealCounts) {
-            $bucketIds = collect([$bucket->id])->merge($bucket->children->pluck('id'))->all();
-            $statusNames = collect([$bucket->name])->merge($bucket->children->pluck('name'))->map(fn($n) => strtolower(trim($n)))->all();
+        $calculateDealBucketCount = function ($bucket) use ($dealCounts) {
+            $bucketIds = collect([$bucket->id])->merge($bucket->children ? $bucket->children->pluck('id') : collect())->all();
+            $statusNames = collect([$bucket->name])->merge($bucket->children ? $bucket->children->pluck('name') : collect())->map(fn($n) => strtolower(trim($n)))->all();
             $bName = strtolower(trim($bucket->name));
 
             $bucket->leads_count = $dealCounts->filter(function ($item) use ($bucketIds, $statusNames, $bName) {
-                if (in_array($item->lead_bucket_id, $bucketIds) || in_array($item->status_name, $statusNames)) {
+                if (in_array($item->lead_bucket_id, $bucketIds) || in_array($item->status_name, $statusNames) || in_array($item->bucket_name, $statusNames)) {
                     return true;
                 }
-                if ($bName === 'deal created' && str_contains($item->status_name, 'deal created')) {
+                if ($bName === 'deal created' && (str_contains($item->status_name, 'deal created') || str_contains($item->bucket_name, 'deal created'))) {
                     return true;
                 }
                 return false;
             })->sum('cnt');
+        };
+
+        $activeOrderBuckets->each(function($b) use ($calculateDealBucketCount) {
+            $b->is_deleted = 0;
+            $calculateDealBucketCount($b);
         });
+
+        $deletedOrderBucketsWithDeals = collect();
+        $deletedOrderBuckets->each(function($b) use ($calculateDealBucketCount, &$deletedOrderBucketsWithDeals) {
+            $b->is_deleted = 1;
+            $calculateDealBucketCount($b);
+            if (($b->leads_count ?? 0) > 0) {
+                $deletedOrderBucketsWithDeals->push($b);
+            }
+        });
+
+        $childBuckets = $activeOrderBuckets->concat($deletedOrderBucketsWithDeals);
+        $activeDealBuckets = $activeOrderBuckets;
 
         $owners = User::whereIn('role_id', [1, 3])
             ->where('is_deleted', 0)
@@ -224,6 +259,7 @@ class CreatedDealController extends Controller
         return view('crm.lead.tableindex', compact(
             'leads',
             'childBuckets',
+            'activeDealBuckets',
             'owners',
             'totalDealsCount',
             'categorys',
@@ -532,6 +568,13 @@ class CreatedDealController extends Controller
         $oldStatus = $lead->lead_status;
 
         $lead->lead_bucket_id = $targetBucket->id;
+        if ($targetBucket->parent_id) {
+            $parent = Bucket::find($targetBucket->parent_id);
+            $lead->lead_bucket_name = $parent ? $parent->name : $targetBucket->name;
+        } else {
+            $lead->lead_bucket_name = $targetBucket->name;
+        }
+
         if ($request->filled('lead_status')) {
             $lead->lead_status = $request->input('lead_status');
         } else {
@@ -578,19 +621,54 @@ class CreatedDealController extends Controller
             return response()->json(['status' => false, 'message' => 'No deals selected'], 400);
         }
 
+        $bucketId = $request->bucket_id;
+        $statusName = $request->status_name;
+        $bucketName = null;
+
+        if ($bucketId) {
+            $bucketObj = Bucket::find($bucketId);
+            if ($bucketObj) {
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+                if (empty($statusName)) {
+                    $statusName = $bucketObj->name;
+                }
+            }
+        } elseif (!empty($statusName)) {
+            $bucketObj = Bucket::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($statusName))])->first();
+            if ($bucketObj) {
+                $bucketId = $bucketObj->id;
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+            }
+        }
+
         $query = Leads::whereIn('id', $ids);
         if (auth()->user()->role_id == 3) {
             $query->where('lead_owner', auth()->id());
         }
 
-        $query->update([
-            'lead_status' => $request->status_name,
-            'lead_bucket_id' => $request->bucket_id,
-        ]);
+        $updateData = [
+            'lead_status' => $statusName,
+            'lead_bucket_id' => $bucketId,
+        ];
+        if ($bucketName) {
+            $updateData['lead_bucket_name'] = $bucketName;
+        }
+
+        $query->update($updateData);
 
         \App\Models\Order::whereIn('lead_id', $ids)->update([
-            'order_bucket_id' => $request->bucket_id,
-            'order_status' => $request->status_name,
+            'order_bucket_id' => $bucketId,
+            'order_status' => $statusName,
         ]);
 
         return response()->json(['status' => true, 'message' => count($ids) . ' deals updated successfully']);

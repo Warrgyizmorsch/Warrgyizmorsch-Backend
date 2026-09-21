@@ -169,29 +169,7 @@ class NewleadController extends Controller
             }
         }
 
-        if ($request->filled('deleted_leads')) {
-            $mainBucketIds = Bucket::whereNull('parent_id')
-                ->where('is_deleted', 0)
-                ->pluck('id')
-                ->toArray();
 
-            $targetBucketIdForFilter = $request->bucket_id ?? 46;
-            $childNames = Bucket::where('parent_id', $targetBucketIdForFilter)
-                ->where('is_deleted', 0)
-                ->pluck('name')
-                ->map(fn($n) => strtolower(trim($n)))
-                ->toArray();
-
-            $query->where(function($q) use ($mainBucketIds, $childNames) {
-                $q->whereNotIn('lead_bucket_id', $mainBucketIds)
-                  ->orWhere(function($subQ) use ($childNames) {
-                      $subQ->whereNotIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames)
-                           ->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), '!=', 'yet to call')
-                           ->whereNotNull('lead_status')
-                           ->where('lead_status', '!=', '');
-                  });
-            });
-        }
 
         if ($request->filled('country'))
             $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
@@ -236,7 +214,7 @@ class NewleadController extends Controller
                   ->orWhere('is_converted', 0);
             });
 
-            if (!$request->filled('search') && !$request->filled('search_uid') && !$request->filled('deleted_leads')) {
+            if (!$request->filled('search') && !$request->filled('search_uid')) {
                 $query->where(function ($q) use ($orderBucketIds) {
                     $q->whereNull('lead_bucket_id')
                       ->orWhereNotIn('lead_bucket_id', $orderBucketIds);
@@ -454,7 +432,7 @@ class NewleadController extends Controller
         $allTargetBucketIds = array_merge([$targetBucketId], $targetBucketChildIds);
 
         // Calculate Total Leads Count for the active target bucket
-        if (!$request->filled('bucket_id') && !$request->filled('deleted_leads')) {
+        if (!$request->filled('bucket_id')) {
             $totalLeadsCount = $leads->total();
         } else {
             if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
@@ -487,17 +465,7 @@ class NewleadController extends Controller
 
         $filteredLeadCount = $leads->total();
 
-        $allMappedBucketIds = Bucket::where('is_deleted', 0)->pluck('id')->toArray();
-        $otherLeadsCount = Leads::where(function ($q) use ($allMappedBucketIds) {
-            $q->whereNotIn('lead_bucket_id', $allMappedBucketIds)->orWhereNull('lead_bucket_id');
-        })
-        ->where(function ($q) {
-            $q->whereNull('is_converted')->orWhere('is_converted', 0);
-        })
-        ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
-            $qq->where('lead_owner', auth()->id());
-        })
-        ->count();
+        $otherLeadsCount = 0;
 
         $childBuckets = collect();
         $childtotalLeadsCount = 0;
@@ -600,13 +568,9 @@ class NewleadController extends Controller
             ->pluck('id')
             ->toArray();
 
-        $deletedLeadsCount = Leads::whereNotNull('lead_bucket_id')
-            ->where('lead_bucket_id', '!=', '')
-            ->whereNotIn('lead_bucket_id', $mainBucketIds)
-            ->when(auth()->check() && auth()->user()->role_id == 3, function ($q) {
-                $q->where('lead_owner', auth()->id());
-            })
-            ->count();
+        // Existing leads are never dumped into "Other" because their master status was deleted
+        $deletedLeadsCount = 0;
+        $otherLeadsCount = 0;
 
         $categorys = Category::where('is_active', 1)->get();
 
@@ -688,14 +652,24 @@ class NewleadController extends Controller
             $isLeadBucket = str_contains(strtolower($bucketObj->name), 'lead') || $bucketObj->id == 1;
         }
 
-        $engStatus = strtolower(trim($request->lead_engagement_status ?? ''));
-        $validEngStatuses = ['hot', 'warm', 'cold', 'dead'];
+        $bucketName = null;
+        if ($bucketObj) {
+            if ($bucketObj->parent_id) {
+                $parentObj = Bucket::find($bucketObj->parent_id);
+                $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+            } else {
+                $bucketName = $bucketObj->name;
+            }
+        }
 
         $updateData = [
             'lead_bucket_id' => $bucketId,
             'lead_status'    => $request->lead_status,
             'is_converted'   => $isLeadBucket ? 0 : 1,
         ];
+        if ($bucketName) {
+            $updateData['lead_bucket_name'] = $bucketName;
+        }
 
         if (in_array($engStatus, $validEngStatuses)) {
             $updateData['lead_engagement_status'] = $engStatus;

@@ -15,17 +15,29 @@
     <div class="offcanvas-body p-3.5">
         <form id="sharedQuickUpdateForm" method="POST" action="" enctype="multipart/form-data">
             @csrf
-            <input type="hidden" name="lead_bucket_id" value="46">
+            <input type="hidden" name="lead_bucket_id" id="editStatusBucketIdInput" value="">
+            <input type="hidden" name="lead_bucket_name" id="editStatusBucketNameInput" value="">
+            <input type="hidden" name="lead_status" id="editStatusFinalStatusInput" value="">
             
             {{-- Status & Engagement Card --}}
             <div class="card border rounded-3 shadow-2xs mb-3 bg-white">
-                <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center gap-2">
-                    <i class="fas fa-sliders text-primary fs-12"></i>
-                    <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">
-                        Status
-                    </h6>
+                <div class="card-header bg-light bg-opacity-50 py-2 px-3 border-bottom d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fas fa-sliders text-primary fs-12"></i>
+                        <h6 class="fs-11 fw-bold text-dark mb-0 text-uppercase tracking-wider">
+                            Change Status
+                        </h6>
+                    </div>
                 </div>
                 <div class="card-body p-3">
+                    {{-- Current Saved Status Display (Never altered by master deletion) --}}
+                    <div class="mb-3 p-2.5 rounded-3 bg-light border d-flex align-items-center justify-content-between" id="currentLeadStatusBox">
+                        <div>
+                            <span class="fs-11 text-muted text-uppercase fw-semibold d-block">Current Saved Status</span>
+                            <span class="fw-bold fs-13 text-dark" id="currentLeadStatusBadge">-</span>
+                        </div>
+                        <span class="badge bg-secondary-subtle text-secondary fs-11 px-2 py-1" id="currentLeadBucketBadge"></span>
+                    </div>
                     <!-- Engagement Status (Commented out)
                     @if(!empty($isDealView))
                         <div class="mb-3">
@@ -307,8 +319,8 @@
                 <i class="feather-message-square fs-5 text-white"></i>
             </div>
             <div class="overflow-hidden">
-                <h5 class="offcanvas-title fw-bold text-white mb-0 fs-15 text-truncate" id="cm_leadName">Comments & History</h5>
-                <small class="text-white opacity-75 fs-11">All Activity Logs & Remarks</small>
+                <h5 class="offcanvas-title fw-bold text-white mb-0 fs-15 text-truncate" id="cm_leadName">Communication & Comments</h5>
+                <small class="text-white opacity-75 fs-11">Communication, Remarks & Follow-ups</small>
             </div>
         </div>
         <button type="button" class="btn-close btn-close-white flex-shrink-0" data-bs-dismiss="offcanvas" aria-label="Close"></button>

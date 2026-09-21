@@ -157,6 +157,11 @@ class LeadTableController extends Controller
             'category',
             'latestMessage.user:id,name',
             'tags:id,name,color',
+            'messages' => function ($mQ) {
+                $mQ->where('is_done', 0)
+                   ->whereNotNull('next_followup_date')
+                   ->orderBy('next_followup_date', 'asc');
+            },
         ]);
 
         // 2. Role-based restrictions & Exclude Archived
@@ -254,36 +259,18 @@ class LeadTableController extends Controller
             }
         }
 
-        if ($request->filled('deleted_leads')) {
-            $mainBucketIds = Bucket::whereNull('parent_id')
-                ->where('is_deleted', 0)
-                ->pluck('id')
-                ->toArray();
-
-            $targetBucketIdForFilter = $request->bucket_id ?? 46;
-            $childNames = Bucket::where('parent_id', $targetBucketIdForFilter)
-                ->where('is_deleted', 0)
-                ->pluck('name')
-                ->map(fn($n) => strtolower(trim($n)))
-                ->toArray();
-
-            $query->where(function($q) use ($mainBucketIds, $childNames) {
-                $q->whereNotIn('lead_bucket_id', $mainBucketIds)
-                  ->orWhere(function($subQ) use ($childNames) {
-                      $subQ->whereNotIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames)
-                           ->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), '!=', 'yet to call')
-                           ->whereNotNull('lead_status')
-                           ->where('lead_status', '!=', '');
-                  });
-            });
-        }
 
         if ($request->filled('country'))
             $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
         if ($request->filled('course'))
             $query->where('what_course_are_you_planning_to_study', 'like', "%{$request->course}%");
 
-        $orderBucketIds = Bucket::whereNull('parent_id')->order()->pluck('id')->toArray();
+        $orderBucketsAll = Bucket::with('children')->where('type', 'order')->get();
+        $orderBucketIds = $orderBucketsAll->pluck('id')
+            ->merge($orderBucketsAll->pluck('children')->flatten()->pluck('id'))
+            ->filter()
+            ->unique()
+            ->toArray();
         if (empty($orderBucketIds)) {
             $orderBucketIds = Bucket::whereNull('parent_id')
                 ->where('is_deleted', 0)
@@ -291,6 +278,12 @@ class LeadTableController extends Controller
                 ->pluck('id')
                 ->toArray();
         }
+        $orderStatusNames = $orderBucketsAll->pluck('name')
+            ->merge($orderBucketsAll->pluck('children')->flatten()->pluck('name'))
+            ->filter()
+            ->map(fn($n) => strtolower(trim($n)))
+            ->unique()
+            ->toArray();
 
         if (($request->filled('converted') && $request->converted == 1) || ($request->filled('is_converted') && $request->is_converted == 1)) {
             $query->where('is_converted', 1);
@@ -311,29 +304,50 @@ class LeadTableController extends Controller
                 }
             }
         } else {
+            // Standard Leads view: strictly exclude converted deals, order buckets, and Deal Created leads
             $query->where(function ($q) {
-                $q->whereNull('is_converted')
-                  ->orWhere('is_converted', 0);
+                $q->whereNull('is_converted')->orWhere('is_converted', 0);
             });
-
-            if (!$request->filled('search') && !$request->filled('search_uid') && !$request->filled('deleted_leads')) {
-                $query->where(function ($q) use ($orderBucketIds) {
-                    $q->whereNull('lead_bucket_id')
-                      ->orWhereNotIn('lead_bucket_id', $orderBucketIds);
-                });
-
-                // Exclude "Deal Created" leads from default view
-                $query->where(function ($q) {
-                    $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'not like', '%deal created%')
-                      ->orWhereNull('lead_status');
-                })->whereDoesntHave('bucket', function ($bQ) {
-                    $bQ->where(DB::raw('LOWER(TRIM(COALESCE(name, "")))'), 'like', '%deal created%');
-                });
+            if (!empty($orderBucketIds)) {
+                $query->whereNotIn('lead_bucket_id', $orderBucketIds);
+            }
+            $query->where(function ($q) {
+                $q->whereNull('lead_status')
+                  ->orWhere(DB::raw('LOWER(TRIM(lead_status))'), 'NOT LIKE', '%deal created%');
+            })->where(function ($q) {
+                $q->whereNull('lead_bucket_name')
+                  ->orWhere(DB::raw('LOWER(TRIM(lead_bucket_name))'), 'NOT LIKE', '%deal created%');
+            });
+            if (!empty($orderStatusNames)) {
+                $query->whereNotIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+                      ->whereNotIn(DB::raw('LOWER(TRIM(COALESCE(lead_bucket_name, "")))'), $orderStatusNames);
             }
         }
 
-        if ($request->filled('lead_status') && $request->bucket_id !== 'all_orders' && !$request->filled('search') && !$request->filled('search_uid')) {
-            $query->where('lead_status', $request->lead_status);
+        if ($request->filled('lead_status') && $request->lead_status !== 'all' && $request->bucket_id !== 'all_orders' && !$request->filled('search') && !$request->filled('search_uid')) {
+            $statusTerm = trim($request->lead_status);
+            $matchedMainBucket = Bucket::whereNull('parent_id')
+                ->where(DB::raw('LOWER(TRIM(name))'), strtolower($statusTerm))
+                ->with('children')
+                ->first();
+
+            if ($matchedMainBucket) {
+                $childNames = $matchedMainBucket->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
+                $childIds = $matchedMainBucket->children->pluck('id')->toArray();
+                $allIds = array_merge([$matchedMainBucket->id], $childIds);
+                $allNames = array_merge([strtolower($statusTerm)], $childNames);
+
+                $query->where(function($q) use ($statusTerm, $allNames, $allIds) {
+                    $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_bucket_name, "")))'), strtolower($statusTerm))
+                      ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $allNames)
+                      ->orWhereIn('lead_bucket_id', $allIds);
+                });
+            } else {
+                $query->where(function($q) use ($statusTerm) {
+                    $q->where('lead_status', $statusTerm)
+                      ->orWhere('lead_bucket_name', $statusTerm);
+                });
+            }
         }
 
         if ($request->filled('category_id')) {
@@ -387,10 +401,24 @@ class LeadTableController extends Controller
 
         // 4. Counts & Pagination
         $user = auth()->user();
+        $totalLeadsBaseQuery = Leads::where(function ($q) {
+            $q->whereNull('is_archived')->orWhere('is_archived', 0);
+        })->where(function ($q) {
+            $q->whereNull('is_converted')->orWhere('is_converted', 0);
+        });
+        if (!empty($orderBucketIds)) {
+            $totalLeadsBaseQuery->whereNotIn('lead_bucket_id', $orderBucketIds);
+        }
+        $totalLeadsBaseQuery->where(function ($q) {
+            $q->whereNull('lead_status')->orWhere(DB::raw('LOWER(TRIM(lead_status))'), 'NOT LIKE', '%deal created%');
+        })->where(function ($q) {
+            $q->whereNull('lead_bucket_name')->orWhere(DB::raw('LOWER(TRIM(lead_bucket_name))'), 'NOT LIKE', '%deal created%');
+        });
+
         if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
-            $totalLeadsCount = Leads::count();
+            $totalLeadsCount = (clone $totalLeadsBaseQuery)->count();
         } elseif ($user) {
-            $totalLeadsCount = Leads::where('lead_owner', $user->id)->count();
+            $totalLeadsCount = (clone $totalLeadsBaseQuery)->where('lead_owner', $user->id)->count();
         } else {
             $totalLeadsCount = 0;
         }
@@ -420,42 +448,55 @@ class LeadTableController extends Controller
             return $lead;
         });
 
-        // 5. Dynamic Status Buckets & Hierarchy Counts
-        $childBuckets = Bucket::whereNull('parent_id')
+        // 5. Dynamic Status Buckets & Hierarchy Counts (100% accurate count matching)
+        // 1. Fetch active lead-type buckets (deduplicated by lowercase name)
+        $activeLeadBuckets = Bucket::whereNull('parent_id')
             ->where('is_deleted', 0)
             ->where(function($q) {
                 $q->where('type', 'lead')->orWhereNull('type');
             })
-            ->where(DB::raw('LOWER(TRIM(name))'), 'NOT LIKE', '%deal created%')
+            ->where('name', 'NOT LIKE', '%deal created%')
             ->with(['children' => function($cq) {
                 $cq->where('is_deleted', 0);
             }])
             ->orderBy('id', 'asc')
-            ->get();
+            ->get()
+            ->unique(fn($b) => strtolower(trim($b->name)))
+            ->values();
 
-        $statusCountsQuery = (clone $query)
-            ->without(['user', 'owner', 'bucket', 'category', 'latestMessage', 'tags'])
-            ->where(function($lq) {
-                $lq->whereNull('is_converted')->orWhere('is_converted', 0);
+        // 2. Fetch deleted main buckets (candidates if leads_count > 0)
+        $deletedBuckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 1)
+            ->where(function($q) {
+                $q->where('type', 'lead')->orWhereNull('type');
             })
-            ->where(function($sq2) {
-                $sq2->whereNull('lead_status')
-                    ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'NOT LIKE', '%deal created%');
-            });
-
-        $statusCounts = $statusCountsQuery
-            ->reorder()
-            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
-            ->groupBy('lead_status', 'lead_bucket_id')
+            ->where('name', 'NOT LIKE', '%deal created%')
+            ->with('children')
+            ->orderBy('id', 'asc')
             ->get();
 
-        $childBuckets->each(function ($b) use ($statusCounts) {
-            if ($b->children->isNotEmpty()) {
-                $b->children->each(function ($child) use ($statusCounts) {
+        $statusCounts = (clone $query)
+            ->without(['user', 'owner', 'bucket', 'category', 'latestMessage', 'tags'])
+            ->reorder()
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, LOWER(TRIM(COALESCE(lead_bucket_name, ""))) as bucket_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_name', 'lead_bucket_id')
+            ->get();
+
+        $calculateCounts = function ($b) use ($statusCounts) {
+            $bName = strtolower(trim($b->name));
+            $bId = $b->id;
+            $childIds = $b->children ? $b->children->pluck('id')->toArray() : [];
+
+            if ($b->children && $b->children->isNotEmpty()) {
+                $b->children->each(function ($child) use ($statusCounts, $bName) {
                     $cName = strtolower(trim($child->name));
                     $cId = $child->id;
-                    $childCnt = $statusCounts->filter(function ($item) use ($cName, $cId) {
+                    $childCnt = $statusCounts->filter(function ($item) use ($cName, $cId, $bName) {
                         $itemStatus = strtolower(trim($item->status_name ?? ''));
+                        $itemBucket = strtolower(trim($item->bucket_name ?? ''));
+                        if ($itemBucket !== '' && $itemBucket === $bName) {
+                            return $itemStatus === $cName || $item->lead_bucket_id == $cId;
+                        }
                         if ($itemStatus !== '') {
                             return $itemStatus === $cName;
                         }
@@ -463,30 +504,73 @@ class LeadTableController extends Controller
                     })->sum('cnt');
                     $child->leads_count = $childCnt;
                 });
+
+                // Filter child statuses: keep active ones, and for deleted ones only keep if leads_count > 0
+                $b->setRelation('children', $b->children->filter(function($c) {
+                    return empty($c->is_deleted) || ($c->leads_count ?? 0) > 0;
+                })->values());
             }
 
-            $bName = strtolower(trim($b->name));
-            $bId = $b->id;
-            $childIds = $b->children->pluck('id')->toArray();
-            $childNames = $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
-
-            $isYetToCall = ($bName === 'yet to call');
-            $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
-            $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
-            $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
-
-            $cnt = $statusCounts->filter(function ($item) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
-                $itemStatus = strtolower(trim($item->status_name ?? ''));
-                if ($itemStatus !== '') {
-                    return in_array($itemStatus, $matchingStatuses);
+            $cnt = $statusCounts->filter(function ($item) use ($bName, $bId, $childIds) {
+                $itemBucket = strtolower(trim($item->bucket_name ?? ''));
+                if ($itemBucket !== '') {
+                    return $itemBucket === $bName;
                 }
-                if ($isYetToCall) {
-                    return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds) || is_null($item->lead_bucket_id) || $item->lead_bucket_id == 0);
+                $itemStatus = strtolower(trim($item->status_name ?? ''));
+                if ($itemStatus === $bName) {
+                    return true;
                 }
                 return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds));
             })->sum('cnt');
+
             $b->leads_count = $cnt;
+        };
+
+        $activeLeadBuckets->each(function($b) use ($calculateCounts) {
+            $b->is_deleted = 0;
+            $calculateCounts($b);
         });
+
+        $activeNames = $activeLeadBuckets->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
+
+        // Process deleted buckets (only if leads_count > 0)
+        $deletedBucketsWithLeads = collect();
+        $deletedBuckets->each(function($b) use ($calculateCounts, &$activeNames, &$deletedBucketsWithLeads) {
+            $b->is_deleted = 1;
+            $calculateCounts($b);
+            $bName = strtolower(trim($b->name));
+            if (($b->leads_count ?? 0) > 0 && !in_array($bName, $activeNames)) {
+                $deletedBucketsWithLeads->push($b);
+                $activeNames[] = $bName;
+            }
+        });
+
+        // Check for any orphaned lead_bucket_name (excluding deal created or order buckets)
+        $orphanedBuckets = collect();
+        $distinctLeadBucketNames = $statusCounts->pluck('bucket_name')->filter()->unique();
+        foreach ($distinctLeadBucketNames as $dbName) {
+            $dbNameLower = strtolower(trim($dbName));
+            if (str_contains($dbNameLower, 'deal created') || in_array($dbNameLower, $orderStatusNames)) {
+                continue;
+            }
+            if ($dbNameLower !== '' && !in_array($dbNameLower, $activeNames)) {
+                $cnt = $statusCounts->filter(fn($item) => strtolower(trim($item->bucket_name ?? '')) === $dbNameLower)->sum('cnt');
+                if ($cnt > 0) {
+                    $orphan = new Bucket();
+                    $orphan->id = null;
+                    $orphan->name = ucwords($dbName);
+                    $orphan->is_deleted = 1;
+                    $orphan->leads_count = $cnt;
+                    $orphan->setRelation('children', collect());
+                    $orphanedBuckets->push($orphan);
+                    $activeNames[] = $dbNameLower;
+                }
+            }
+        }
+
+        $childBuckets = $activeLeadBuckets
+            ->concat($deletedBucketsWithLeads)
+            ->concat($orphanedBuckets);
 
         $hasActiveFilter = $request->filled('search') 
             || $request->filled('search_uid') 
@@ -502,7 +586,7 @@ class LeadTableController extends Controller
             || $request->filled('ad_name') 
             || $request->filled('has_followups');
 
-        $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : $totalLeadsCount;
+        $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : $childBuckets->sum('leads_count');
 
         if ($hasActiveFilter && empty($request->lead_status)) {
             $childtotalLeadsCount = $leads->total();
@@ -510,18 +594,9 @@ class LeadTableController extends Controller
             $childtotalLeadsCount = $childBuckets->sum('leads_count');
         }
 
-        $mainBucketIds = Bucket::whereNull('parent_id')
-            ->where('is_deleted', 0)
-            ->pluck('id')
-            ->toArray();
-
-        $deletedLeadsCount = Leads::whereNotNull('lead_bucket_id')
-            ->where('lead_bucket_id', '!=', '')
-            ->whereNotIn('lead_bucket_id', $mainBucketIds)
-            ->when(auth()->check() && auth()->user()->role_id == 3, function ($q) {
-                $q->where('lead_owner', auth()->id());
-            })
-            ->count();
+        // Existing leads are never dumped into "Other" because their master status was deleted
+        $deletedLeadsCount = 0;
+        $otherLeadsCount = 0;
 
         $categorys = Category::where('is_active', 1)->get();
         $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->select('id', 'name', 'email')->get();
@@ -550,6 +625,7 @@ class LeadTableController extends Controller
         return view('crm.lead.tableindex', compact(
             'leads',
             'childBuckets',
+            'activeLeadBuckets',
             'childtotalLeadsCount',
             'categorys',
             'deletedLeadsCount',
@@ -565,7 +641,7 @@ class LeadTableController extends Controller
         ));
     }
 
-    // ADD THIS NEW FUNCTION FOR SINGLE STATUS UPDATE
+    // SINGLE STATUS UPDATE: Sets lead_status, lead_bucket_name, and active lead_bucket_id
     public function updateStatus(Request $request, $lead)
     {
         abort_unless(auth()->check(), 401);
@@ -576,20 +652,55 @@ class LeadTableController extends Controller
             return response()->json(['status' => false, 'message' => 'Permission denied.'], 403);
         }
 
-        $leadObj->update([
-            'lead_status' => $request->status_name,
-            'lead_bucket_id' => $request->bucket_id,
-        ]);
+        $bucketId = $request->bucket_id;
+        $statusName = $request->status_name;
+        $bucketName = null;
+
+        if ($bucketId) {
+            $bucketObj = Bucket::find($bucketId);
+            if ($bucketObj) {
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+                if (empty($statusName)) {
+                    $statusName = $bucketObj->name;
+                }
+            }
+        } elseif (!empty($statusName)) {
+            $bucketObj = Bucket::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($statusName))])->first();
+            if ($bucketObj) {
+                $bucketId = $bucketObj->id;
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+            }
+        }
+
+        $updateData = [
+            'lead_status' => $statusName,
+            'lead_bucket_id' => $bucketId,
+        ];
+        if ($bucketName) {
+            $updateData['lead_bucket_name'] = $bucketName;
+        }
+
+        $leadObj->update($updateData);
 
         \App\Models\Order::where('lead_id', $leadObj->id)->update([
-            'order_bucket_id' => $request->bucket_id,
-            'order_status' => $request->status_name,
+            'order_bucket_id' => $bucketId,
+            'order_status' => $statusName,
         ]);
 
         return response()->json(['status' => true, 'message' => 'Status updated successfully']);
     }
 
-    // ADD THIS NEW FUNCTION FOR BULK STATUS UPDATE
+    // BULK STATUS UPDATE: Sets lead_status, lead_bucket_name, and active lead_bucket_id
     public function bulkUpdateStatus(Request $request)
     {
         abort_unless(auth()->check(), 401);
@@ -599,19 +710,54 @@ class LeadTableController extends Controller
             return response()->json(['status' => false, 'message' => 'No leads selected'], 400);
         }
 
+        $bucketId = $request->bucket_id;
+        $statusName = $request->status_name;
+        $bucketName = null;
+
+        if ($bucketId) {
+            $bucketObj = Bucket::find($bucketId);
+            if ($bucketObj) {
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+                if (empty($statusName)) {
+                    $statusName = $bucketObj->name;
+                }
+            }
+        } elseif (!empty($statusName)) {
+            $bucketObj = Bucket::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($statusName))])->first();
+            if ($bucketObj) {
+                $bucketId = $bucketObj->id;
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+            }
+        }
+
         $query = Leads::whereIn('id', $ids);
         if (auth()->user()->role_id == 3) {
             $query->where('lead_owner', auth()->id());
         }
 
-        $query->update([
-            'lead_status' => $request->status_name,
-            'lead_bucket_id' => $request->bucket_id,
-        ]);
+        $updateData = [
+            'lead_status' => $statusName,
+            'lead_bucket_id' => $bucketId,
+        ];
+        if ($bucketName) {
+            $updateData['lead_bucket_name'] = $bucketName;
+        }
+
+        $query->update($updateData);
 
         \App\Models\Order::whereIn('lead_id', $ids)->update([
-            'order_bucket_id' => $request->bucket_id,
-            'order_status' => $request->status_name,
+            'order_bucket_id' => $bucketId,
+            'order_status' => $statusName,
         ]);
 
         return response()->json(['status' => true, 'message' => count($ids) . ' leads updated successfully']);
@@ -776,10 +922,11 @@ class LeadTableController extends Controller
         $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
         $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
 
-        $query->where(function ($q) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
-            $q->where(function ($sq) use ($matchingStatuses) {
-                $sq->whereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $matchingStatuses);
-            });
+        $query->where(function ($q) use ($bName, $bId, $childIds, $isYetToCall, $matchingStatuses) {
+            $q->where(DB::raw('LOWER(TRIM(COALESCE(lead_bucket_name, "")))'), $bName)
+              ->orWhere(function ($sq) use ($matchingStatuses) {
+                  $sq->whereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $matchingStatuses);
+              });
 
             if ($isYetToCall) {
                 $q->orWhere(function ($sq) use ($bId, $childIds) {
@@ -848,14 +995,14 @@ class LeadTableController extends Controller
             ->orderByRaw("FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "') = 0, FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "'), id ASC")
             ->get();
 
-        // 3. Fast Aggregated Count Query matching both lead_status and lead_bucket_id
+        // 3. Fast Aggregated Count Query matching lead_bucket_name, lead_status and lead_bucket_id
         $statusCountsQuery = Leads::query();
         $this->applyPipelineFilters($request, $statusCountsQuery);
 
         $statusCounts = $statusCountsQuery
             ->reorder()
-            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
-            ->groupBy('lead_status', 'lead_bucket_id')
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, LOWER(TRIM(COALESCE(lead_bucket_name, ""))) as bucket_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_name', 'lead_bucket_id')
             ->get();
 
         $columnCards = [];
@@ -872,8 +1019,12 @@ class LeadTableController extends Controller
             $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
             $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
 
-            $colTotal = $statusCounts->filter(function ($item) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+            $colTotal = $statusCounts->filter(function ($item) use ($bName, $bId, $childIds, $isYetToCall, $matchingStatuses) {
                 $itemStatus = strtolower(trim($item->status_name ?? ''));
+                $itemBucket = strtolower(trim($item->bucket_name ?? ''));
+                if ($itemBucket !== '' && $itemBucket === $bName) {
+                    return true;
+                }
                 if ($itemStatus !== '') {
                     return in_array($itemStatus, $matchingStatuses);
                 }
@@ -1000,6 +1151,13 @@ class LeadTableController extends Controller
         $oldStatus = $lead->lead_status;
 
         $lead->lead_bucket_id = $targetBucket->id;
+        if ($targetBucket->parent_id) {
+            $parent = Bucket::find($targetBucket->parent_id);
+            $lead->lead_bucket_name = $parent ? $parent->name : $targetBucket->name;
+        } else {
+            $lead->lead_bucket_name = $targetBucket->name;
+        }
+
         if ($request->filled('lead_status')) {
             $lead->lead_status = $request->input('lead_status');
         } else {

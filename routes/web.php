@@ -344,3 +344,5 @@ Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
 
 
 require __DIR__ . '/auth.php';
+
+

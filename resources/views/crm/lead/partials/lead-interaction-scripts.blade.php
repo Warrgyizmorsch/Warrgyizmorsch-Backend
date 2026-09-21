@@ -342,13 +342,22 @@
         }
     }
 
-    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId) {
+    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId, bucketName) {
         let offcanvasEl = document.getElementById('editStatusOffcanvas');
         let form = document.getElementById('sharedQuickUpdateForm');
         form.action = "{{ url('/modern-leads/quick-update') }}/" + leadId;
         
         let engSelect = form.querySelector('[name="lead_engagement_status"]');
         if (engSelect) engSelect.value = (engagementStatus || '').toLowerCase();
+
+        // 1. Display Current Stored Status & Bucket Name
+        const statusBadge = document.getElementById('currentLeadStatusBadge');
+        const bucketBadge = document.getElementById('currentLeadBucketBadge');
+        if (statusBadge) statusBadge.textContent = leadStatus || 'None';
+        if (bucketBadge) {
+            bucketBadge.textContent = bucketName ? 'Bucket: ' + bucketName : '';
+            bucketBadge.style.display = bucketName ? 'inline-block' : 'none';
+        }
         
         let mainSelect = document.getElementById('editStatusMainSelect');
         let subSelect = document.getElementById('editStatusSubSelect');
@@ -373,22 +382,41 @@
             }
         }
 
-        if (!matchedMainStatus && mainSelect && mainSelect.options.length > 1) {
-            matchedMainStatus = mainSelect.options[1].value;
-        }
-
+        // If not matched (i.e. status is deleted from master), do not permanently add it to active dropdown
         if (mainSelect) mainSelect.value = matchedMainStatus;
         onOffcanvasMainStatusChange(matchedMainStatus, matchedSubStatus);
         
-        let bucketInput = form.querySelector('[name="lead_bucket_id"]');
-        if (bucketInput) bucketInput.value = bucketId || 46;
+        let bucketInput = form.querySelector('[name="lead_bucket_id"]') || document.getElementById('editStatusBucketIdInput');
+        if (bucketInput) bucketInput.value = bucketId || '';
 
         form.onsubmit = function() {
             let subVal = subSelect ? subSelect.value : '';
             let mainVal = mainSelect ? mainSelect.value : '';
-            let finalStatus = subVal ? subVal : mainVal;
+            let finalStatus = subVal || mainVal || leadStatus;
+            let finalBucketName = mainVal || bucketName || '';
+            let finalBucketId = bucketId;
+
+            if (subSelect && subSelect.selectedIndex >= 0) {
+                let selectedOpt = subSelect.options[subSelect.selectedIndex];
+                if (selectedOpt && selectedOpt.dataset.bucketId) {
+                    finalBucketId = selectedOpt.dataset.bucketId;
+                }
+            } else if (mainVal && leadStatusMap[mainVal]) {
+                finalBucketId = leadStatusMap[mainVal].id;
+            }
+
+            if (bucketInput && finalBucketId) bucketInput.value = finalBucketId;
+
+            let bucketNameInput = form.querySelector('[name="lead_bucket_name"]') || document.getElementById('editStatusBucketNameInput');
+            if (!bucketNameInput) {
+                bucketNameInput = document.createElement('input');
+                bucketNameInput.type = 'hidden';
+                bucketNameInput.name = 'lead_bucket_name';
+                form.appendChild(bucketNameInput);
+            }
+            bucketNameInput.value = finalBucketName;
             
-            let hiddenStatusInput = form.querySelector('input[name="lead_status"]');
+            let hiddenStatusInput = form.querySelector('input[name="lead_status"]') || document.getElementById('editStatusFinalStatusInput');
             if (!hiddenStatusInput) {
                 hiddenStatusInput = document.createElement('input');
                 hiddenStatusInput.type = 'hidden';
@@ -396,13 +424,6 @@
                 form.appendChild(hiddenStatusInput);
             }
             hiddenStatusInput.value = finalStatus;
-
-            if (subSelect && subSelect.selectedIndex >= 0) {
-                let selectedOpt = subSelect.options[subSelect.selectedIndex];
-                if (selectedOpt && selectedOpt.dataset.bucketId) {
-                    if (bucketInput) bucketInput.value = selectedOpt.dataset.bucketId;
-                }
-            }
         };
 
         let bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
@@ -1103,12 +1124,23 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    let messages = data.messages || [];
+                    let rawMessages = data.messages || [];
+
+                    // Filter: ONLY Communication & Comment, Next Follow-up, Attachments (Exclude pure status changes)
+                    let messages = rawMessages.filter(msg => {
+                        const hasMessage = msg.message && msg.message.trim() !== '';
+                        const hasFollowup = msg.followup_type && msg.followup_type.trim() !== '';
+                        const hasNextDate = msg.next_followup_date || msg.next_followup_date_formatted;
+                        const hasDocs = Array.isArray(msg.followup_documents) && msg.followup_documents.length > 0;
+                        const hasAudio = msg.call_recording && msg.call_recording.trim() !== '';
+                        return hasMessage || hasFollowup || hasNextDate || hasDocs || hasAudio;
+                    });
+
                     if (messages.length === 0) {
                         document.getElementById('cm_body').innerHTML = `
                             <div class="text-center py-5 bg-white rounded-3 border">
                                 <i class="feather-message-square text-muted fs-1 mb-2 opacity-50 d-block"></i>
-                                <p class="text-muted fs-13 mb-0">No comments or activity logs found for this lead.</p>
+                                <p class="text-muted fs-13 mb-0">No communication, comments, or follow-ups found for this lead.</p>
                             </div>`;
                         return;
                     }
@@ -1122,8 +1154,8 @@
                     let html = `
                         <div class="comment-history-summary">
                             <div class="d-flex align-items-center gap-2 text-primary fw-bold fs-12">
-                                <i class="feather-activity"></i>
-                                <span>Activity Tracking</span>
+                                <i class="feather-message-circle"></i>
+                                <span>Communication & Comments</span>
                             </div>
                             <span class="badge bg-primary rounded-pill">${messages.length} ${messages.length === 1 ? 'Entry' : 'Entries'}</span>
                         </div>
@@ -1132,12 +1164,12 @@
                     messages.forEach((msg, index) => {
                         const userName = escapeHistoryHtml(msg.user_name || 'System User');
                         const activityDate = escapeHistoryHtml(msg.created_at_formatted || 'Date unavailable');
-                        const bucket = escapeHistoryHtml(msg.bucket || '');
-                        const status = escapeHistoryHtml(msg.status || '');
                         const message = escapeHistoryHtml(msg.message || '');
                         const followupType = escapeHistoryHtml(msg.followup_type || '');
                         const followupStatus = escapeHistoryHtml(msg.followup_status || '');
                         const nextFollowup = escapeHistoryHtml(msg.next_followup_date_formatted || msg.next_followup_date || '');
+                        const docs = Array.isArray(msg.followup_documents) ? msg.followup_documents : [];
+                        const callAudio = msg.call_recording || null;
 
                         html += `
                             <div class="comment-timeline-item">
@@ -1151,19 +1183,36 @@
                                         <span class="text-muted fs-10 text-nowrap"><i class="feather-clock me-1"></i>${activityDate}</span>
                                     </div>
                                     <div class="comment-history-content">
-                                        ${(bucket || status) ? `
-                                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                                                ${bucket ? `<span class="badge bg-primary-subtle text-primary border fw-semibold"><i class="feather-layers me-1"></i>${bucket}</span>` : ''}
-                                                ${status ? `<span class="badge bg-success-subtle text-success border fw-semibold"><i class="feather-flag me-1"></i>${status}</span>` : ''}
-                                            </div>` : ''}
-                                        ${message ? `<div class="comment-message-box mb-2">${message}</div>` : '<div class="text-muted fst-italic fs-11 mb-2">No comment added</div>'}
+                                        ${message ? `<div class="comment-message-box mb-2 text-dark">${message}</div>` : ''}
+
                                         ${(followupType || followupStatus || nextFollowup) ? `
                                             <div class="d-flex align-items-center gap-2 flex-wrap pt-2 border-top fs-11">
-                                                ${followupType ? `<span class="text-secondary"><i class="feather-phone me-1 text-primary"></i>${followupType}</span>` : ''}
+                                                ${followupType ? `<span class="text-secondary fw-semibold"><i class="feather-phone-call me-1 text-primary"></i>${followupType}</span>` : ''}
                                                 ${followupStatus ? `<span class="badge bg-info-subtle text-info border">${followupStatus}</span>` : ''}
-                                                ${nextFollowup ? `<span class="text-warning-emphasis ms-auto"><i class="feather-calendar me-1"></i>${nextFollowup}</span>` : ''}
+                                                ${nextFollowup ? `<span class="text-warning-emphasis ms-auto fw-medium"><i class="feather-calendar me-1"></i>Next: ${nextFollowup}</span>` : ''}
                                             </div>` : ''}
-                                        </div>
+
+                                        ${callAudio ? `
+                                            <div class="mt-2 pt-2 border-top">
+                                                <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-mic text-primary me-1"></i>Call Recording:</small>
+                                                <audio controls class="w-100" style="height: 30px;" src="${callAudio}"></audio>
+                                            </div>` : ''}
+
+                                        ${docs.length > 0 ? `
+                                            <div class="mt-2 pt-2 border-top">
+                                                <small class="text-muted fs-10 fw-bold d-block mb-1"><i class="feather-paperclip text-primary me-1"></i>Attachments (${docs.length}):</small>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    ${docs.map(doc => {
+                                                        let docPath = typeof doc === 'object' ? doc.path : doc;
+                                                        let docName = typeof doc === 'object' ? (doc.name || doc.file_name) : (docPath ? docPath.split('/').pop() : 'Attachment');
+                                                        let viewUrl = "{{ route('document.view') }}?path=" + encodeURIComponent(docPath);
+                                                        return `<a href="${viewUrl}" target="_blank" class="badge bg-light text-dark border p-1.5 rounded d-inline-flex align-items-center gap-1 text-decoration-none fs-10">
+                                                            <i class="feather-file text-primary"></i> <span class="text-truncate" style="max-width: 150px;">${escapeHistoryHtml(docName)}</span>
+                                                        </a>`;
+                                                    }).join('')}
+                                                </div>
+                                            </div>` : ''}
+                                    </div>
                                 </div>
                             </div>`;
                     });

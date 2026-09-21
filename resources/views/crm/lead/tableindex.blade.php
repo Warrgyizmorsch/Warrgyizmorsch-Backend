@@ -149,6 +149,37 @@
         border-color: #0073ea !important;
         box-shadow: 0 1px 4px rgba(0, 115, 234, 0.3);
     }
+    .lead-status-tab.status-deleted {
+        background: #fff1f2 !important;
+        color: #e11d48 !important;
+        border: 1px solid #fecdd3 !important;
+    }
+    .lead-status-tab.status-deleted:hover {
+        background: #ffe4e6 !important;
+        color: #be123c !important;
+        border-color: #fb7185 !important;
+    }
+    .lead-status-tab.status-deleted.is-active {
+        background: #e11d48 !important;
+        color: #ffffff !important;
+        border-color: #be123c !important;
+        box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35) !important;
+    }
+    .lead-status-tab.status-deleted .badge-deleted {
+        background-color: #e11d48;
+        color: #ffffff;
+        font-size: 8.5px;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 10px;
+        margin-right: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .lead-status-tab.status-deleted.is-active .badge-deleted {
+        background-color: #ffffff;
+        color: #e11d48;
+    }
 
     /* Monday CRM Table Card & Group Banner */
     .monday-board-card {
@@ -334,30 +365,98 @@
 
     /* Monday CRM Status Picker Dropdown */
     .monday-status-picker-menu {
-        min-width: 170px;
-        padding: 6px !important;
-        border-radius: 6px !important;
+        min-width: 210px;
+        padding: 8px !important;
+        border-radius: 8px !important;
         border: 1px solid #d0d4e4 !important;
         background: #ffffff !important;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12) !important;
-        max-height: 320px;
+        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16) !important;
+        max-height: 360px;
         overflow-y: auto;
     }
-    .monday-picker-item {
-        border-radius: 4px;
-        margin-bottom: 4px;
+    .monday-status-group {
+        margin-bottom: 7px;
+        list-style: none;
+    }
+    .monday-status-group:last-child {
+        margin-bottom: 2px;
+    }
+    .monday-picker-parent {
+        border-radius: 5px;
         padding: 7px 12px;
         font-size: 12px;
-        font-weight: 600;
-        text-align: center;
+        font-weight: 700;
         cursor: pointer;
         transition: all 0.15s ease;
         text-decoration: none !important;
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #ffffff !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        border: none;
+        user-select: none;
     }
-    .monday-picker-item:hover {
+    .monday-picker-parent:hover {
         filter: brightness(0.92);
-        transform: scale(1.02);
+        transform: scale(1.01);
+    }
+    .monday-expand-arrow {
+        font-size: 13px;
+        transition: transform 0.2s ease;
+        margin-left: 6px;
+    }
+    .monday-expand-arrow.is-expanded {
+        transform: rotate(180deg);
+    }
+    .monday-picker-subgroup {
+        margin-left: 10px;
+        padding-left: 10px;
+        border-left: 2px dashed #cbd5e1;
+        margin-top: 4px;
+        margin-bottom: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .monday-picker-child {
+        border-radius: 4px;
+        padding: 5px 10px;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-decoration: none !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #ffffff !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        border: none;
+    }
+    .monday-picker-child:hover {
+        filter: brightness(0.92);
+        transform: translateX(2px);
+    }
+    .monday-picker-badge-parent {
+        font-size: 8.5px;
+        background: rgba(0, 0, 0, 0.22);
+        color: #ffffff;
+        padding: 1px 6px;
+        border-radius: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        font-weight: 700;
+    }
+    .monday-picker-badge-sub {
+        font-size: 8px;
+        background: rgba(255, 255, 255, 0.3);
+        color: #ffffff;
+        padding: 1px 5px;
+        border-radius: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        font-weight: 700;
     }
 
     /* Monday Action Button (Dark Green Move to Contacts / Convert to Deal) */
@@ -665,13 +764,22 @@
                     <button class="btn btn-sm rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5 dropdown-toggle text-white" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #6366f1;">
                         <i class="feather-sliders"></i> Change Status
                     </button>
+                    @php
+                        $bulkSelectableBuckets = !empty($isDealView)
+                            ? ($activeDealBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && $b->type === 'order'))
+                            : ($activeLeadBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && ($b->type === 'lead' || empty($b->type))));
+                    @endphp
                     <ul class="dropdown-menu shadow-lg fs-12 p-1 mb-2 border-0" style="max-height: 280px; overflow-y: auto; border-radius: 10px;">
-                        @foreach(($childBuckets ?? collect()) as $bucket)
-                            <li><a class="dropdown-item fw-bold text-primary rounded-2 mb-1 py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $bucket->id }}, '{{ addslashes($bucket->name) }}')">{{ $bucket->name }}</a></li>
-                            @if($bucket->children)
-                                @foreach($bucket->children as $child)
-                                    <li><a class="dropdown-item ms-2 rounded-2 mb-1 text-dark py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $child->id }}, '{{ addslashes($child->name) }}')"><i class="feather-corner-down-right text-muted me-1"></i> {{ $child->name }}</a></li>
-                                @endforeach
+                        @foreach($bulkSelectableBuckets as $bucket)
+                            @if(empty($bucket->is_deleted))
+                                <li><a class="dropdown-item fw-bold text-primary rounded-2 mb-1 py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $bucket->id }}, '{{ addslashes($bucket->name) }}')">{{ $bucket->name }}</a></li>
+                                @if($bucket->children)
+                                    @foreach($bucket->children as $child)
+                                        @if(empty($child->is_deleted))
+                                            <li><a class="dropdown-item ms-2 rounded-2 mb-1 text-dark py-1.5" href="javascript:void(0)" onclick="executeBulkStatusUpdate({{ $child->id }}, '{{ addslashes($child->name) }}')"><i class="feather-corner-down-right text-muted me-1"></i> {{ $child->name }}</a></li>
+                                        @endif
+                                    @endforeach
+                                @endif
                             @endif
                         @endforeach
                     </ul>
@@ -703,20 +811,23 @@
             </button>
             <div class="lead-tab-scroll" id="lead-status-scroll">
                 @php
-                    $isAllActived = (empty(request('lead_status')) || request('lead_status') === 'all') && !request('deleted_leads');
+                    $isAllActived = (empty(request('lead_status')) || request('lead_status') === 'all');
                 @endphp
-                <a href="{{ request()->fullUrlWithQuery(['lead_status' => (!empty($isDealView) ? 'all' : ''), 'deleted_leads' => '']) }}"
+                <a href="{{ request()->fullUrlWithQuery(['lead_status' => (!empty($isDealView) ? 'all' : '')]) }}"
                     class="lead-status-tab status-primary {{ $isAllActived ? 'is-active' : '' }}">
                     <i class="feather-layers"></i>
                     ALL ({{ !empty($isDealView) ? ($childtotalLeadsCount ?? $leads->total()) : ($systemTotalLeadsCount ?? $leads->total()) }})
                 </a>
 
                 @foreach($childBuckets as $bucket)
-                    @php
+                    @php    
                         $childNames = $bucket->children ? $bucket->children->pluck('name')->toArray() : [];
                         $hasActiveChild = in_array(request('lead_status'), $childNames);
-                        $isActive = (request('lead_status') == $bucket->name || $hasActiveChild) && !request('deleted_leads') && request('lead_status') !== 'all';
+                        $isActive = (request('lead_status') == $bucket->name || $hasActiveChild) && request('lead_status') !== 'all';
+                        $isDeletedBucket = !empty($bucket->is_deleted);
+
                         $statusColor = match(true) {
+                            $isDeletedBucket => 'status-deleted',
                             str_contains($bucket->bucket_color ?? '', 'success') => 'status-success',
                             str_contains($bucket->bucket_color ?? '', 'warning') => 'status-warning',
                             str_contains($bucket->bucket_color ?? '', 'danger') => 'status-danger',
@@ -725,23 +836,18 @@
                             default => 'status-primary',
                         };
                     @endphp
-                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => $bucket->name, 'deleted_leads' => '']) }}"
-                        class="lead-status-tab {{ $statusColor }} {{ $isActive ? 'is-active' : '' }}">
-                        <i class="feather-circle"></i>
+                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => $bucket->name]) }}"
+                        class="lead-status-tab {{ $statusColor }} {{ $isActive ? 'is-active' : '' }}"
+                        @if($isDeletedBucket) title="Deleted Status (contains {{ $bucket->leads_count }} leads)" @endif>
+                        @if($isDeletedBucket)
+                            <i class="feather-trash-2 text-danger" style="font-size: 11px;"></i>
+                            <span class="badge-deleted">Deleted</span>
+                        @else
+                            <i class="feather-circle"></i>
+                        @endif
                         {{ $bucket->name }} ({{ $bucket->leads_count }})
                     </a>
                 @endforeach
-
-                @if(isset($otherLeadsCount) && $otherLeadsCount > 0)
-                    @php
-                        $isOtherActive = request('deleted_leads') == 1;
-                    @endphp
-                    <a href="{{ request()->fullUrlWithQuery(['deleted_leads' => 1, 'lead_status' => '']) }}"
-                        class="lead-status-tab status-warning {{ $isOtherActive ? 'is-active' : '' }}" title="Leads with unmapped or old buckets">
-                        <i class="feather-archive"></i>
-                        Other ({{ $otherLeadsCount }})
-                    </a>
-                @endif
             </div>
             <button type="button" class="lead-status-scroll-btn" data-status-scroll="next" aria-label="Next statuses">
                 <i class="feather-chevron-right"></i>
@@ -753,7 +859,7 @@
         @php
             $activeParentBucket = null;
             $currentStatus = request('lead_status');
-            if (!empty($currentStatus) && !request('deleted_leads') && $currentStatus !== 'all') {
+            if (!empty($currentStatus) && $currentStatus !== 'all') {
                 foreach ($childBuckets as $b) {
                     $childNames = $b->children ? $b->children->pluck('name')->toArray() : [];
                     if ($b->name == $currentStatus || in_array($currentStatus, $childNames)) {
@@ -774,7 +880,7 @@
                 @php
                     $isParentAllActive = request('lead_status') == $activeParentBucket->name;
                 @endphp
-                <a href="{{ request()->fullUrlWithQuery(['lead_status' => $activeParentBucket->name, 'deleted_leads' => '']) }}"
+                <a href="{{ request()->fullUrlWithQuery(['lead_status' => $activeParentBucket->name]) }}"
                     class="lead-status-tab status-dark {{ $isParentAllActive ? 'is-active' : '' }}"
                     style="font-size: 11.5px; padding: 4px 10px;">
                     ALL {{ $activeParentBucket->name }} ({{ $activeParentBucket->leads_count }})
@@ -782,8 +888,10 @@
 
                 @foreach($activeParentBucket->children as $child)
                     @php
-                        $isChildActive = request('lead_status') == $child->name && !request('deleted_leads');
+                        $isChildActive = request('lead_status') == $child->name;
+                        $isChildDeleted = !empty($child->is_deleted);
                         $childStatusColor = match(true) {
+                            $isChildDeleted => 'status-deleted',
                             str_contains($child->bucket_color ?? '', 'success') => 'status-success',
                             str_contains($child->bucket_color ?? '', 'warning') => 'status-warning',
                             str_contains($child->bucket_color ?? '', 'danger') => 'status-danger',
@@ -792,10 +900,16 @@
                             default => 'status-primary',
                         };
                     @endphp
-                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => $child->name, 'deleted_leads' => '']) }}"
+                    <a href="{{ request()->fullUrlWithQuery(['lead_status' => $child->name]) }}"
                         class="lead-status-tab {{ $childStatusColor }} {{ $isChildActive ? 'is-active' : '' }}"
-                        style="font-size: 11.5px; padding: 4px 10px;">
-                        <i class="feather-circle" style="font-size: 8px;"></i>
+                        style="font-size: 11.5px; padding: 4px 10px;"
+                        @if($isChildDeleted) title="Deleted Sub-Status (contains {{ $child->leads_count ?? 0 }} leads)" @endif>
+                        @if($isChildDeleted)
+                            <i class="feather-trash-2 text-danger" style="font-size: 9px;"></i>
+                            <span class="badge-deleted" style="font-size: 7.5px; padding: 1px 4px;">Deleted</span>
+                        @else
+                            <i class="feather-circle" style="font-size: 8px;"></i>
+                        @endif
                         {{ $child->name }} ({{ $child->leads_count ?? 0 }})
                     </a>
                 @endforeach
@@ -868,15 +982,14 @@
                                 <th class="monday-select-col lead-select-column"><input type="checkbox" class="form-check-input" id="checkAll"></th>
                                 <th style="min-width: 230px;" class="lead-info-column">Lead</th>
                                 <th style="width: 175px; min-width: 175px; text-align: center;" class="lead-status-column">Status</th>
-                                @if($isDeal)
-                                    <th style="min-width: 210px;" class="lead-activity-column">
-                                        <div class="d-inline-flex align-items-center gap-1.5">
-                                            <span>Next Activity</span>
-                                            <i class="feather-info text-muted fs-11" title="Upcoming task or follow-up activity"></i>
-                                        </div>
-                                    </th>
-                                @else
-                                    <th style="min-width: 155px; text-align: center;">Create a Deal</th>
+                                <th style="min-width: 210px;" class="lead-activity-column">
+                                    <div class="d-inline-flex align-items-center gap-1.5">
+                                        <span>Next Activity</span>
+                                        <i class="feather-info text-muted fs-11" title="Upcoming task or follow-up activity"></i>
+                                    </div>
+                                </th>
+                                @if(!$isDeal)
+                                    <th style="min-width: 140px; text-align: center;">Create a Deal</th>
                                 @endif
                                 <th style="min-width: 150px;">Company</th>
                                 <th style="min-width: 130px;">Title</th>
@@ -884,13 +997,14 @@
                                 <th style="min-width: 140px;">Phone</th>
                                 <th style="min-width: 140px;" class="lead-owner-column">Owner</th>
                                 <th style="min-width: 110px;" class="lead-date-column">Created Date</th>
-                                <th style="min-width: 175px; text-align: center;" class="lead-actions-column">Actions</th>
+                                <th style="width: 140px; min-width: 140px; text-align: center;" class="lead-actions-column">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="lead-table-body" id="lead-table-body">
                             @forelse($leads as $index => $lead)
                                 @php
                                     $statusName = $lead->lead_status ?: optional($lead->bucket)->name ?: 'Yet to Call';
+                                    $leadParentName = $lead->lead_bucket_name ?: ($lead->bucket && $lead->bucket->parent ? $lead->bucket->parent->name : ($lead->bucket ? $lead->bucket->name : 'Lead'));
                                     $stStyle = $getMondayStatusStyle($statusName);
                                 @endphp
                                 <tr id="lead-row-{{ $lead->id }}">
@@ -962,37 +1076,63 @@
                                             <button class="monday-status-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-boundary="window" style="background-color: {{ $stStyle['bg'] }};" id="status-pill-{{ $lead->id }}">
                                                 <span id="status-text-{{ $lead->id }}">{{ $statusName }}</span>
                                             </button>
+                                            @php
+                                                $rowSelectableBuckets = !empty($isDealView)
+                                                    ? ($activeDealBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && $b->type === 'order'))
+                                                    : ($activeLeadBuckets ?? ($childBuckets ?? collect())->filter(fn($b) => empty($b->is_deleted) && ($b->type === 'lead' || empty($b->type))));
+                                            @endphp
                                             <ul class="dropdown-menu monday-status-picker-menu shadow-lg border-0">
-                                                @foreach(($childBuckets ?? collect()) as $bucket)
-                                                    @php $bStyle = $getMondayStatusStyle($bucket->name); @endphp
-                                                    <li>
-                                                        <a class="dropdown-item monday-picker-item" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this, '{{ $bStyle['bg'] }}')" style="background-color: {{ $bStyle['bg'] }}; color: #ffffff;">
-                                                            {{ $bucket->name }}
-                                                        </a>
-                                                    </li>
-                                                    @if($bucket->children && $bucket->children->count() > 0)
-                                                        @foreach($bucket->children as $child)
-                                                            @php $cStyle = $getMondayStatusStyle($child->name); @endphp
-                                                            <li>
-                                                                <a class="dropdown-item monday-picker-item ms-1" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $child->id }}, '{{ addslashes($child->name) }}', this, '{{ $cStyle['bg'] }}')" style="background-color: {{ $cStyle['bg'] }}; color: #ffffff;">
-                                                                    {{ $child->name }}
+                                                @foreach($rowSelectableBuckets as $bucket)
+                                                    @if(empty($bucket->is_deleted))
+                                                        @php 
+                                                            $bStyle = $getMondayStatusStyle($bucket->name); 
+                                                            $hasChildren = $bucket->children && $bucket->children->filter(fn($c) => empty($c->is_deleted))->count() > 0;
+                                                        @endphp
+                                                        <li class="monday-status-group">
+                                                            @if($hasChildren)
+                                                                <div class="monday-picker-parent" onclick="toggleStatusSubgroup(event, 'subgroup-{{ $lead->id }}-{{ $bucket->id }}', this)" style="background-color: {{ $bStyle['bg'] }};">
+                                                                    <span>{{ $bucket->name }}</span>
+                                                                    <i class="feather-chevron-down monday-expand-arrow"></i>
+                                                                </div>
+                                                                <div id="subgroup-{{ $lead->id }}-{{ $bucket->id }}" class="monday-picker-subgroup d-none">
+                                                                    <a class="dropdown-item monday-picker-child mb-1" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this, '{{ $bStyle['bg'] }}')" style="background-color: {{ $bStyle['bg'] }}; opacity: 0.95;">
+                                                                        <span class="d-inline-flex align-items-center gap-1.5 text-truncate" title="{{ $bucket->name }}">
+                                                                            <i class="feather-check-circle" style="font-size: 10px;"></i>
+                                                                            <span>{{ $bucket->name }} (Main)</span>
+                                                                        </span>
+                                                                    </a>
+                                                                    @foreach($bucket->children as $child)
+                                                                        @if(empty($child->is_deleted))
+                                                                            @php $cStyle = $getMondayStatusStyle($child->name); @endphp
+                                                                            <a class="dropdown-item monday-picker-child mb-1" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $child->id }}, '{{ addslashes($child->name) }}', this, '{{ $cStyle['bg'] }}')" style="background-color: {{ $cStyle['bg'] }};">
+                                                                                <span class="d-inline-flex align-items-center gap-1.5 text-truncate" title="{{ $child->name }}">
+                                                                                    <i class="feather-corner-down-right" style="font-size: 10px; opacity: 0.9;"></i>
+                                                                                    <span>{{ $child->name }}</span>
+                                                                                </span>
+                                                                                <span class="monday-picker-badge-sub">Sub</span>
+                                                                            </a>
+                                                                        @endif
+                                                                    @endforeach
+                                                                </div>
+                                                            @else
+                                                                <a class="dropdown-item monday-picker-parent" href="javascript:void(0)" onclick="updateInlineLeadStatus({{ $lead->id }}, {{ $bucket->id }}, '{{ addslashes($bucket->name) }}', this, '{{ $bStyle['bg'] }}')" style="background-color: {{ $bStyle['bg'] }};">
+                                                                    <span>{{ $bucket->name }}</span>
                                                                 </a>
-                                                            </li>
-                                                        @endforeach
+                                                            @endif
+                                                        </li>
                                                     @endif
                                                 @endforeach
                                             </ul>
                                         </div>
-                                        @if($lead->bucket && $lead->bucket->parent)
+                                        @if($leadParentName && strtolower(trim($leadParentName)) !== strtolower(trim($statusName)))
                                             <span class="text-muted d-block mt-1" id="parent-text-{{ $lead->id }}" style="font-size: 10.5px;">
-                                                Parent: {{ $lead->bucket->parent->name }}
+                                                Parent: {{ $leadParentName }}
                                             </span>
                                         @endif
                                     </td>
 
-                                    {{-- Next Activity (for Deals) or Move to Contacts (for Leads) --}}
-                                    @if($isDeal)
-                                        <td class="deal-next-activity-cell">
+                                    {{-- Next Activity (for both Deals and Leads) --}}
+                                    <td class="deal-next-activity-cell">
                                             @php
                                                 // Determine the next upcoming activity for this deal
                                                 $activity = null;
@@ -1023,7 +1163,7 @@
                                                 }
 
                                                 // Action to open Edit Status offcanvas (1st screenshot)
-                                                $openEditOffcanvas = "openEditStatusOffcanvas({$lead->id}, '" . addslashes($statusName) . "', '" . addslashes($lead->lead_engagement_status ?? '') . "', " . ($lead->lead_bucket_id ?? 46) . ")";
+                                                $openEditOffcanvas = "openEditStatusOffcanvas({$lead->id}, '" . addslashes($statusName) . "', '" . addslashes($lead->lead_engagement_status ?? '') . "', " . ($lead->lead_bucket_id ?? 'null') . ", '" . addslashes($leadParentName ?? '') . "')";
 
                                                 // Activity tracking offcanvas for existing activity logs
                                                 $leadDisplayName = optional($lead->user)->name ?: ($lead->business_name ?: 'Lead');
@@ -1134,14 +1274,15 @@
                                                 </div>
                                             @endif
                                         </td>
-                                    @else
-                                        {{-- Monday Dark Green Action Button --}}
-                                        <td style="text-align: center;">
-                                            <button type="button" class="monday-action-btn" onclick="convertLeadToDeal({{ $lead->id }}, this)" title="Convert Lead to Deal">
-                                                Create Deal
-                                            </button>
-                                        </td>
-                                    @endif
+
+                                        {{-- Monday Dark Green Action Button (Only for Leads) --}}
+                                        @if(!$isDeal)
+                                            <td style="text-align: center;">
+                                                <button type="button" class="monday-action-btn" onclick="convertLeadToDeal({{ $lead->id }}, this)" title="Convert Lead to Deal">
+                                                    Create Deal
+                                                </button>
+                                            </td>
+                                        @endif
 
                                     {{-- Company --}}
                                     <td>
@@ -1229,18 +1370,11 @@
                                                     <i class="feather-trash-2"></i>
                                                 </button>
                                             @else
-                                                {{-- Move to Archive Button --}}
-                                                <button type="button" class="table-action-btn text-warning" 
-                                                        onclick="archiveSingleLead({{ $lead->id }}, this)"
-                                                        title="Move to Archive">
-                                                    <i class="feather-archive"></i>
-                                                </button>
-
                                                 {{-- Edit Status Offcanvas Button --}}
                                                 <button type="button" class="table-action-btn text-primary" 
-                                                        onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 46 }})"
+                                                        onclick="openEditStatusOffcanvas({{ $lead->id }}, '{{ addslashes($statusName) }}', '{{ addslashes($lead->lead_engagement_status ?? '') }}', {{ $lead->lead_bucket_id ?? 'null' }}, '{{ addslashes($leadParentName ?? '') }}')"
                                                         title="Edit Status">
-                                                    <i class="feather-sliders"></i>
+                                                    <i class="feather-settings"></i>
                                                 </button>
 
                                                 {{-- Edit Lead Button --}}
@@ -1249,37 +1383,56 @@
                                                     <i class="feather-edit"></i>
                                                 </button>
 
-                                                {{-- View Details Modal --}}
-                                                <button type="button" class="table-action-btn text-info" 
-                                                        onclick="openViewDetailsModalLazy({{ $lead->id }})"
-                                                        title="View Details">
-                                                    <i class="feather-eye"></i>
-                                                </button>
-
-                                                {{-- View Comments / Messages --}}
+                                                {{-- View Comments / History Button --}}
                                                 <button type="button" class="table-action-btn text-warning" 
                                                         onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}')"
                                                         title="View Comments & History">
-                                                    <i class="feather-message-square"></i>
+                                                    <i class="feather-clock"></i>
                                                 </button>
 
-                                                @unless($isDealView ?? false)
-                                                {{-- Convert Lead to Deal --}}
-                                                <button type="button" class="table-action-btn text-warning"
-                                                        onclick="convertLeadToDeal({{ $lead->id }}, this)"
-                                                        title="Convert to Deal">
-                                                    <i class="feather-check-circle"></i>
-                                                </button>
-                                                @endunless
-
-                                                {{-- Delete Lead --}}
-                                                <form action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this lead?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="table-action-btn text-danger" title="Delete Lead">
-                                                        <i class="feather-trash-2"></i>
+                                                {{-- 3 Dots More Actions Dropdown --}}
+                                                <div class="dropdown d-inline">
+                                                    <button type="button" class="table-action-btn text-muted" data-bs-toggle="dropdown" aria-expanded="false" title="More Actions">
+                                                        <i class="feather-more-vertical"></i>
                                                     </button>
-                                                </form>
+                                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size: 12.5px; min-width: 165px; z-index: 1060;">
+                                                        {{-- View Details Modal --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="openViewDetailsModalLazy({{ $lead->id }})">
+                                                                <i class="feather-eye text-info"></i> <span>View Details</span>
+                                                            </a>
+                                                        </li>
+
+                                                        @unless($isDealView ?? false)
+                                                        {{-- Convert Lead to Deal --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="convertLeadToDeal({{ $lead->id }}, this)">
+                                                                <i class="feather-check-circle text-success"></i> <span>Convert to Deal</span>
+                                                            </a>
+                                                        </li>
+                                                        @endunless
+
+                                                        {{-- Move to Archive --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-warning" href="javascript:void(0);" onclick="archiveSingleLead({{ $lead->id }}, this)">
+                                                                <i class="feather-archive"></i> <span>Move to Archive</span>
+                                                            </a>
+                                                        </li>
+
+                                                        <li><hr class="dropdown-divider my-1"></li>
+
+                                                        {{-- Delete Lead --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5 text-danger" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this lead?')) { document.getElementById('delete-lead-form-{{ $lead->id }}').submit(); }">
+                                                                <i class="feather-trash-2"></i> <span>Delete Lead</span>
+                                                            </a>
+                                                            <form id="delete-lead-form-{{ $lead->id }}" action="{{ route('lead.destroy', $lead->id) }}" method="POST" class="d-none">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                            </form>
+                                                        </li>
+                                                    </ul>
+                                                </div>
                                             @endif
                                         </div>
                                     </td>
@@ -1400,7 +1553,7 @@
         }
     }
 
-    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId) {
+    function openEditStatusOffcanvas(leadId, leadStatus, engagementStatus, bucketId, bucketName) {
         let offcanvasEl = document.getElementById('editStatusOffcanvas');
         let form = document.getElementById('sharedQuickUpdateForm');
         if (!offcanvasEl || !form) return;
@@ -1408,12 +1561,22 @@
         
         let engSelect = form.querySelector('[name="lead_engagement_status"]');
         if (engSelect) engSelect.value = (engagementStatus || '').toLowerCase();
+
+        // 1. Display Current Stored Status & Bucket Name
+        const statusBadge = document.getElementById('currentLeadStatusBadge');
+        const bucketBadge = document.getElementById('currentLeadBucketBadge');
+        if (statusBadge) statusBadge.textContent = leadStatus || 'None';
+        if (bucketBadge) {
+            bucketBadge.textContent = bucketName ? 'Bucket: ' + bucketName : '';
+            bucketBadge.style.display = bucketName ? 'inline-block' : 'none';
+        }
         
         let mainSelect = document.getElementById('editStatusMainSelect');
         let subSelect = document.getElementById('editStatusSubSelect');
         let matchedMainStatus = '';
         let matchedSubStatus = '';
 
+        // Check if current lead status exists among active master options
         for (let mainName in leadStatusMap) {
             if (mainName.toLowerCase() === (leadStatus || '').toLowerCase()) {
                 matchedMainStatus = mainName;
@@ -1428,22 +1591,41 @@
             }
         }
 
-        if (!matchedMainStatus && mainSelect && mainSelect.options.length > 1) {
-            matchedMainStatus = mainSelect.options[1].value;
-        }
-
+        // If not matched (i.e. status is deleted from master), do not permanently add it to active dropdown
         if (mainSelect) mainSelect.value = matchedMainStatus;
         onOffcanvasMainStatusChange(matchedMainStatus, matchedSubStatus);
         
-        let bucketInput = form.querySelector('[name="lead_bucket_id"]');
-        if (bucketInput) bucketInput.value = bucketId || 46;
+        let bucketInput = form.querySelector('[name="lead_bucket_id"]') || document.getElementById('editStatusBucketIdInput');
+        if (bucketInput) bucketInput.value = bucketId || '';
 
         form.onsubmit = function() {
             let subVal = subSelect ? subSelect.value : '';
             let mainVal = mainSelect ? mainSelect.value : '';
-            let finalStatus = subVal ? subVal : mainVal;
+            let finalStatus = subVal || mainVal || leadStatus;
+            let finalBucketName = mainVal || bucketName || '';
+            let finalBucketId = bucketId;
+
+            if (subSelect && subSelect.selectedIndex >= 0) {
+                let selectedOpt = subSelect.options[subSelect.selectedIndex];
+                if (selectedOpt && selectedOpt.dataset.bucketId) {
+                    finalBucketId = selectedOpt.dataset.bucketId;
+                }
+            } else if (mainVal && leadStatusMap[mainVal]) {
+                finalBucketId = leadStatusMap[mainVal].id;
+            }
+
+            if (bucketInput && finalBucketId) bucketInput.value = finalBucketId;
+
+            let bucketNameInput = form.querySelector('[name="lead_bucket_name"]') || document.getElementById('editStatusBucketNameInput');
+            if (!bucketNameInput) {
+                bucketNameInput = document.createElement('input');
+                bucketNameInput.type = 'hidden';
+                bucketNameInput.name = 'lead_bucket_name';
+                form.appendChild(bucketNameInput);
+            }
+            bucketNameInput.value = finalBucketName;
             
-            let hiddenStatusInput = form.querySelector('input[name="lead_status"]');
+            let hiddenStatusInput = form.querySelector('input[name="lead_status"]') || document.getElementById('editStatusFinalStatusInput');
             if (!hiddenStatusInput) {
                 hiddenStatusInput = document.createElement('input');
                 hiddenStatusInput.type = 'hidden';
@@ -1451,13 +1633,6 @@
                 form.appendChild(hiddenStatusInput);
             }
             hiddenStatusInput.value = finalStatus;
-
-            if (subSelect && subSelect.selectedIndex >= 0) {
-                let selectedOpt = subSelect.options[subSelect.selectedIndex];
-                if (selectedOpt && selectedOpt.dataset.bucketId) {
-                    if (bucketInput) bucketInput.value = selectedOpt.dataset.bucketId;
-                }
-            }
         };
 
         if (window.bootstrap && window.bootstrap.Offcanvas) {
@@ -1585,6 +1760,23 @@
             else alert(error.message);
         }
     }
+
+    function toggleStatusSubgroup(event, targetId, triggerEl) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const subgroup = document.getElementById(targetId);
+        if (!subgroup) return;
+        const isHidden = subgroup.classList.contains('d-none');
+        subgroup.classList.toggle('d-none', !isHidden);
+        
+        const arrow = triggerEl ? triggerEl.querySelector('.monday-expand-arrow') : null;
+        if (arrow) {
+            arrow.classList.toggle('is-expanded', isHidden);
+        }
+    }
+    window.toggleStatusSubgroup = toggleStatusSubgroup;
 
     // FUNCTION 1: Single Inline Status Update
     async function updateInlineLeadStatus(leadId, bucketId, statusName, el, newColor) {

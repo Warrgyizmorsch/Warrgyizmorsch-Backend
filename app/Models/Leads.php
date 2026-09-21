@@ -12,6 +12,7 @@ class Leads extends Model
         'is_converted',
         'is_archived',
         'lead_bucket_id',
+        'lead_bucket_name',
         'lead_status',
         'lead_owner',
         'date',
