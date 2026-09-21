@@ -68,6 +68,7 @@ class CreatedDealController extends Controller
             ->get();
 
         $allOrderBuckets = $activeOrderBuckets->concat($deletedOrderBuckets);
+        $childBuckets = $allOrderBuckets;
 
         $orderBucketIds = $allOrderBuckets->pluck('id')
             ->merge($allOrderBuckets->pluck('children')->flatten()->pluck('id'))
@@ -235,7 +236,33 @@ class CreatedDealController extends Controller
             }
         });
 
-        $childBuckets = $activeOrderBuckets->concat($deletedOrderBucketsWithDeals);
+        $activeNames = $activeOrderBuckets->pluck('name')
+            ->merge($activeOrderBuckets->pluck('children')->flatten()->pluck('name'))
+            ->map(fn($n) => strtolower(trim($n)))
+            ->toArray();
+
+        $orphanedBuckets = collect();
+        $distinctDealStatuses = $dealCounts->pluck('status_name')->concat($dealCounts->pluck('bucket_name'))->filter()->unique();
+        foreach ($distinctDealStatuses as $dbName) {
+            $dbNameLower = strtolower(trim($dbName));
+            if ($dbNameLower !== '' && !in_array($dbNameLower, $activeNames)) {
+                $cnt = $dealCounts->filter(fn($item) => strtolower(trim($item->status_name ?? '')) === $dbNameLower || strtolower(trim($item->bucket_name ?? '')) === $dbNameLower)->sum('cnt');
+                if ($cnt > 0) {
+                    $orphan = new Bucket();
+                    $orphan->id = null;
+                    $orphan->name = ucwords($dbName);
+                    $orphan->is_deleted = 1;
+                    $orphan->leads_count = $cnt;
+                    $orphan->setRelation('children', collect());
+                    $orphanedBuckets->push($orphan);
+                    $activeNames[] = $dbNameLower;
+                }
+            }
+        }
+
+        $childBuckets = $activeOrderBuckets
+            ->concat($deletedOrderBucketsWithDeals)
+            ->concat($orphanedBuckets);
         $activeDealBuckets = $activeOrderBuckets;
 
         $owners = User::whereIn('role_id', [1, 3])
@@ -247,12 +274,12 @@ class CreatedDealController extends Controller
         $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
         $totalLeadsCount = $totalDealsCount;
         $filteredLeadCount = $leads->total();
-        $childtotalLeadsCount = $childBuckets->sum('leads_count');
-        $systemTotalLeadsCount = $childtotalLeadsCount;
+        $childtotalLeadsCount = $totalDealsCount;
+        $systemTotalLeadsCount = $totalDealsCount;
         $deletedLeadsCount = 0;
         $followupsCount = 0;
         $otherLeadsCount = 0;
-        $allBucketsWithChildren = $childBuckets->keyBy('id');
+        $allBucketsWithChildren = $childBuckets->filter(fn($b) => !empty($b->id))->keyBy('id');
         $isDealView = true;
         $allTags = \App\Models\Tag::where('is_active', true)->orderBy('name')->get();
 
