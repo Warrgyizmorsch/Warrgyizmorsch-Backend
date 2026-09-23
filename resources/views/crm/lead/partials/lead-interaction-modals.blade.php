@@ -432,31 +432,46 @@
     </div>
 
     <!-- Navigation Tabs Header -->
-    <div class="bg-white border-bottom px-3 py-2.5">
+    <div class="bg-white border-bottom px-3 py-2">
         <div class="nav nav-pills cm-segmented-pills d-flex gap-1" id="cm_tabs" role="tablist">
-            <button class="nav-link active flex-fill d-flex align-items-center justify-content-center gap-1 py-2 px-2 cm-tab-btn" 
+            <button class="nav-link active flex-fill d-flex align-items-center justify-content-center gap-1 py-1.5 px-2 cm-tab-btn" 
                     id="cm_tab_comments_btn" 
                     data-bs-toggle="tab" 
                     data-bs-target="#cm_tab_comments" 
                     type="button" 
                     role="tab" 
                     aria-controls="cm_tab_comments" 
-                    aria-selected="true">
+                    aria-selected="true"
+                    title="Communication, Comments & Follow-ups">
                 <i class="feather-message-square fs-12"></i>
                 <span class="fs-12">Remarks</span>
                 <span class="badge rounded-pill bg-primary text-white ms-0.5 fs-10 px-1.5 py-0.5" id="cm_badge_comments_count">0</span>
             </button>
-            <button class="nav-link flex-fill d-flex align-items-center justify-content-center gap-1 py-2 px-2 cm-tab-btn" 
+            <button class="nav-link flex-fill d-flex align-items-center justify-content-center gap-1 py-1.5 px-2 cm-tab-btn" 
                     id="cm_tab_status_btn" 
                     data-bs-toggle="tab" 
                     data-bs-target="#cm_tab_status" 
                     type="button" 
                     role="tab" 
                     aria-controls="cm_tab_status" 
-                    aria-selected="false">
+                    aria-selected="false"
+                    title="Status Transition Audit Log">
                 <i class="feather-git-commit fs-12"></i>
-                <span class="fs-12">History</span>
+                <span class="fs-12">Status History</span>
                 <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-0.5 fs-10 px-1.5 py-0.5" id="cm_badge_status_count">0</span>
+            </button>
+            <button class="nav-link flex-fill d-flex align-items-center justify-content-center gap-1 py-1.5 px-2 cm-tab-btn" 
+                    id="cm_tab_events_btn" 
+                    data-bs-toggle="tab" 
+                    data-bs-target="#cm_tab_events" 
+                    type="button" 
+                    role="tab" 
+                    aria-controls="cm_tab_events" 
+                    aria-selected="false"
+                    title="Scheduled Meetings & Activities">
+                <i class="feather-calendar fs-12"></i>
+                <span class="fs-12">Upcoming Events</span>
+                <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-0.5 fs-10 px-1.5 py-0.5" id="cm_badge_events_count">0</span>
             </button>
         </div>
     </div>
@@ -476,6 +491,14 @@
                 <div class="d-flex align-items-center justify-content-center gap-2 py-5 text-muted fs-13">
                     <span class="spinner-border spinner-border-sm text-primary"></span>
                     <span>Loading status history...</span>
+                </div>
+            </div>
+
+            <!-- TAB 3: Upcoming Events -->
+            <div class="tab-pane fade" id="cm_tab_events" role="tabpanel" aria-labelledby="cm_tab_events_btn">
+                <div class="d-flex align-items-center justify-content-center gap-2 py-5 text-muted fs-13">
+                    <span class="spinner-border spinner-border-sm text-primary"></span>
+                    <span>Loading events & schedule...</span>
                 </div>
             </div>
         </div>

@@ -1505,6 +1505,7 @@ class NewleadController extends Controller
                     'changes' => is_array($h->changes) ? $h->changes : (is_string($h->changes) ? json_decode($h->changes, true) : []),
                     'user_name' => optional($h->user)->name ?? 'System',
                     'created_at_formatted' => $h->created_at ? $h->created_at->format('d M y, h:i A') : '',
+                    'created_at_raw' => $h->created_at ? $h->created_at->toIso8601String() : null,
                 ];
             });
 
@@ -1527,6 +1528,7 @@ class NewleadController extends Controller
                 'assigned_to' => $ev->assigned_to,
                 'assigned_user_name' => optional($ev->assignedUser)->name ?? 'Unassigned',
                 'creator_name' => optional($ev->creator)->name ?? 'System',
+                'created_at_formatted' => $ev->created_at ? $ev->created_at->format('d M Y, h:i A') : '',
                 'completed_at' => $ev->completed_at ? $ev->completed_at->format('d M Y, h:i A') : null,
                 'is_overdue' => ($ev->status === \App\Models\LeadEvent::STATUS_SCHEDULED && $ev->event_date && $ev->event_date->isPast() && !$ev->event_date->isToday()),
                 'is_today' => ($ev->event_date && $ev->event_date->isToday()),

@@ -1173,6 +1173,13 @@
                                                             </a>
                                                         </li>
 
+                                                        {{-- Upcoming Events Action --}}
+                                                        <li>
+                                                            <a class="dropdown-item d-flex align-items-center gap-2 py-1.5" href="javascript:void(0);" onclick="openCommentsModal({{ $lead->id }}, '{{ addslashes(optional($lead->user)->name ?? 'Lead') }}', 'events')">
+                                                                <i class="feather-calendar text-warning"></i> <span>Upcoming Events</span>
+                                                            </a>
+                                                        </li>
+
                                                         @unless($isDealView ?? false)
                                                         {{-- Convert Lead to Deal --}}
                                                         <li>

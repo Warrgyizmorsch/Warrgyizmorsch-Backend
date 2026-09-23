@@ -9,8 +9,9 @@
         color: #64748b !important;
         background: transparent !important;
         border-radius: 8px !important;
-        font-size: 12px;
+        font-size: 11.5px;
         font-weight: 600;
+        white-space: nowrap;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: none !important;
     }
@@ -19,11 +20,9 @@
         color: #0f172a !important;
         box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
     }
-    .cm-segmented-pills .cm-tab-btn.active #cm_badge_comments_count {
-        background: #006FC9 !important;
-        color: #ffffff !important;
-    }
-    .cm-segmented-pills .cm-tab-btn.active #cm_badge_status_count {
+    .cm-segmented-pills .cm-tab-btn.active #cm_badge_comments_count,
+    .cm-segmented-pills .cm-tab-btn.active #cm_badge_status_count,
+    .cm-segmented-pills .cm-tab-btn.active #cm_badge_events_count {
         background: #006FC9 !important;
         color: #ffffff !important;
     }
@@ -237,3 +236,54 @@
         border-color: #bfdbfe;
         color: #1d4ed8;
     }
+
+    /* Modern Status Transition Box & Narrative */
+    .cm-status-narrative {
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: #334155;
+    }
+    .cm-status-transition-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 8px 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    .cm-status-pill-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
+    .cm-status-pill-badge.status-from {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+    }
+    .cm-status-pill-badge.status-to {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+    }
+    .cm-status-pill-badge.status-same {
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+    .cm-status-note-box {
+        padding: 7px 10px;
+        background: #fdfefe;
+        border: 1px dashed #cbd5e1;
+        border-radius: 6px;
+        font-size: 12px;
+        color: #334155;
+    }
+

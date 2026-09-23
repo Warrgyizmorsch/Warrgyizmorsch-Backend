@@ -1138,9 +1138,9 @@
         const eventsTabBtn = document.getElementById('cm_tab_events_btn');
         const statusTabBtn = document.getElementById('cm_tab_status_btn');
 
-        if (tabName === 'status' || tabName === 'status_history') {
+        if (tabName === 'status' || tabName === 'status_history' || tabName === 'history') {
             if (statusTabBtn) bootstrap.Tab.getOrCreateInstance(statusTabBtn).show();
-        } else if (tabName === 'events') {
+        } else if (tabName === 'events' || tabName === 'upcoming_events' || tabName === 'event') {
             if (eventsTabBtn) bootstrap.Tab.getOrCreateInstance(eventsTabBtn).show();
         } else {
             if (commentsTabBtn) bootstrap.Tab.getOrCreateInstance(commentsTabBtn).show();
@@ -1324,36 +1324,191 @@
                     }
 
                     // =========================================================
-                    // TAB 2: Events & Meetings
+                    // TAB 2: Upcoming Events & Scheduled Activities
                     // =========================================================
                     const leadEvents = data.leadEvents || [];
                     if (badgeEventsCount) badgeEventsCount.textContent = leadEvents.length;
+
                     if (eventsTabPane) {
-                        renderLeadEventsCards(eventsTabPane, leadEvents, leadId, true);
+                        if (leadEvents.length === 0) {
+                            eventsTabPane.innerHTML = `
+                                <div class="text-center py-5 px-3 bg-white rounded-3 border">
+                                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light mb-3" style="width: 52px; height: 52px;">
+                                        <i class="feather-calendar text-muted fs-3 opacity-50"></i>
+                                    </div>
+                                    <h6 class="fw-bold text-dark fs-13 mb-1">No Upcoming Events</h6>
+                                    <p class="text-muted fs-12 mb-3">No meetings, calls, or follow-up events scheduled for this lead.</p>
+                                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 shadow-2xs" onclick="openCreateLeadEventModal(${leadId})">
+                                        <i class="feather-plus me-1"></i> Schedule Event
+                                    </button>
+                                </div>`;
+                        } else {
+                            let eHtml = `
+                                <div class="cm-history-summary">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="d-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 28px; height: 28px;">
+                                            <i class="feather-calendar fs-13"></i>
+                                        </span>
+                                        <div>
+                                            <span class="fw-bold text-dark fs-12 d-block leading-tight">Scheduled Events</span>
+                                            <small class="text-muted fs-11">Meetings & scheduled activities</small>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${leadEvents.length} ${leadEvents.length === 1 ? 'Event' : 'Events'}</span>
+                                        <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-0.5 fs-11 d-flex align-items-center gap-1 shadow-2xs" onclick="openCreateLeadEventModal(${leadId})">
+                                            <i class="feather-plus fs-10"></i> Schedule
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="cm-timeline">`;
+
+                            leadEvents.forEach(ev => {
+                                let typeBadgeStyle = 'background:#ede9fe; color:#6d28d9; border: 1px solid #ddd6fe;';
+                                let typeIcon = 'feather-users';
+                                if (ev.event_type === 'discovery_call') {
+                                    typeBadgeStyle = 'background:#e0f2fe; color:#0369a1; border: 1px solid #bae6fd;';
+                                    typeIcon = 'feather-phone-call';
+                                } else if (ev.event_type === 'projection_call') {
+                                    typeBadgeStyle = 'background:#fef3c7; color:#b45309; border: 1px solid #fde68a;';
+                                    typeIcon = 'feather-trending-up';
+                                } else if (ev.event_type === 'conversion') {
+                                    typeBadgeStyle = 'background:#dcfce7; color:#15803d; border: 1px solid #bbf7d0;';
+                                    typeIcon = 'feather-check-circle';
+                                }
+
+                                let statusBadge = '<span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-10 px-2 py-0.5 rounded-pill">Scheduled</span>';
+                                if (ev.status === 'completed') {
+                                    statusBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle fs-10 px-2 py-0.5 rounded-pill">Completed</span>';
+                                } else if (ev.status === 'cancelled') {
+                                    statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-10 px-2 py-0.5 rounded-pill">Cancelled</span>';
+                                } else if (ev.status === 'rescheduled') {
+                                    statusBadge = '<span class="badge bg-warning-subtle text-warning border border-warning-subtle fs-10 px-2 py-0.5 rounded-pill">Rescheduled</span>';
+                                }
+
+                                let dateAlert = '';
+                                if (ev.is_today) {
+                                    dateAlert = '<span class="badge bg-danger text-white fs-10 px-2 py-0.5 rounded-pill ms-1">Today</span>';
+                                } else if (ev.is_overdue) {
+                                    dateAlert = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-10 px-2 py-0.5 rounded-pill ms-1">Overdue</span>';
+                                }
+
+                                const scheduledBy = ev.creator_name || 'System';
+                                const assignedTo = ev.assigned_user_name || 'Unassigned';
+
+                                eHtml += `
+                                    <div class="cm-timeline-item">
+                                        <span class="cm-timeline-node node-call">
+                                            <i class="feather-calendar"></i>
+                                        </span>
+                                        <div class="cm-card">
+                                            <div class="cm-card-header">
+                                                <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                                                    <span class="badge px-2 py-0.5 rounded-pill fs-10 fw-semibold d-inline-flex align-items-center gap-1" style="${typeBadgeStyle}">
+                                                        <i class="${typeIcon} fs-10"></i> ${escapeHistoryHtml(ev.event_type_label || ev.event_type || 'Event')}
+                                                    </span>
+                                                    ${statusBadge}
+                                                    ${dateAlert}
+                                                </div>
+                                                ${ev.status === 'scheduled' ? `
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <button type="button" class="btn btn-xs btn-outline-success py-0.5 px-2 rounded fs-10 d-inline-flex align-items-center gap-1" onclick="quickCompleteLeadEvent(${ev.id}, ${leadId})" title="Mark Done">
+                                                            <i class="feather-check"></i> <span>Done</span>
+                                                        </button>
+                                                        <button type="button" class="btn btn-xs btn-outline-danger py-0.5 px-1.5 rounded fs-10" onclick="quickCancelLeadEvent(${ev.id}, ${leadId})" title="Cancel">
+                                                            <i class="feather-x"></i>
+                                                        </button>
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                            <div class="cm-card-body p-2.5">
+                                                <h6 class="fw-bold text-dark fs-12 mb-1">${escapeHistoryHtml(ev.title || ev.event_type_label || 'Scheduled Event')}</h6>
+                                                ${ev.description ? `<div class="text-muted fs-11 mb-2 bg-light p-2 rounded border border-light-subtle">${escapeHistoryHtml(ev.description)}</div>` : ''}
+                                                
+                                                <div class="d-flex flex-column gap-1.5 mt-2 pt-2 border-top">
+                                                    <div class="d-flex align-items-center justify-content-between text-muted fs-11">
+                                                        <span class="d-flex align-items-center gap-1 text-dark fw-semibold">
+                                                            <i class="feather-calendar text-primary fs-11"></i>
+                                                            ${escapeHistoryHtml(ev.event_date_formatted || ev.event_date || 'Date N/A')}
+                                                        </span>
+                                                        <span class="d-flex align-items-center gap-1">
+                                                            <i class="feather-clock text-primary fs-11"></i>
+                                                            ${escapeHistoryHtml(ev.start_time_formatted || ev.start_time || 'Time N/A')}${ev.end_time_formatted ? ' - ' + escapeHistoryHtml(ev.end_time_formatted) : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div class="d-flex align-items-center justify-content-between text-muted fs-11 pt-1 border-top border-light-subtle">
+                                                        <span class="d-flex align-items-center gap-1">
+                                                            <i class="feather-user-check text-muted fs-11"></i>
+                                                            <span>Scheduled By: <strong class="text-dark">${escapeHistoryHtml(scheduledBy)}</strong></span>
+                                                        </span>
+                                                        <span class="d-flex align-items-center gap-1">
+                                                            <i class="feather-user text-muted fs-11"></i>
+                                                            <span>Assigned: <strong class="text-dark">${escapeHistoryHtml(assignedTo)}</strong></span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>`;
+                            });
+                            eHtml += `</div>`;
+                            eventsTabPane.innerHTML = eHtml;
+                        }
                     }
 
                     // =========================================================
-                    // TAB 3: Status Change History
+                    // TAB 3: Status Change History (Strictly Pure Status Logs)
                     // =========================================================
-                    let statusHistoryList = [];
+                    let rawStatusEvents = [];
 
-                    // 1. Collect from rawMessages
+                    // 1. Collect from rawMessages (callbacks)
                     rawMessages.forEach(msg => {
-                        const rawMsgText = (msg.message || '').trim().toLowerCase();
-                        const isStatusMsg = rawMsgText.includes('status changed') || 
-                                           rawMsgText.includes('status set to') || 
-                                           rawMsgText.includes('converted to deal');
+                        const rawMsgText = (msg.message || '').trim();
+                        const rawMsgLower = rawMsgText.toLowerCase();
+
+                        // Ignore event notifications / event creations
+                        if (rawMsgLower.includes('event scheduled') || 
+                            rawMsgLower.includes('event updated') || 
+                            rawMsgLower.includes('event completed') || 
+                            rawMsgLower.includes('event cancelled')) {
+                            return;
+                        }
+
+                        const isStatusMsg = rawMsgLower.startsWith('status changed') || 
+                                           rawMsgLower.startsWith('status set to') || 
+                                           rawMsgLower.includes('converted to deal');
                         const hasStatusField = (msg.status && msg.status.trim() !== '') || (msg.bucket && msg.bucket.trim() !== '');
 
                         if (isStatusMsg || hasStatusField) {
-                            statusHistoryList.push({
+                            let fromStatus = '';
+                            let toStatus = msg.status || msg.bucket || '';
+                            let note = '';
+
+                            // Parse "Status changed from 'X' to 'Y'"
+                            const changeMatch = rawMsgText.match(/from\s*['"“]([^'"”]+?)['"”]\s+to\s*['"“]([^'"”]+?)['"”]/i);
+                            if (changeMatch) {
+                                fromStatus = changeMatch[1].trim();
+                                toStatus = changeMatch[2].trim();
+                            } else {
+                                const setMatch = rawMsgText.match(/set to\s*['"“]([^'"”]+?)['"”]/i);
+                                if (setMatch) {
+                                    toStatus = setMatch[1].trim();
+                                } else if (!isStatusMsg && rawMsgText !== '') {
+                                    // Custom user note/remark
+                                    note = rawMsgText;
+                                }
+                            }
+
+                            rawStatusEvents.push({
+                                id: 'cb_' + (msg.id || Math.random()),
                                 source: 'callback',
                                 user_name: msg.user_name || 'System User',
                                 created_at_formatted: msg.created_at_formatted || 'Date unavailable',
-                                status: msg.status || '',
-                                bucket: msg.bucket || '',
-                                message: msg.message || '',
-                                raw_date: msg.created_at_raw || ''
+                                created_at_raw: msg.created_at_raw || null,
+                                from_status: fromStatus,
+                                to_status: toStatus,
+                                note: note,
+                                action_label: 'Status Update'
                             });
                         }
                     });
@@ -1361,20 +1516,93 @@
                     // 2. Collect from audit logs (LeadHistory)
                     if (Array.isArray(data.statusHistories)) {
                         data.statusHistories.forEach(h => {
+                            const actionStr = (h.action || '').toLowerCase().trim();
+
+                            // Strictly ignore any event actions
+                            if (actionStr.includes('event') || 
+                                actionStr.startsWith('event scheduled') || 
+                                actionStr.startsWith('event updated') || 
+                                actionStr.startsWith('event completed') || 
+                                actionStr.startsWith('event cancelled')) {
+                                return;
+                            }
+
+                            // Ignore lead creation unless it records a status transition
+                            if (actionStr === 'created') {
+                                return;
+                            }
+
                             const ch = h.changes || {};
-                            statusHistoryList.push({
-                                source: 'audit',
-                                user_name: h.user_name || 'System User',
-                                created_at_formatted: h.created_at_formatted || 'Date unavailable',
-                                from_status: ch.from_status || '',
-                                to_status: ch.to_status || '',
-                                from_bucket: ch.from_bucket || '',
-                                to_bucket: ch.to_bucket || '',
-                                message: h.action === 'pipeline_drag_update' ? 'Updated via Kanban Drag & Drop' : (h.action || ''),
-                                raw_date: ''
-                            });
+                            let fromStatus = ch.from_status || ch.old || '';
+                            let toStatus = ch.to_status || ch.new || '';
+                            if (!fromStatus && ch.from_bucket) fromStatus = ch.from_bucket;
+                            if (!toStatus && ch.to_bucket) toStatus = ch.to_bucket;
+
+                            // Only include if it represents a status transition
+                            const isStatusAction = actionStr.includes('status') || 
+                                                  actionStr.includes('drag_update') || 
+                                                  fromStatus || toStatus;
+
+                            if (isStatusAction) {
+                                let actionLabel = 'Status Update';
+                                if (actionStr.includes('drag_update')) actionLabel = 'Kanban Drag & Drop';
+                                else if (actionStr.includes('bulk')) actionLabel = 'Bulk Status Update';
+
+                                rawStatusEvents.push({
+                                    id: 'audit_' + (h.id || Math.random()),
+                                    source: 'audit',
+                                    user_name: h.user_name || 'System User',
+                                    created_at_formatted: h.created_at_formatted || 'Date unavailable',
+                                    created_at_raw: h.created_at_raw || null,
+                                    from_status: fromStatus,
+                                    to_status: toStatus,
+                                    note: '',
+                                    action_label: actionLabel
+                                });
+                            }
                         });
                     }
+
+                    // 3. Smart Deduplication: Merge callback + audit logs representing the same transition
+                    let mergedEvents = [];
+                    rawStatusEvents.forEach(item => {
+                        const existing = mergedEvents.find(e => 
+                            e.user_name === item.user_name &&
+                            e.created_at_formatted === item.created_at_formatted &&
+                            (e.to_status.toLowerCase() === item.to_status.toLowerCase() || !e.to_status || !item.to_status)
+                        );
+
+                        if (existing) {
+                            if (!existing.from_status && item.from_status) existing.from_status = item.from_status;
+                            if (!existing.to_status && item.to_status) existing.to_status = item.to_status;
+                            if (!existing.note && item.note) existing.note = item.note;
+                            if (item.source === 'audit' && item.action_label) existing.action_label = item.action_label;
+                        } else {
+                            mergedEvents.push(item);
+                        }
+                    });
+
+                    // 4. Chronological Chaining to ensure full From -> To history
+                    mergedEvents.sort((a, b) => {
+                        if (a.created_at_raw && b.created_at_raw) {
+                            return new Date(a.created_at_raw) - new Date(b.created_at_raw);
+                        }
+                        return 0;
+                    });
+
+                    let runningStatus = (data.lead && data.lead.lead_status) ? 'New Lead' : 'New Lead';
+                    mergedEvents.forEach(item => {
+                        if (!item.from_status) {
+                            item.from_status = runningStatus;
+                        }
+                        if (item.to_status) {
+                            runningStatus = item.to_status;
+                        }
+                    });
+
+                    // 5. Present newest on top
+                    mergedEvents.reverse();
+                    let statusHistoryList = mergedEvents;
 
                     if (badgeStatusCount) badgeStatusCount.textContent = statusHistoryList.length;
 
@@ -1386,7 +1614,7 @@
                                         <i class="feather-git-commit text-muted fs-3 opacity-50"></i>
                                     </div>
                                     <h6 class="fw-bold text-dark fs-13 mb-1">No Status Changes Yet</h6>
-                                    <p class="text-muted fs-12 mb-0">No status change history recorded yet for this lead.</p>
+                                    <p class="text-muted fs-12 mb-0">No status transition history recorded yet for this lead.</p>
                                 </div>`;
                         } else {
                             let sHtml = `
@@ -1397,18 +1625,48 @@
                                         </span>
                                         <div>
                                             <span class="fw-bold text-dark fs-12 d-block leading-tight">Status Change Timeline</span>
-                                            <small class="text-muted fs-11">State transitions & updates</small>
+                                            <small class="text-muted fs-11">State transitions & audit records</small>
                                         </div>
                                     </div>
                                     <span class="badge bg-primary rounded-pill px-2.5 py-1 fs-11 fw-semibold">${statusHistoryList.length} ${statusHistoryList.length === 1 ? 'Record' : 'Records'}</span>
                                 </div>
                                 <div class="cm-timeline">`;
 
-                            statusHistoryList.forEach((item, idx) => {
+                            statusHistoryList.forEach(item => {
                                 const userName = item.user_name || 'System';
                                 const userInitial = userName.charAt(0).toUpperCase();
                                 const palette = getAvatarPalette(userName);
                                 const dateStr = item.created_at_formatted || 'Date unavailable';
+
+                                const oldStatusName = (item.from_status || '').trim();
+                                const newStatusName = (item.to_status || '').trim();
+                                const noteText = (item.note || '').trim();
+
+                                // Professional executive narrative sentence
+                                let narrativeHtml = '';
+                                if (oldStatusName && newStatusName && oldStatusName.toLowerCase() !== newStatusName.toLowerCase()) {
+                                    narrativeHtml = `
+                                        <div class="cm-status-narrative mb-2">
+                                            <strong class="text-dark fw-bold">${escapeHistoryHtml(userName)}</strong> 
+                                            <span class="text-muted">updated lead status from</span> 
+                                            <span class="cm-status-pill-badge status-from">${escapeHistoryHtml(oldStatusName)}</span> 
+                                            <span class="text-muted">to</span> 
+                                            <span class="cm-status-pill-badge status-to">${escapeHistoryHtml(newStatusName)}</span>
+                                        </div>`;
+                                } else if (newStatusName) {
+                                    narrativeHtml = `
+                                        <div class="cm-status-narrative mb-2">
+                                            <strong class="text-dark fw-bold">${escapeHistoryHtml(userName)}</strong> 
+                                            <span class="text-muted">${oldStatusName ? 're-confirmed lead status as' : 'set lead status to'}</span> 
+                                            <span class="cm-status-pill-badge status-to">${escapeHistoryHtml(newStatusName)}</span>
+                                        </div>`;
+                                } else {
+                                    narrativeHtml = `
+                                        <div class="cm-status-narrative mb-2">
+                                            <strong class="text-dark fw-bold">${escapeHistoryHtml(userName)}</strong> 
+                                            <span class="text-muted">updated lead status</span>
+                                        </div>`;
+                                }
 
                                 sHtml += `
                                     <div class="cm-timeline-item">
@@ -1421,16 +1679,48 @@
                                                     <div class="cm-user-avatar" style="background: ${palette.bg}; color: ${palette.color}; border: 1px solid ${palette.border};">
                                                         ${userInitial}
                                                     </div>
-                                                    <span class="fw-bold text-dark fs-12 text-truncate">${userName}</span>
+                                                    <div>
+                                                        <span class="fw-bold text-dark fs-12 text-truncate d-block">${escapeHistoryHtml(userName)}</span>
+                                                        <small class="text-muted fs-10">${item.action_label || 'Status Update'}</small>
+                                                    </div>
                                                 </div>
                                                 <div class="text-muted fs-11 text-nowrap d-flex align-items-center gap-1 flex-shrink-0">
                                                     <i class="feather-clock fs-11 opacity-75"></i>
                                                     <span>${dateStr}</span>
                                                 </div>
                                             </div>
-                                            <div class="cm-card-body">
-                                                ${item.message ? `<div class="cm-message-box"><i class="feather-info me-1 text-primary"></i>${escapeHistoryHtml(item.message)}</div>` : ''}
-                                                ${item.status ? `<span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-10 px-2 py-0.5 mt-1">${escapeHistoryHtml(item.status)}</span>` : ''}
+                                            <div class="cm-card-body p-2.5">
+                                                ${narrativeHtml}
+
+                                                ${(oldStatusName && newStatusName && oldStatusName.toLowerCase() !== newStatusName.toLowerCase()) ? `
+                                                    <div class="cm-status-transition-box">
+                                                        <div class="d-flex align-items-center gap-1.5">
+                                                            <span class="text-muted fs-10 text-uppercase fw-bold" style="letter-spacing: 0.5px;">Previous:</span>
+                                                            <span class="cm-status-pill-badge status-from">${escapeHistoryHtml(oldStatusName)}</span>
+                                                        </div>
+                                                        <i class="feather-arrow-right text-primary fs-12 opacity-75"></i>
+                                                        <div class="d-flex align-items-center gap-1.5">
+                                                            <span class="text-primary fs-10 text-uppercase fw-bold" style="letter-spacing: 0.5px;">New:</span>
+                                                            <span class="cm-status-pill-badge status-to">${escapeHistoryHtml(newStatusName)}</span>
+                                                        </div>
+                                                    </div>
+                                                ` : (newStatusName ? `
+                                                    <div class="cm-status-transition-box">
+                                                        <span class="text-primary fs-10 text-uppercase fw-bold" style="letter-spacing: 0.5px;">Current Status:</span>
+                                                        <span class="cm-status-pill-badge status-to">${escapeHistoryHtml(newStatusName)}</span>
+                                                    </div>
+                                                ` : '')}
+
+                                                ${noteText ? `
+                                                    <div class="cm-status-note-box mt-2">
+                                                        <div class="d-flex align-items-start gap-1.5">
+                                                            <i class="feather-message-square text-primary mt-0.5 fs-12 flex-shrink-0"></i>
+                                                            <div class="flex-grow-1">
+                                                                <span class="text-muted fs-10 text-uppercase fw-bold d-block" style="letter-spacing: 0.4px;">Remark / Reason:</span>
+                                                                <div class="text-dark fs-12 fst-italic mt-0.5">${escapeHistoryHtml(noteText)}</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>` : ''}
                                             </div>
                                         </div>
                                     </div>`;
