@@ -25,10 +25,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'archive-deals/*',
             'new-leads-table/*',
             'leads/*',
-            'lead/*',
-            'lead',
-            'users/*',
-            'users',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
