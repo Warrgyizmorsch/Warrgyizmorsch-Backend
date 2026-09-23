@@ -248,6 +248,9 @@
         background: transparent;
         box-shadow: none;
     }
+    #mondayTableCollapse .table-responsive {
+        min-height: 420px;
+    }
     .monday-table {
         width: 100%;
         min-width: 1240px;
@@ -380,8 +383,9 @@
         border: 1px solid #d0d4e4 !important;
         background: #ffffff !important;
         box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16) !important;
-        max-height: 360px;
+        max-height: 320px;
         overflow-y: auto;
+        z-index: 1060 !important;
     }
     .monday-status-group {
         margin-bottom: 7px;
