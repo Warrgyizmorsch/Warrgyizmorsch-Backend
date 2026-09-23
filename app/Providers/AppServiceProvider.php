@@ -26,9 +26,12 @@ class AppServiceProvider extends ServiceProvider
     {
         Schema::defaultStringLength(191);
 
-        // Force HTTPS on production or when behind HTTPS reverse proxy
+        // Force HTTPS on production or when accessed on any live/staging domain
+        $host = request()->getHost();
+        $isLiveDomain = !in_array($host, ['localhost', '127.0.0.1', '::1']) && !str_starts_with($host, '192.168.');
         if (
             $this->app->environment('production') ||
+            $isLiveDomain ||
             (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
             (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
             (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on')

@@ -27,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'leads/*',
             'lead/*',
             'lead',
+            'users/*',
+            'users',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
