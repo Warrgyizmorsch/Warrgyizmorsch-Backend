@@ -934,12 +934,20 @@
         }
 
         try {
+            const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const tokenInput = form.querySelector('input[name="_token"]');
+            if (metaToken && tokenInput) {
+                tokenInput.value = metaToken;
+            }
+            const csrfToken = metaToken || (tokenInput ? tokenInput.value : '');
+
             const formData = new FormData(form);
             const response = await fetch(form.action, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
                 },
                 body: formData
             });

@@ -26,6 +26,16 @@ class AppServiceProvider extends ServiceProvider
     {
         Schema::defaultStringLength(191);
 
+        // Force HTTPS on production or when behind HTTPS reverse proxy
+        if (
+            $this->app->environment('production') ||
+            (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+            (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on')
+        ) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         // 1. Meta data view composer (for main app layout)
         View::composer('layouts.app', function ($view) {
             $viewData = $view->getData();
