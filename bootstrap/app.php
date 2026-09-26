@@ -16,8 +16,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
 
+        $middleware->web(append: [
+            \App\Http\Middleware\CheckSingleSession::class,
+        ]);
+
         $middleware->alias([
             'check.permission' => CheckPermission::class,
+            'check.single.session' => \App\Http\Middleware\CheckSingleSession::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'save-work-time',

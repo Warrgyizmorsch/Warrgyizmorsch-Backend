@@ -238,8 +238,9 @@ class ArchiveDealController extends Controller
 
         DB::transaction(function () use ($ids) {
             DB::table('taggables')->where('taggable_type', Leads::class)->whereIn('taggable_id', $ids)->delete();
-            DB::table('callbacks')->whereIn('lead_id', $ids)->delete();
+            DB::table('callback_messages')->whereIn('lead_id', $ids)->delete();
             DB::table('lead_histories')->whereIn('lead_id', $ids)->delete();
+            DB::table('lead_events')->whereIn('lead_id', $ids)->delete();
             Order::whereIn('lead_id', $ids)->delete();
             Leads::whereIn('id', $ids)->delete();
         });

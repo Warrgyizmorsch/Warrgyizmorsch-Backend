@@ -50,15 +50,10 @@ class AuthenticatedSessionController extends Controller
 
         // 🟢 Bypass OTP for local testing account: admin@gmail.com
         if ($user->email === 'admin@gmail.com') {
-            $hasActiveSession = DB::table('sessions')->where('user_id', $user->id)->exists();
-
-            if ($hasActiveSession) {
-                session(['otp_verified_user_id' => $user->id]);
-                return redirect()->route('login.force_logout_prompt');
-            }
-
             Auth::login($user, true);
             $request->session()->regenerate();
+
+            $user->update(['active_session_id' => $request->session()->getId()]);
 
             $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
@@ -130,17 +125,14 @@ class AuthenticatedSessionController extends Controller
             return back()->with('error', 'Invalid OTP code. Please try again.');
         }
 
-        // OTP Validated! Check if user is logged in elsewhere
-        $hasActiveSession = DB::table('sessions')->where('user_id', $userId)->exists();
-
-        if ($hasActiveSession) {
-            session(['otp_verified_user_id' => $userId]);
-            return redirect()->route('login.force_logout_prompt');
-        }
-
         // Complete Login
         Auth::loginUsingId($userId, true);
         $request->session()->regenerate();
+
+        // Set this session as the user's active session
+        User::where('id', $userId)->update([
+            'active_session_id' => $request->session()->getId()
+        ]);
 
         $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
@@ -228,6 +220,11 @@ class AuthenticatedSessionController extends Controller
         Auth::loginUsingId($userId, true);
         $request->session()->regenerate();
 
+        // Set this session as the user's active session
+        User::where('id', $userId)->update([
+            'active_session_id' => $request->session()->getId()
+        ]);
+
         $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
         $email = session('remember_email');
@@ -249,12 +246,20 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = Auth::user();
+        $currentSessionId = $request->session()->getId();
+
         // Update the latest login record
-        LoginHistory::where('user_id', Auth::id())
+        LoginHistory::where('user_id', $user?->id)
             ->whereNull('logout_at')
             ->latest('id')
             ->first()
             ?->update(['logout_at' => now(), 'user_agent' => request()->userAgent()]);
+
+        // Only clear active_session_id if this session was the active session
+        if ($user && $user->active_session_id === $currentSessionId) {
+            $user->update(['active_session_id' => null]);
+        }
 
         Auth::guard('web')->logout();
 

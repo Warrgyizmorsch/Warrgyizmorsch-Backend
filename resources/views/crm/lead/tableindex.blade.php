@@ -1045,12 +1045,14 @@
                     </h3>
                     <span class="monday-group-count">{{ $totalCount }} {{ $isDeal ? 'deals' : 'leads' }}</span>
                 </div>
+                @unless($isDeal)
                 <div>
                     <button type="button" class="btn btn-sm btn-link text-decoration-none text-muted p-0 d-inline-flex align-items-center gap-1" onclick="openCreateModal()" title="Add {{ $isDeal ? 'Deal' : 'Lead' }}">
                         <i class="feather-plus-circle fs-15 text-primary"></i>
                         <span class="fs-12 text-primary fw-semibold d-none d-sm-inline">+ Add {{ $isDeal ? 'deal' : 'lead' }}</span>
                     </button>
                 </div>
+                @endunless
             </div>
 
             {{-- Collapsible Table Grid --}}

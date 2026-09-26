@@ -189,8 +189,13 @@ class UserController extends Controller
                 'user_agent' => request()->userAgent()
             ]);
 
-        // Now delete all sessions for this user
-        DB::table('sessions')->where('user_id', $user->id)->delete();
+        // Invalidate active session ID
+        $user->update(['active_session_id' => null]);
+
+        // Also delete from sessions table if database session driver is used
+        try {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        } catch (\Throwable $e) {}
 
         return back()->with('success', 'User has been logged out.');
     }

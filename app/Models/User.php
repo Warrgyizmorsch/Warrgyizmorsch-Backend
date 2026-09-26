@@ -29,7 +29,8 @@ class User extends Authenticatable
         'city',
         'state',
         'pincode',
-        'address'
+        'address',
+        'active_session_id'
     ];
 
     /**

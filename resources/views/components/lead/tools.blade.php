@@ -190,11 +190,13 @@
                 </div>
             </div>
 
-            {{-- Create Button (Top Right shortcut as well) --}}
+            {{-- Create Button (Top Right shortcut as well) - Commented out for Created Deals --}}
+            @unless($isDealRoute)
             <button class="monday-primary-btn" onclick="openCreateModal()" title="Add {{ $btnLabel }}">
                 <i class="feather-plus"></i>
                 <span class="d-none d-sm-inline">{{ $btnLabel }}</span>
             </button>
+            @endunless
         </div>
     </div>
 
@@ -235,11 +237,13 @@
     {{-- 3. Monday Action Bar (Search, Person, Filter, Bucket) --}}
     <div class="monday-toolbar-row">
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            {{-- Blue Primary New Button --}}
+            {{-- Blue Primary New Button - Commented out for Created Deals --}}
+            @unless($isDealRoute)
             <button type="button" class="monday-primary-btn" onclick="openCreateModal()">
                 <i class="feather-plus"></i>
                 <span>{{ $btnLabel }}</span>
             </button>
+            @endunless
 
             {{-- Live Search Input (Triggers main form search) --}}
             <div class="monday-search-box">

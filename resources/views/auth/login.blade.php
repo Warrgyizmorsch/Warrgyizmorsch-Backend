@@ -23,6 +23,14 @@
                 <div style="height: 60px; width: 190px"><img src="{{ asset('images/WARR LOGO.webp') }}" alt="Logo"></div>
                 <span class="header">Login</span>
 
+                @if (session('status'))
+                    <p style="color: #34d399; font-size: 13px; text-align: center; margin-bottom: 10px;">{{ session('status') }}</p>
+                @endif
+
+                @if (session('error'))
+                    <p style="color: #f87171; font-size: 13px; text-align: center; margin-bottom: 10px;">{{ session('error') }}</p>
+                @endif
+
                 <!-- Email -->
                 <input type="email" name="email" class="input" placeholder="Email"
                     value="{{ $savedEmail ?? old('email') }}" required autofocus autocomplete="new-email">

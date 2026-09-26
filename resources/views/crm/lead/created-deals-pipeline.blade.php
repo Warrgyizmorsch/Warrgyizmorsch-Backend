@@ -96,9 +96,9 @@
                     <button type="button" onclick="openArrangeColumnsModal()" class="btn btn-outline-secondary btn-sm rounded-2 d-flex align-items-center gap-1" title="Arrange / Reorder Stages">
                         <i class="ti ti-adjustments-horizontal"></i> Arrange Columns
                     </button>
-                    <a href="{{ route('lead.create') }}" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
+                    {{-- <a href="{{ route('lead.create') }}" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
                         <i class="ti ti-plus"></i> Add New Lead
-                    </a>
+                    </a> --}}
                 </div>
             </div>
 
