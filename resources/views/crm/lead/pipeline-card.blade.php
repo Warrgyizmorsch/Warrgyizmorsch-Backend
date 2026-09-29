@@ -17,6 +17,36 @@
 
     $lastNote = $lead->latestMessage ? $lead->latestMessage->message : null;
     $createdDate = $lead->date ? $lead->date->format('d M Y') : ($lead->created_at ? $lead->created_at->format('d M Y') : '');
+
+    $todayStr = now()->toDateString();
+    $now = now();
+    $upcomingEvent = null;
+
+    if ($lead->events && $lead->events->isNotEmpty()) {
+        // 1. Upcoming scheduled event (today or future)
+        $upcomingEvent = $lead->events->filter(function($ev) use ($todayStr) {
+            return $ev->status === 'scheduled' && $ev->event_date && \Carbon\Carbon::parse($ev->event_date)->toDateString() >= $todayStr;
+        })->sortBy(function($ev) {
+            return $ev->event_date . ' ' . ($ev->start_time ?: '00:00:00');
+        })->first();
+
+        // 2. If no future event, pick overdue scheduled event
+        if (!$upcomingEvent) {
+            $upcomingEvent = $lead->events->filter(function($ev) use ($todayStr) {
+                return $ev->status === 'scheduled' && $ev->event_date && \Carbon\Carbon::parse($ev->event_date)->toDateString() < $todayStr;
+            })->sortByDesc(function($ev) {
+                return $ev->event_date . ' ' . ($ev->start_time ?: '00:00:00');
+            })->first();
+        }
+
+        // 3. Fallback: latest completed/rescheduled event if no scheduled
+        if (!$upcomingEvent) {
+            $upcomingEvent = $lead->events->sortByDesc('event_date')->first();
+        }
+    }
+
+    $leadDisplayName = optional($lead->user)->name ?: ($lead->business_name ?: 'Lead #' . $lead->id);
+    $openEventOffcanvas = "openUpcomingEventsOffcanvas({$lead->id}, '" . addslashes($leadDisplayName) . "')";
 @endphp
 
 <div class="card pipeline-lead-card mb-3 border-0 shadow-sm rounded-3" 
@@ -73,6 +103,84 @@
                 @endforeach
             </div>
         @endif
+
+        {{-- Next Activity Block --}}
+        <div class="mb-2">
+            @if($upcomingEvent)
+                @php
+                    $evType = $upcomingEvent->event_type;
+                    $evTitle = $upcomingEvent->title ?: $upcomingEvent->type_label;
+                    $evDate = $upcomingEvent->event_date ? \Carbon\Carbon::parse($upcomingEvent->event_date) : null;
+                    $evStartTime = $upcomingEvent->start_time ? \Carbon\Carbon::parse($upcomingEvent->start_time)->format('h:i A') : '';
+                    $isOverdue = ($upcomingEvent->status === 'scheduled' && $evDate && $evDate->toDateString() < $todayStr);
+                    $isToday = ($evDate && $evDate->toDateString() === $todayStr);
+
+                    $iconClass = 'icon-task';
+                    $iconHtml = '<i class="feather-calendar"></i>';
+                    if ($evType === 'discovery_call') {
+                        $iconClass = 'icon-call';
+                        $iconHtml = '<i class="feather-phone-call"></i>';
+                    } elseif ($evType === 'projection_call') {
+                        $iconClass = 'icon-meeting';
+                        $iconHtml = '<i class="feather-trending-up"></i>';
+                    } elseif ($evType === 'conversion') {
+                        $iconClass = 'icon-email';
+                        $iconHtml = '<i class="feather-check-circle"></i>';
+                    }
+
+                    $dotClass = 'dot-teal';
+                    $subText = 'Scheduled';
+                    if ($upcomingEvent->status === 'completed') {
+                        $dotClass = 'dot-muted';
+                        $subText = 'Completed';
+                    } elseif ($upcomingEvent->status === 'cancelled') {
+                        $dotClass = 'dot-red';
+                        $subText = 'Cancelled';
+                    } elseif ($isOverdue) {
+                        $dotClass = 'dot-red';
+                        $diffDays = $now->diffInDays($evDate);
+                        $subText = $diffDays > 0 ? ('Overdue by ' . $diffDays . 'd') : 'Overdue';
+                    } elseif ($isToday) {
+                        $dotClass = 'dot-teal';
+                        $subText = 'Today';
+                    } elseif ($evDate) {
+                        $subText = $evDate->format('d M');
+                    }
+                @endphp
+                <div class="deal-activity-wrap" onclick="event.stopPropagation(); {{ $openEventOffcanvas }}" title="Activity: {{ $evTitle }}&#10;Date: {{ $evDate ? $evDate->format('d M Y') : '' }} {{ $evStartTime }} ({{ $subText }})&#10;(Click to view & schedule)">
+                    <div class="deal-activity-icon {{ $iconClass }}">
+                        {!! $iconHtml !!}
+                    </div>
+                    <div class="deal-activity-content">
+                        <div class="d-flex align-items-center gap-1.5 flex-nowrap">
+                            <span class="deal-activity-title">{{ $evTitle }}</span>
+                            <span class="activity-status-dot {{ $dotClass }}"></span>
+                            <span class="fs-10 {{ $dotClass == 'dot-red' ? 'text-danger fw-semibold' : 'text-muted' }} text-nowrap">{{ $subText }}</span>
+                        </div>
+                        @if($evDate)
+                            <div class="deal-activity-date text-dark fs-11 fw-medium d-flex align-items-center gap-1">
+                                <i class="feather-calendar text-primary" style="font-size: 10px;"></i>
+                                <span>{{ $evDate->format('d M') }}{{ $evStartTime ? ', ' . $evStartTime : '' }}</span>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @else
+                <div class="deal-activity-wrap" onclick="event.stopPropagation(); {{ $openEventOffcanvas }}" title="Click to schedule upcoming activity & events">
+                    <div class="deal-activity-icon icon-empty">
+                        <i class="feather-calendar"></i>
+                    </div>
+                    <div class="deal-activity-content">
+                        <span class="text-muted fs-11 fw-medium">No activity scheduled</span>
+                        <span class="deal-activity-meta">
+                            <span class="activity-schedule-btn">
+                                <i class="feather-plus" style="font-size: 10px;"></i> Schedule
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            @endif
+        </div>
 
         {{-- Last Follow-up Note Preview --}}
         @if($lastNote)

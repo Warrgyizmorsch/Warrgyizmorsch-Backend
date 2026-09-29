@@ -1,8 +1,19 @@
-@props(['buckets','filterBucket', 'totalLeadsCount', 'filteredLeadCount', 'sources', 'owners','categories', 'title', 'showViewSwitcher' => true])
+@props(['buckets' => collect(),'filterBucket' => collect(), 'totalLeadsCount' => 0, 'filteredLeadCount' => null, 'sources' => [], 'owners' => collect(),'categories' => collect(), 'title' => null, 'showViewSwitcher' => true, 'showToolbar' => true])
 
 @php
-    $isDealRoute = request()->is('created-deals*') || request()->routeIs('created.deals.*');
+    $isDealRoute = request()->is('created-deals*') || request()->routeIs('created.deals.*') || request('context') === 'deals';
     $btnLabel = $isDealRoute ? 'New deal' : 'New lead';
+
+    $isEventsActive = request()->is('upcoming-events*') || request()->is('events*') || request()->routeIs('events.*');
+    $isPipelineActive = request()->is('*pipeline*') || request()->routeIs('*.pipeline*');
+    $isListActive = !$isEventsActive && !$isPipelineActive;
+
+    $ignoredFilterParams = ['bucket_id', 'lead_status', 'per_page', 'page', 'view', 'context'];
+    if (request()->routeIs('leads.table.*')) {
+        $ignoredFilterParams[] = 'lead_engagement_status';
+    }
+    $actualFilterQueryParams = request()->except($ignoredFilterParams);
+    $hasActiveFilters = !empty(array_filter($actualFilterQueryParams, fn($val) => $val !== null && $val !== ''));
 @endphp
 
 <style>
@@ -158,13 +169,21 @@
     <div class="monday-title-row">
         <div class="d-flex align-items-center gap-2">
             <h1 class="monday-title-text">
-                {{ $title ?? 'Leads' }}
+                {{ $title ?? ($isDealRoute ? 'Created Deals' : 'New Leads Table') }}
                 <i class="feather-chevron-down monday-title-chevron"></i>
             </h1>
         </div>
 
         <div class="d-flex align-items-center gap-2">
+            @if($isPipelineActive)
+            <button type="button" onclick="openArrangeColumnsModal()" class="monday-tool-btn" title="Arrange / Reorder Stages">
+                <i class="feather-sliders"></i>
+                <span>Arrange Columns</span>
+            </button>
+            @endif
+
             {{-- Export / Import dropdown --}}
+            @unless($isEventsActive)
             <div class="dropdown">
                 <button class="monday-tool-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Export & Import Options">
                     <i class="feather-download"></i>
@@ -189,36 +208,37 @@
                     @endunless
                 </div>
             </div>
+            @endunless
 
-            {{-- Create Button (Top Right shortcut as well) - Commented out for Created Deals --}}
-            @unless($isDealRoute)
+            {{-- Create Button (Top Right shortcut as well) - Commented out for Created Deals and Events --}}
+            @if(!$isDealRoute && !$isEventsActive)
             <button class="monday-primary-btn" onclick="openCreateModal()" title="Add {{ $btnLabel }}">
                 <i class="feather-plus"></i>
                 <span class="d-none d-sm-inline">{{ $btnLabel }}</span>
             </button>
-            @endunless
+            @endif
         </div>
     </div>
 
-    {{-- 2. Monday View Tabs (Main Table / Pipeline View) --}}
+    {{-- 2. Monday View Tabs (Main Table / Pipeline View / Upcoming Events) --}}
     @if($showViewSwitcher)
     @php
         if ($isDealRoute) {
-            $listRoute = route('created.deals.index', request()->query());
-            $pipelineRoute = route('created.deals.pipeline', request()->query());
-            $isPipelineActive = request()->is('created-deals/pipeline*') || request()->routeIs('created.deals.pipeline');
-        } elseif (request()->is('new-leads-table*') || request()->routeIs('leads.table.*')) {
-            $listRoute = route('leads.table.index', request()->query());
-            $pipelineRoute = route('leads.table.pipeline', request()->query());
-            $isPipelineActive = request()->is('new-leads-table/pipeline*') || request()->routeIs('leads.table.pipeline');
+            $listRoute = route('created.deals.index', request()->except('page', 'view', 'context'));
+            $pipelineRoute = route('created.deals.pipeline', request()->except('page', 'view', 'context'));
+            $eventsRoute = route('events.index', array_merge(request()->except('page', 'view'), ['context' => 'deals']));
+        } elseif (request()->is('new-leads-table*') || request()->routeIs('leads.table.*') || (!$isDealRoute && $isEventsActive)) {
+            $listRoute = route('leads.table.index', request()->except('page', 'view', 'context'));
+            $pipelineRoute = route('leads.table.pipeline', request()->except('page', 'view', 'context'));
+            $eventsRoute = route('events.index', array_merge(request()->except('page', 'view'), ['context' => 'leads']));
         } else {
             $listRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'list']));
             $pipelineRoute = route('modern.leads.index', array_merge(request()->except('view', 'page'), ['view' => 'pipeline']));
-            $isPipelineActive = request('view') === 'pipeline';
+            $eventsRoute = route('events.index', array_merge(request()->except('page', 'view'), ['context' => 'leads']));
         }
     @endphp
     <div class="monday-top-tabs">
-        <a href="{{ $listRoute }}" class="monday-tab-btn {{ !$isPipelineActive ? 'is-active' : '' }}">
+        <a href="{{ $listRoute }}" class="monday-tab-btn {{ $isListActive ? 'is-active' : '' }}">
             <i class="feather-table"></i>
             <span>Main table</span>
             <span class="monday-tab-dots">•••</span>
@@ -227,7 +247,7 @@
             <i class="feather-trello"></i>
             <span>Pipeline view</span>
         </a>
-        <a href="{{ route('events.index') }}" class="monday-tab-btn {{ request()->routeIs('events.*') ? 'is-active' : '' }}">
+        <a href="{{ $eventsRoute }}" class="monday-tab-btn {{ $isEventsActive ? 'is-active' : '' }}">
             <i class="feather-calendar"></i>
             <span>Upcoming Events</span>
         </a>
@@ -235,6 +255,7 @@
     @endif
 
     {{-- 3. Monday Action Bar (Search, Person, Filter, Bucket) --}}
+    @if($showToolbar ?? true)
     <div class="monday-toolbar-row">
         <div class="d-flex align-items-center gap-2 flex-wrap">
             {{-- Blue Primary New Button - Commented out for Created Deals --}}
@@ -245,10 +266,12 @@
             </button>
             @endunless
 
-            {{-- Live Search Input (Triggers main form search) --}}
+            {{-- Live Search Input (Triggers main form search or pipeline reload) --}}
             <div class="monday-search-box">
                 <i class="feather-search search-icon"></i>
-                <input type="text" placeholder="Search this board" value="{{ request('search') }}" onkeydown="if(event.key==='Enter'){ const f=document.querySelector('.lead-filter-form'); if(f){ const inp=f.querySelector('#lead-live-search'); if(inp){ inp.value=this.value; f.submit(); } } }">
+                <input type="text" id="mondaySearchInput" placeholder="Search this board" value="{{ request('search') }}"
+                    oninput="if(typeof window.onMondaySearchInput === 'function'){ window.onMondaySearchInput(this.value); }"
+                    onkeydown="if(event.key==='Enter'){ const f=document.querySelector('.lead-filter-form') || document.querySelector('#pipelineFilterForm'); if(f){ const inp=f.querySelector('#lead-live-search') || f.querySelector('#pipelineSearchInput'); if(inp){ inp.value=this.value; } f.submit(); } }">
             </div>
 
             {{-- Filter Toggle Button (opens advanced filters collapse) --}}
@@ -261,15 +284,16 @@
             </button>
 
             @php
-                if (request()->routeIs('created.deals.*')) {
-                    $bucketBaseRoute = 'created.deals.index';
-                } elseif (request()->routeIs('leads.table.*')) {
-                    $bucketBaseRoute = 'leads.table.index';
+                if (request()->routeIs('created.deals.*') || $isDealRoute) {
+                    $bucketBaseRoute = $isPipelineActive ? 'created.deals.pipeline' : 'created.deals.index';
+                } elseif (request()->routeIs('leads.table.*') || request()->is('new-leads-table*')) {
+                    $bucketBaseRoute = $isPipelineActive ? 'leads.table.pipeline' : 'leads.table.index';
                 } else {
                     $bucketBaseRoute = 'modern.leads.index';
                 }
             @endphp
             {{-- Buckets Filter Dropdown --}}
+            @if(isset($buckets) && $buckets->isNotEmpty())
             <div class="dropdown">
                 <button class="monday-tool-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="feather-layers"></i>
@@ -288,29 +312,34 @@
                     @endforeach
                 </div>
             </div>
+            @endif
         </div>
 
         {{-- Right tools --}}
         <div class="d-flex align-items-center gap-2">
-            <span class="fs-12 text-muted fw-semibold d-none d-md-inline">
+            <!-- <span class="fs-12 text-muted fw-semibold d-none d-md-inline">
                 Total: <strong class="text-dark">{{ $totalLeadsCount ?? 0 }}</strong>
-            </span>
+            </span> -->
         </div>
     </div>
+    @endif
 </div>
 
+@if($showToolbar ?? true)
 @php
     if (request()->routeIs('leads.table.pipeline*')) {
         $filterPageRoute = 'leads.table.pipeline';
     } elseif (request()->routeIs('leads.table.*')) {
         $filterPageRoute = 'leads.table.index';
+    } elseif (request()->routeIs('created.deals.pipeline*')) {
+        $filterPageRoute = 'created.deals.pipeline';
     } elseif (request()->routeIs('created.deals.*')) {
         $filterPageRoute = 'created.deals.index';
     } else {
         $filterPageRoute = 'modern.leads.index';
     }
 
-    $ignoredFilterParams = ['bucket_id', 'lead_status', 'per_page', 'page', 'view'];
+    $ignoredFilterParams = ['bucket_id', 'lead_status', 'per_page', 'page', 'view', 'context'];
     if (request()->routeIs('leads.table.*')) {
         $ignoredFilterParams[] = 'lead_engagement_status';
     }
@@ -495,6 +524,7 @@
 
     </div>
 </div>
+@endif
 
 {{-- SweetAlert --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -574,7 +604,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const savedState = localStorage.getItem('lead_filter_collapse_state');
         if (savedState === 'open') {
             filterCollapse.classList.add('show');
-        } else if (savedState === 'closed' && !{{ $hasActiveFilters ? 'true' : 'false' }}) {
+        } else if (savedState === 'closed' && !{{ (!empty($hasActiveFilters)) ? 'true' : 'false' }}) {
             filterCollapse.classList.remove('show');
         }
 

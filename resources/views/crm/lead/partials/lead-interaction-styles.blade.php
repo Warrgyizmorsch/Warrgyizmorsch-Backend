@@ -287,3 +287,145 @@
         color: #334155;
     }
 
+    /* Next Activity Styling (HubSpot / Monday style) */
+    .deal-activity-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-align: left;
+        max-width: 100%;
+        width: 100%;
+        text-decoration: none !important;
+        cursor: pointer;
+        padding: 5px 8px;
+        border-radius: 8px;
+        background: #ffffff;
+        border: 1px solid #eef2f6;
+        transition: all 0.15s ease;
+    }
+    .deal-activity-wrap:hover {
+        background-color: #f8fafc;
+        border-color: #cbd5e1;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .deal-activity-icon {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+    }
+    .deal-activity-wrap:hover .deal-activity-icon {
+        transform: scale(1.05);
+        border-color: #cbd5e1;
+    }
+    .deal-activity-icon.icon-email {
+        background: #eff6ff;
+        color: #2563eb;
+        border-color: #bfdbfe;
+    }
+    .deal-activity-icon.icon-call {
+        background: #f0fdf4;
+        color: #16a34a;
+        border-color: #bbf7d0;
+    }
+    .deal-activity-icon.icon-meeting {
+        background: #faf5ff;
+        color: #9333ea;
+        border-color: #e9d5ff;
+    }
+    .deal-activity-icon.icon-whatsapp {
+        background: #f0fdf4;
+        color: #15803d;
+        border-color: #bbf7d0;
+    }
+    .deal-activity-icon.icon-task {
+        background: #f8fafc;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+    .deal-activity-icon.icon-empty {
+        background: #f8fafc;
+        color: #94a3b8;
+        border: 1px dashed #cbd5e1;
+    }
+    .deal-activity-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+        line-height: 1.25;
+        flex: 1;
+    }
+    .deal-activity-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #0073ea;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 220px;
+    }
+    .deal-activity-wrap:hover .deal-activity-title {
+        color: #0056b3;
+    }
+    .deal-activity-meta {
+        font-size: 11px;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+    }
+    .deal-activity-date {
+        font-size: 11px;
+        color: #475569;
+        white-space: nowrap;
+        line-height: 1.25;
+    }
+    .activity-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+    .activity-status-dot.dot-teal {
+        background-color: #0ea5e9;
+    }
+    .activity-status-dot.dot-green {
+        background-color: #10b981;
+    }
+    .activity-status-dot.dot-red {
+        background-color: #ef4444;
+    }
+    .activity-status-dot.dot-muted {
+        background-color: #94a3b8;
+    }
+    .activity-schedule-btn {
+        font-size: 11px;
+        font-weight: 600;
+        color: #0073ea;
+        background: transparent;
+        border: none;
+        padding: 0;
+        text-decoration: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .activity-schedule-btn:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+
+

@@ -1109,7 +1109,10 @@ class LeadTableController extends Controller
                 'bucket:id,name,bucket_color',
                 'category:id,category_name',
                 'tags:id,name,color',
-                'latestMessage.user:id,name'
+                'latestMessage.user:id,name',
+                'events' => function ($eQ) {
+                    $eQ->with('assignedUser:id,name')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+                }
             ]);
 
             $this->applyPipelineFilters($request, $cardQuery);
@@ -1180,7 +1183,10 @@ class LeadTableController extends Controller
             'bucket:id,name,bucket_color',
             'category:id,category_name',
             'tags:id,name,color',
-            'latestMessage.user:id,name'
+            'latestMessage.user:id,name',
+            'events' => function ($eQ) {
+                $eQ->with('assignedUser:id,name')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+            }
         ]);
 
         $this->applyPipelineFilters($request, $cardQuery);

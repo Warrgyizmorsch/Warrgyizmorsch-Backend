@@ -69,100 +69,23 @@
     @include('crm.lead.partials.lead-interaction-styles')
 </style>
 
-<div class="container-fluid px-4 py-3 pipeline-wrapper">
-    {{-- Page Header & Toolbar --}}
-    <div class="card border-0 shadow-sm rounded-3 mb-3">
-        <div class="card-body p-3">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                {{-- Title & View Switcher --}}
-                <div class="d-flex align-items-center gap-3">
-                    <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                        <i class="ti ti-layout-kanban me-2 text-primary"></i>Created Deals Pipeline
-                    </h5>
-                    
-                    {{-- Dedicated View Switcher (Created Deals Table View <-> Created Deals Pipeline View) --}}
-                    <div class="btn-group btn-group-sm" role="group" aria-label="View Switcher">
-                        <a href="{{ route('created.deals.index') }}" class="btn btn-outline-primary view-switcher-btn d-flex align-items-center gap-1">
-                            <i class="ti ti-list"></i> Table View
-                        </a>
-                        <button type="button" class="btn btn-primary view-switcher-btn active d-flex align-items-center gap-1">
-                            <i class="ti ti-layout-kanban"></i> Pipeline View
-                        </button>
-                    </div>
-                </div>
+<div class="nxl-content px-3 py-2 pipeline-wrapper">
+    {{-- Unified Monday Header & Tools Component --}}
+    <x-lead.tools
+        :title="'Created Deals'"
+        :buckets="$buckets ?? collect()"
+        :filterBucket="$buckets ?? collect()"
+        :totalLeadsCount="collect($columnCards ?? [])->sum('total')"
+        :owners="$owners ?? collect()"
+        :categories="$categories ?? collect()"
+        :sources="$sources ?? []"
+        :showViewSwitcher="true"
+    />
 
-                {{-- Action / Add Lead Button --}}
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" onclick="openArrangeColumnsModal()" class="btn btn-outline-secondary btn-sm rounded-2 d-flex align-items-center gap-1" title="Arrange / Reorder Stages">
-                        <i class="ti ti-adjustments-horizontal"></i> Arrange Columns
-                    </button>
-                    {{-- <a href="{{ route('lead.create') }}" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
-                        <i class="ti ti-plus"></i> Add New Lead
-                    </a> --}}
-                </div>
-            </div>
-
-            {{-- Filters Bar --}}
-            <form id="pipelineFilterForm" class="mt-3 pt-3 border-top border-light">
-                <div class="row g-2 align-items-center">
-                    {{-- Search Input --}}
-                    <div class="col-md-3 col-sm-6">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-light border-end-0"><i class="ti ti-search text-muted"></i></span>
-                            <input type="text" name="search" id="pipelineSearchInput" class="form-control bg-light border-start-0 fs-13" placeholder="Search name, phone, email, company..." value="{{ request('search') }}">
-                        </div>
-                    </div>
-
-                    {{-- Lead Owner Filter --}}
-                    <div class="col-md-2 col-sm-6">
-                        <select name="owner_id" class="form-select form-select-sm fs-13 pipeline-filter-control">
-                            <option value="">All Owners</option>
-                            <option value="null" {{ request('owner_id') === 'null' ? 'selected' : '' }}>Unassigned</option>
-                            @foreach($owners as $owner)
-                                <option value="{{ $owner->id }}" {{ request('owner_id') == $owner->id ? 'selected' : '' }}>
-                                    {{ $owner->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Category Filter --}}
-                    <div class="col-md-2 col-sm-6">
-                        <select name="category_id" class="form-select form-select-sm fs-13 pipeline-filter-control">
-                            <option value="">All Categories</option>
-                            @foreach($categories as $cat)
-                                <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>
-                                    {{ $cat->category_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Source Filter --}}
-                    <div class="col-md-2 col-sm-6">
-                        <select name="source" class="form-select form-select-sm fs-13 pipeline-filter-control">
-                            <option value="">All Sources</option>
-                            @foreach($sources as $src)
-                                <option value="{{ $src }}" {{ request('source') == $src ? 'selected' : '' }}>
-                                    {{ $src }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Date From --}}
-                    <div class="col-md-1.5 col-sm-6">
-                        <input type="date" name="from" class="form-control form-control-sm fs-13 pipeline-filter-control" placeholder="From Date" value="{{ request('from') }}">
-                    </div>
-
-                    {{-- Date To --}}
-                    <div class="col-md-1.5 col-sm-6">
-                        <input type="date" name="to" class="form-control form-control-sm fs-13 pipeline-filter-control" placeholder="To Date" value="{{ request('to') }}">
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
+    {{-- Hidden form to back the AJAX search and filtering for Pipeline board --}}
+    <form id="pipelineFilterForm" style="display: none;">
+        <input type="hidden" name="search" id="pipelineSearchInput" value="{{ request('search') }}">
+    </form>
 
     {{-- Pipeline Kanban Board --}}
     <div class="pipeline-board" id="pipelineBoard">
@@ -537,6 +460,7 @@
     function initFilters() {
         const form = document.getElementById('pipelineFilterForm');
         const searchInput = document.getElementById('pipelineSearchInput');
+        const mondaySearch = document.getElementById('mondaySearchInput');
         const filterControls = document.querySelectorAll('.pipeline-filter-control');
 
         filterControls.forEach(ctrl => {
@@ -553,11 +477,23 @@
                 }, 400);
             });
         }
+
+        window.onMondaySearchInput = function(val) {
+            if (searchInput) searchInput.value = val;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                reloadPipelineBoard();
+            }, 400);
+        };
     }
 
     function reloadPipelineBoard() {
-        const form = document.getElementById('pipelineFilterForm');
-        const formData = new FormData(form);
+        const form = document.getElementById('pipelineFilterForm') || document.querySelector('.lead-filter-form');
+        const formData = form ? new FormData(form) : new FormData();
+        const mondaySearch = document.getElementById('mondaySearchInput');
+        if (mondaySearch && mondaySearch.value) {
+            formData.set('search', mondaySearch.value);
+        }
         const params = new URLSearchParams(formData);
 
         fetch(`${pipelineUrl}?${params.toString()}`, {

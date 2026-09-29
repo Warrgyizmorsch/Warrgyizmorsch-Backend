@@ -86,26 +86,31 @@
 </style>
 @endpush
 
+@php
+    $currentContext = $context ?? request('context', 'leads');
+    $contextTitle = $currentContext === 'deals' ? 'Created Deals' : 'New Leads Table';
+@endphp
+
 @section('content')
-<div class="nxl-content px-3 py-3">
-    <!-- Header -->
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+<div class="nxl-content px-3 py-2">
+    {{-- Unified Monday Header & Tabs Component --}}
+    <x-lead.tools
+        :title="$contextTitle"
+        :showToolbar="false"
+        :showViewSwitcher="true"
+    />
+
+    <!-- Subheader & Action bar -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-1">
         <div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary" style="width: 38px; height: 38px;">
-                    <i class="feather-calendar fs-5"></i>
-                </span>
-                <div>
-                    <h4 class="fw-bold text-dark mb-0 fs-18">Upcoming Events & Meetings</h4>
-                    <p class="text-muted fs-12 mb-0">Track discovery calls, meetings, projections, and conversions across leads</p>
-                </div>
-            </div>
+            <h5 class="fw-bold text-dark mb-0 fs-16 d-flex align-items-center gap-2">
+                <i class="feather-calendar text-primary"></i>
+                {{ $currentContext === 'deals' ? 'Deal Activities & Next Steps' : 'Lead Activities & Next Steps' }}
+            </h5>
+            <p class="text-muted fs-12 mb-0">Track upcoming discovery calls, scheduled meetings, and follow-ups across {{ $currentContext === 'deals' ? 'deals' : 'leads' }}</p>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <a href="{{ route('leads.table.index') }}" class="btn btn-sm btn-outline-secondary rounded-2">
-                <i class="feather-arrow-left me-1"></i> Back to Leads
-            </a>
-            <a href="{{ route('events.index') }}" class="btn btn-sm btn-light border rounded-2">
+            <a href="{{ route('events.index', ['context' => $currentContext]) }}" class="btn btn-sm btn-light border rounded-2">
                 <i class="feather-rotate-cw me-1"></i> Refresh
             </a>
         </div>
@@ -185,6 +190,7 @@
     <div class="card border-0 shadow-2xs rounded-3 mb-4 bg-white">
         <div class="card-body p-3">
             <form method="GET" action="{{ route('events.index') }}" id="eventsFilterForm" class="row g-2 align-items-end">
+                <input type="hidden" name="context" value="{{ $currentContext }}">
                 <input type="hidden" name="quick_filter" id="input_quick_filter" value="{{ request('quick_filter', 'all_upcoming') }}">
 
                 <!-- Search -->
@@ -236,7 +242,7 @@
                     <button type="submit" class="btn btn-sm btn-primary rounded-2 px-3 flex-fill">
                         <i class="feather-filter me-1"></i> Filter
                     </button>
-                    <a href="{{ route('events.index') }}" class="btn btn-sm btn-light border rounded-2 px-3">
+                    <a href="{{ route('events.index', ['context' => $currentContext]) }}" class="btn btn-sm btn-light border rounded-2 px-3">
                         Reset
                     </a>
                 </div>

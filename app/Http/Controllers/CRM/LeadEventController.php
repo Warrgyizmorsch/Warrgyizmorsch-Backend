@@ -38,6 +38,7 @@ class LeadEventController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        $context = $request->input('context'); // 'deals' or 'leads'
         $today = Carbon::today()->toDateString();
         $tomorrow = Carbon::tomorrow()->toDateString();
         $startOfWeek = Carbon::now()->startOfWeek()->toDateString();
@@ -46,18 +47,37 @@ class LeadEventController extends Controller
         // Base query with relationships
         $query = LeadEvent::with(['lead.user', 'assignedUser', 'creator']);
 
+        // Base KPI counts query respecting user permissions
+        $kpiBase = LeadEvent::query();
+
+        // Context filtering: deals vs leads
+        if ($context === 'deals') {
+            $query->whereHas('lead', function ($lq) {
+                $lq->where('is_converted', 1);
+            });
+            $kpiBase->whereHas('lead', function ($lq) {
+                $lq->where('is_converted', 1);
+            });
+        } elseif ($context === 'leads') {
+            $query->whereHas('lead', function ($lq) {
+                $lq->where(function ($q) {
+                    $q->whereNull('is_converted')->orWhere('is_converted', 0);
+                });
+            });
+            $kpiBase->whereHas('lead', function ($lq) {
+                $lq->where(function ($q) {
+                    $q->whereNull('is_converted')->orWhere('is_converted', 0);
+                });
+            });
+        }
+
         // Permission filtering: Telecaller (role_id == 3) only sees own leads/assignments
-        if ($user->role_id == 3) {
+        if ($user && $user->role_id == 3) {
             $query->where(function ($q) use ($user) {
                 $q->whereHas('lead', function ($leadQ) use ($user) {
                     $leadQ->where('lead_owner', $user->id);
                 })->orWhere('assigned_to', $user->id);
             });
-        }
-
-        // Base KPI counts query respecting user permissions
-        $kpiBase = LeadEvent::query();
-        if ($user->role_id == 3) {
             $kpiBase->where(function ($q) use ($user) {
                 $q->whereHas('lead', function ($leadQ) use ($user) {
                     $leadQ->where('lead_owner', $user->id);
@@ -166,7 +186,7 @@ class LeadEventController extends Controller
             ]);
         }
 
-        return view('crm.events.index', compact('events', 'kpis', 'users', 'quickFilter'));
+        return view('crm.events.index', compact('events', 'kpis', 'users', 'quickFilter', 'context'));
     }
 
     /**

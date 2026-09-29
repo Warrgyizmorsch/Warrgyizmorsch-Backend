@@ -69,37 +69,23 @@
     @include('crm.lead.partials.lead-interaction-styles')
 </style>
 
-<div class="container-fluid px-4 py-3 pipeline-wrapper">
-    {{-- Page Header & Toolbar --}}
-    <div class="card border-0 shadow-sm rounded-3 mb-3">
-        <div class="card-body p-3">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                {{-- Title & View Switcher --}}
-                <div class="d-flex align-items-center gap-3">
-                    {{-- Dedicated View Switcher (New Leads Table View <-> New Leads Pipeline View) --}}
-                    <div class="btn-group btn-group-sm" role="group" aria-label="View Switcher">
-                        <a href="{{ route('leads.table.index') }}" class="btn btn-outline-primary view-switcher-btn d-flex align-items-center gap-1">
-                            <i class="feather-list"></i> Table View
-                        </a>
-                        <button type="button" class="btn btn-primary view-switcher-btn active d-flex align-items-center gap-1">
-                            <i class="feather-columns"></i> Pipeline View
-                        </button>
-                    </div>
-                </div>
+<div class="nxl-content px-3 py-2 pipeline-wrapper">
+    {{-- Unified Monday Header & Tools Component --}}
+    <x-lead.tools
+        :title="'New Leads Table'"
+        :buckets="$buckets ?? collect()"
+        :filterBucket="$buckets ?? collect()"
+        :totalLeadsCount="collect($columnCards ?? [])->sum('total')"
+        :owners="$owners ?? collect()"
+        :categories="$categories ?? collect()"
+        :sources="$sources ?? []"
+        :showViewSwitcher="true"
+    />
 
-                {{-- Action / Add Lead Button --}}
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" onclick="openArrangeColumnsModal()" class="btn btn-outline-secondary btn-sm rounded-2 d-flex align-items-center gap-1" title="Arrange / Reorder Stages">
-                        <i class="feather-sliders"></i> Arrange Columns
-                    </button>
-                    <button type="button" onclick="openCreateModal()" class="btn btn-primary btn-sm rounded-2 d-flex align-items-center gap-1">
-                        <i class="feather-plus"></i> Add New Lead
-                    </button>
-                </div>
-            </div>
-
-        </div>
-    </div>
+    {{-- Hidden form to back the AJAX search and filtering for Pipeline board --}}
+    <form id="pipelineFilterForm" style="display: none;">
+        <input type="hidden" name="search" id="pipelineSearchInput" value="{{ request('search') }}">
+    </form>
 
     {{-- Pipeline Kanban Board --}}
     <div class="pipeline-board" id="pipelineBoard">
@@ -472,6 +458,7 @@
     function initFilters() {
         const form = document.getElementById('pipelineFilterForm');
         const searchInput = document.getElementById('pipelineSearchInput');
+        const mondaySearch = document.getElementById('mondaySearchInput');
         const filterControls = document.querySelectorAll('.pipeline-filter-control');
 
         filterControls.forEach(ctrl => {
@@ -488,11 +475,23 @@
                 }, 400);
             });
         }
+
+        window.onMondaySearchInput = function(val) {
+            if (searchInput) searchInput.value = val;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                reloadPipelineBoard();
+            }, 400);
+        };
     }
 
     function reloadPipelineBoard() {
-        const form = document.getElementById('pipelineFilterForm');
-        const formData = new FormData(form);
+        const form = document.getElementById('pipelineFilterForm') || document.querySelector('.lead-filter-form');
+        const formData = form ? new FormData(form) : new FormData();
+        const mondaySearch = document.getElementById('mondaySearchInput');
+        if (mondaySearch && mondaySearch.value) {
+            formData.set('search', mondaySearch.value);
+        }
         const params = new URLSearchParams(formData);
 
         fetch(`${pipelineUrl}?${params.toString()}`, {
@@ -540,6 +539,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         initDragAndDrop();
         setupInfiniteScroll();
+        initFilters();
     });
 })();
 </script>
