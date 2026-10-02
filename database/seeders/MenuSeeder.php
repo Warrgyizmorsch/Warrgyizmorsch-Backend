@@ -126,6 +126,7 @@ class MenuSeeder extends Seeder
                 ['title' => 'Add Blog', 'route' => 'blog.create', 'icon' => 'feather-plus-circle', 'sort' => 2],
                 ['title' => 'Author', 'route' => 'author.index', 'icon' => 'feather-user', 'sort' => 3],
                 ['title' => 'Warrgyizmorsch Leads', 'route' => 'warr-leads.index', 'icon' => 'feather-inbox', 'sort' => 4],
+                ['title' => 'Ads Leads', 'route' => 'ads-leads.index', 'icon' => 'feather-target', 'sort' => 5],
             ];
             foreach ($seoChildren as $child) {
                 $routeId = $getRouteId($child['route']);
@@ -133,7 +134,7 @@ class MenuSeeder extends Seeder
             }
 
             // Warr Service Pages (Submenu under SEO)
-            $warrServicePagesId = $this->upsertMenu('Warr Service Pages', $seoId, 'feather-file', null, 5, $now);
+            $warrServicePagesId = $this->upsertMenu('Warr Service Pages', $seoId, 'feather-file', null, 6, $now);
             $warrPageChildren = [
                 ['title' => 'All Pages', 'route' => 'warr-service-pages.index', 'icon' => 'feather-list', 'sort' => 1],
                 ['title' => 'Create Page', 'route' => 'warr-service-pages.create', 'icon' => 'feather-plus-circle', 'sort' => 2],
@@ -144,7 +145,7 @@ class MenuSeeder extends Seeder
             }
 
             // Warr Crud (Submenu under SEO)
-            $warrCrudId = $this->upsertMenu('Warr Crud', $seoId, 'feather-database', null, 6, $now);
+            $warrCrudId = $this->upsertMenu('Warr Crud', $seoId, 'feather-database', null, 7, $now);
             $warrCrudChildren = [
                 ['title' => 'Add Services', 'route' => 'warr-services.index', 'icon' => 'feather-tool', 'sort' => 1],
                 ['title' => 'Add Countries', 'route' => 'warr-countries.index', 'icon' => 'feather-flag', 'sort' => 2],
@@ -164,12 +165,20 @@ class MenuSeeder extends Seeder
                 foreach ($allActiveMenus as $m) {
                     $isAllowed = 1;
                     $rId = $role->id;
-                    if (strcasecmp($role->name, 'SEO') === 0) {
+                    $isSeo = strcasecmp($role->name, 'SEO') === 0;
+                    $isAdmin = strcasecmp($role->name, 'Admin') === 0;
+
+                    if ($isSeo) {
                         $isAllowed = ($m->id === $dashboardMenuId || in_array($m->id, $seoMenuIds, true)) ? 1 : 0;
+                    } elseif ($isAdmin) {
+                        $isAllowed = 1; // Admin has full access to all menus including SEO
+                    } else {
+                        // Other roles cannot see SEO menus
+                        if (in_array($m->id, $seoMenuIds, true)) {
+                            $isAllowed = 0;
+                        }
                     }
-                    if (strcasecmp($role->name, 'Admin') === 0 && in_array($m->id, $seoMenuIds, true)) {
-                        $isAllowed = 0;
-                    }
+
                     // Role 3 (Agent) restrictions if desired
                     if ($rId == 3 && in_array($m->title, ['Management', 'Roles', 'Routes', 'Menus', 'Users', 'Add User', 'List Users', 'Permissions'])) {
                         $isAllowed = 0;

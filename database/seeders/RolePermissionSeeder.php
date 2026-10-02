@@ -20,6 +20,7 @@ class RolePermissionSeeder extends Seeder
             'dashboard', 'blog.index', 'blog.create', 'blog.store', 'blog.edit', 'blog.update', 'blog.destroy',
             'author.index', 'author.store', 'author.edit', 'author.destroy',
             'warr-leads.index', 'warr-leads.updateWarrLead',
+            'ads-leads.index', 'ads-leads.sendToLead', 'ads-leads.destroy',
             'warr-service-pages.index', 'warr-service-pages.create', 'warr-service-pages.store',
             'warr-service-pages.edit', 'warr-service-pages.update', 'warr-service-pages.delete', 'warr-service-pages.cities',
             'warr-countries.index', 'warr-countries.store', 'warr-countries.destroy',
@@ -31,16 +32,26 @@ class RolePermissionSeeder extends Seeder
             $isSeo = strcasecmp($role->name, 'SEO') === 0;
             $isAdmin = strcasecmp($role->name, 'Admin') === 0;
             foreach ($menus as $menu) {
-                $allowed = $isSeo
-                    ? (($menu->id == $dashboardMenuId || in_array($menu->id, $seoMenuIds, true)) ? 1 : 0)
-                    : (($isAdmin && in_array($menu->id, $seoMenuIds, true)) ? 0 : 1);
+                if ($isSeo) {
+                    $allowed = ($menu->id == $dashboardMenuId || in_array($menu->id, $seoMenuIds, true)) ? 1 : 0;
+                } elseif ($isAdmin) {
+                    $allowed = 1;
+                } else {
+                    $allowed = in_array($menu->id, $seoMenuIds, true) ? 0 : 1;
+                }
                 DB::table('role_permissions')->updateOrInsert(
                     ['role_id' => $role->id, 'menu_id' => $menu->id],
                     ['route_id' => null, 'is_allowed' => $allowed, 'created_at' => $now, 'updated_at' => $now]
                 );
             }
             foreach ($routes as $route) {
-                $allowed = $isSeo ? (in_array($route->route_name, $seoRoutes, true) ? 1 : 0) : 1;
+                if ($isSeo) {
+                    $allowed = in_array($route->route_name, $seoRoutes, true) ? 1 : 0;
+                } elseif ($isAdmin) {
+                    $allowed = 1;
+                } else {
+                    $allowed = in_array($route->route_name, $seoRoutes, true) ? 0 : 1;
+                }
                 DB::table('role_permissions')->updateOrInsert(
                     ['role_id' => $role->id, 'route_id' => $route->id],
                     ['menu_id' => null, 'is_allowed' => $allowed, 'created_at' => $now, 'updated_at' => $now]

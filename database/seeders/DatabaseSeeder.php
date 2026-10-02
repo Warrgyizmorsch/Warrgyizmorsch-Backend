@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             MenuSeeder::class,
             RolePermissionSeeder::class,
             LeadStatusSeeder::class,
+            AdsLeadMenuSeeder::class,
         ]);
     }
 }
