@@ -84,6 +84,9 @@ class RouteSeeder extends Seeder
             ['name' => 'Delete Warr City', 'route_name' => 'warr-cities.destroy'],
             ['name' => 'Store Warr Service', 'route_name' => 'warr-services.store'],
             ['name' => 'Delete Warr Service', 'route_name' => 'warr-services.destroy'],
+            ['name' => 'Ads Leads', 'route_name' => 'ads-leads.index'],
+            ['name' => 'Send Ads Lead to CRM', 'route_name' => 'ads-leads.sendToLead'],
+            ['name' => 'Delete Ads Lead', 'route_name' => 'ads-leads.destroy'],
         ];
 
         foreach ($routes as $route) {

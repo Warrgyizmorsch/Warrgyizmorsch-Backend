@@ -15,6 +15,7 @@ use App\Http\Controllers\CRM\LeadSourceController;
 use App\Http\Controllers\CRM\WarrLeadController;
 use App\Http\Controllers\CRM\WarrServicePageController;
 use App\Http\Controllers\CRM\SubjectPageController;
+use App\Http\Controllers\CRM\AdsLeadController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
@@ -183,6 +184,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('warr-leads')->group(function () {
             Route::get('/', [WarrLeadController::class, 'index'])->name('warr-leads.index');
             Route::put('/{lead}', [WarrLeadController::class, 'update'])->name('warr-leads.updateWarrLead');
+        });
+        Route::prefix('ads-leads')->name('ads-leads.')->group(function () {
+            Route::get('/', [AdsLeadController::class, 'index'])->name('index');
+            Route::post('/{id}/send-to-lead', [AdsLeadController::class, 'sendToLead'])->name('sendToLead');
+            Route::delete('/{id}', [AdsLeadController::class, 'destroy'])->name('destroy');
         });
         Route::prefix('warr-service-pages')->group(function () {
             Route::get('/', [WarrServicePageController::class, 'index'])->name('warr-service-pages.index');

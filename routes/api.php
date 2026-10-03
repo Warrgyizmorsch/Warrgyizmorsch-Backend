@@ -10,6 +10,7 @@ Route::get('/blogs', [BlogApiController::class, 'index']);
 Route::get('/blogs/{slug}', [BlogApiController::class, 'show']);
 
 Route::post('/warr-leads', [WarrLeadController::class, 'store']);
+Route::post('/v1/ads-lead', [WarrLeadController::class, 'adsLead']);
 
 Route::get('/warr-service-pages', [WarrServicePageApiController::class, 'serviceSlugSitemap']);
 Route::get('/warr-service-pages/sitemap', [WarrServicePageApiController::class, 'serviceSlugSitemap']);
