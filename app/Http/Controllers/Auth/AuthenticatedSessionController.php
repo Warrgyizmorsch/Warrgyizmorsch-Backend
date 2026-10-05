@@ -41,6 +41,13 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // 🚫 Block users with role 'User' (role_id: 2 / client accounts) from logging in
+        if ($user && ($user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user')) {
+            throw ValidationException::withMessages([
+                'email' => 'Access denied. Accounts with "User" role are not allowed to login.',
+            ]);
+        }
+
         // Validate password first
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -125,6 +132,12 @@ class AuthenticatedSessionController extends Controller
             return back()->with('error', 'Invalid OTP code. Please try again.');
         }
 
+        $user = User::find($userId);
+        if (!$user || $user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user') {
+            session()->forget(['otp_user_id', 'otp_code', 'otp_expires_at', 'otp_remember', 'remember_email', 'remember_password']);
+            return redirect()->route('login')->withErrors(['email' => 'Access denied. Accounts with "User" role are not allowed to login.']);
+        }
+
         // Complete Login
         Auth::loginUsingId($userId, true);
         $request->session()->regenerate();
@@ -204,6 +217,12 @@ class AuthenticatedSessionController extends Controller
 
         if (!$userId) {
             return redirect()->route('login');
+        }
+
+        $user = User::find($userId);
+        if (!$user || $user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user') {
+            session()->forget(['otp_user_id', 'otp_code', 'otp_expires_at', 'otp_remember', 'otp_verified_user_id', 'remember_email', 'remember_password']);
+            return redirect()->route('login')->withErrors(['email' => 'Access denied. Accounts with "User" role are not allowed to login.']);
         }
 
         // Invalidate prior login history

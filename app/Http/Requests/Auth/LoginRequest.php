@@ -44,12 +44,20 @@ class LoginRequest extends FormRequest
 
          $user = User::where('email', $this->input('email'))->first();
           if ($user && !$user->is_active) {
-        RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->throttleKey());
 
-        throw ValidationException::withMessages([
-            'email' => 'Your account is inactive. Please contact admin.',
-        ]);
-    }
+            throw ValidationException::withMessages([
+                'email' => 'Your account is inactive. Please contact admin.',
+            ]);
+        }
+
+        if ($user && ($user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user')) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Access denied. Accounts with "User" role are not allowed to login.',
+            ]);
+        }
 
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());

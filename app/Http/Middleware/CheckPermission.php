@@ -19,6 +19,14 @@ class CheckPermission
             return redirect()->route('login')->withErrors(['msg' => 'Please login to continue']);
         }
 
+        // 🚫 Block clients / accounts with role 'User' (role_id: 2) from accessing any CRM page
+        if ($user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            return redirect()->route('login')->withErrors(['email' => 'Access denied. Accounts with "User" role are not allowed to login.']);
+        }
+
         if ($user->role_id == 1) {
             return $next($request);
         }
