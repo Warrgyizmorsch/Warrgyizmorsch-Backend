@@ -1446,6 +1446,23 @@
                                                             <span>Assigned: <strong class="text-dark">${escapeHistoryHtml(assignedTo)}</strong></span>
                                                         </span>
                                                     </div>
+                                                    ${ev.google_meet_link ? `
+                                                        <div class="mt-2 pt-2 border-top d-flex align-items-center justify-content-between flex-wrap gap-1">
+                                                            <a href="${escapeHistoryHtml(ev.google_meet_link)}" target="_blank" class="btn btn-xs py-0.5 px-2 rounded-pill d-inline-flex align-items-center gap-1 text-decoration-none shadow-2xs" style="background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; font-size: 11px; font-weight: 600;" title="Join Google Meet">
+                                                                <i class="feather-video fs-10 text-primary"></i>
+                                                                <span>Join Google Meet</span>
+                                                                <i class="feather-external-link fs-9 opacity-75"></i>
+                                                            </a>
+                                                            <div class="d-flex align-items-center gap-1">
+                                                                <button type="button" class="btn btn-xs btn-light border py-0.5 px-1.5 rounded-pill fs-10 text-muted" onclick="navigator.clipboard.writeText('${escapeHistoryHtml(ev.google_meet_link)}'); toastr.info('Meet link copied!');" title="Copy Google Meet Link">
+                                                                    <i class="feather-copy me-1"></i>Copy
+                                                                </button>
+                                                                <a href="https://api.whatsapp.com/send?text=${encodeURIComponent('Hi, here is the Google Meet link for our scheduled meeting: ' + (ev.title || 'Discussion') + '\n\nJoin URL: ' + ev.google_meet_link)}" target="_blank" class="btn btn-xs btn-light border py-0.5 px-1.5 rounded-pill fs-10 text-success" title="Share link via WhatsApp">
+                                                                    <i class="feather-share-2 me-1"></i>WhatsApp
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    ` : ''}
                                                 </div>
                                             </div>
                                         </div>
@@ -1833,6 +1850,23 @@
                             <span>${ev.assigned_user_name || 'Unassigned'}</span>
                         </div>
                     </div>
+                    ${ev.google_meet_link ? `
+                        <div class="mt-2 pt-1.5 border-top d-flex align-items-center justify-content-between flex-wrap gap-1">
+                            <a href="${escapeHistoryHtml(ev.google_meet_link)}" target="_blank" class="btn btn-xs py-0.5 px-2 rounded-pill d-inline-flex align-items-center gap-1 text-decoration-none shadow-2xs" style="background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; font-size: 11px; font-weight: 600;" title="Join Google Meet">
+                                <i class="feather-video fs-10 text-primary"></i>
+                                <span>Join Google Meet</span>
+                                <i class="feather-external-link fs-9 opacity-75"></i>
+                            </a>
+                            <div class="d-flex align-items-center gap-1">
+                                <button type="button" class="btn btn-xs btn-light border py-0.5 px-1.5 rounded-pill fs-10 text-muted" onclick="navigator.clipboard.writeText('${escapeHistoryHtml(ev.google_meet_link)}'); toastr.info('Meet link copied!');" title="Copy Google Meet Link">
+                                    <i class="feather-copy me-1"></i>Copy
+                                </button>
+                                <a href="https://api.whatsapp.com/send?text=${encodeURIComponent('Hi, here is the Google Meet link for our scheduled meeting: ' + (ev.title || 'Discussion') + '\n\nJoin URL: ' + ev.google_meet_link)}" target="_blank" class="btn btn-xs btn-light border py-0.5 px-1.5 rounded-pill fs-10 text-success" title="Share link via WhatsApp">
+                                    <i class="feather-share-2 me-1"></i>WhatsApp
+                                </a>
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>`;
         });
         html += '</div>';
@@ -1854,6 +1888,7 @@
         document.getElementById('lem_event_date').value = new Date().toISOString().split('T')[0];
         document.getElementById('lem_start_time').value = '10:00';
         document.getElementById('lem_end_time').value = '';
+        if (document.getElementById('lem_additional_attendees')) document.getElementById('lem_additional_attendees').value = '';
         document.getElementById('lem_description').value = '';
         document.getElementById('leadEventModalTitle').textContent = 'Schedule Lead Event';
         document.getElementById('lem_submit_btn').textContent = 'Save Event';
@@ -1885,6 +1920,7 @@
             start_time: document.getElementById('lem_start_time').value,
             end_time: document.getElementById('lem_end_time').value || null,
             assigned_to: document.getElementById('lem_assigned_to').value || null,
+            additional_attendees: document.getElementById('lem_additional_attendees')?.value || null,
             description: document.getElementById('lem_description').value || null,
         };
 
@@ -1908,6 +1944,12 @@
             if (data.status === 'success') {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('leadEventModal'));
                 if (modal) modal.hide();
+
+                if (data.google_error && window.toastr) {
+                    toastr.warning('Notice: ' + data.google_error, 'Google Calendar', { timeOut: 7000 });
+                } else if (data.google_meet_link && window.toastr) {
+                    toastr.success('Google Meet link generated!', 'Google Calendar');
+                }
 
                 refreshLeadEventsData(leadId);
             } else {
@@ -2084,7 +2126,15 @@
             if (dateInput) dateInput.value = today;
 
             if (window.Swal) {
-                Swal.fire({ icon: 'success', title: 'Scheduled!', text: data.message || 'Activity scheduled successfully', timer: 1500, showConfirmButton: false });
+                if (data.google_error) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Saved in CRM',
+                        html: `Activity scheduled in CRM, but Google Calendar could not sync.<br><small class="text-danger">${escapeHistoryHtml(data.google_error)}</small><br><br><a href="{{ route('google.workspace.connect') }}" target="_blank" class="btn btn-sm btn-primary mt-2">Connect Google Calendar</a>`,
+                    });
+                } else {
+                    Swal.fire({ icon: 'success', title: 'Scheduled!', text: data.message || 'Activity scheduled successfully', timer: 1800, showConfirmButton: false });
+                }
             } else {
                 alert(data.message || 'Activity scheduled successfully');
             }

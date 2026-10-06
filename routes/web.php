@@ -357,6 +357,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/{event}', [LeadEventController::class, 'destroy'])->name('destroy');
         Route::get('/lead/{lead}', [LeadEventController::class, 'getLeadEvents'])->name('lead.events');
     });
+
+    // Google Workspace Calendar Integration
+    Route::prefix('google-workspace')->name('google.workspace.')->group(function () {
+        Route::get('/connect', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'connect'])->name('connect');
+        Route::get('/callback', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'callback'])->name('callback');
+        Route::get('/status', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'status'])->name('status');
+    });
 });
 
 Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
@@ -542,3 +549,4 @@ Route::get('/run-lead-events-test-suite', function () {
 });
 
 require __DIR__ . '/auth.php';
+

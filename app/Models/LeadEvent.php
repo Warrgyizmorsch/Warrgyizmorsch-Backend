@@ -34,6 +34,9 @@ class LeadEvent extends Model
         'title',
         'description',
         'status',
+        'google_event_id',
+        'google_meet_link',
+        'attendees',
         'completed_at',
         'created_by',
     ];
@@ -41,6 +44,7 @@ class LeadEvent extends Model
     protected $casts = [
         'event_date' => 'date:Y-m-d',
         'completed_at' => 'datetime',
+        'attendees' => 'array',
     ];
 
     /**

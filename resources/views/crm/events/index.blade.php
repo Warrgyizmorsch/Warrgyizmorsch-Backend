@@ -101,6 +101,19 @@
     />
 
     <!-- Subheader & Action bar -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+            <i class="feather-check-circle me-1"></i> {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+            <i class="feather-alert-triangle me-1"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 px-1">
         <div>
             <h5 class="fw-bold text-dark mb-0 fs-16 d-flex align-items-center gap-2">
@@ -110,6 +123,22 @@
             <p class="text-muted fs-12 mb-0">Track upcoming discovery calls, scheduled meetings, and follow-ups across {{ $currentContext === 'deals' ? 'deals' : 'leads' }}</p>
         </div>
         <div class="d-flex align-items-center gap-2">
+            @php
+                $googleService = app(\App\Services\GoogleWorkspaceService::class);
+                $googleConn = $googleService->isConnected();
+                $isGoogleConnected = !empty($googleConn['connected']);
+            @endphp
+            @if($isGoogleConnected)
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1.5 d-flex align-items-center gap-1.5 fs-11" title="Connected: {{ $googleConn['email'] ?? 'Google Calendar' }}">
+                    <i class="feather-check-circle fs-12"></i>
+                    <span>Google Calendar Connected ({{ $googleConn['email'] ?? 'Active' }})</span>
+                </span>
+            @else
+                <a href="{{ route('google.workspace.connect') }}" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1.5 rounded-2 shadow-sm" title="Google Calendar is not linked. Click to sign in and auto-generate Meet links.">
+                    <i class="feather-alert-triangle fs-12"></i>
+                    <span>Connect Google Calendar</span>
+                </a>
+            @endif
             <a href="{{ route('events.index', ['context' => $currentContext]) }}" class="btn btn-sm btn-light border rounded-2">
                 <i class="feather-rotate-cw me-1"></i> Refresh
             </a>
@@ -311,6 +340,21 @@
                                     @endif
                                     @if($event->description)
                                         <div class="text-muted fs-11 text-truncate" style="max-width: 180px;" title="{{ $event->description }}">{{ $event->description }}</div>
+                                    @endif
+                                    @if($event->google_meet_link)
+                                        <div class="mt-1.5 d-flex align-items-center gap-1">
+                                            <a href="{{ $event->google_meet_link }}" target="_blank" class="btn btn-xs py-0.5 px-2 rounded-pill d-inline-flex align-items-center gap-1 text-decoration-none shadow-2xs" style="background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; font-size: 11px; font-weight: 600;" title="Join Google Meet Video Call">
+                                                <i class="feather-video fs-10 text-primary"></i>
+                                                <span>Join Meet</span>
+                                                <i class="feather-external-link fs-9 opacity-75"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-xs btn-light border py-0.5 px-1.5 rounded-pill text-muted" onclick="navigator.clipboard.writeText('{{ $event->google_meet_link }}'); toastr.info('Meet link copied!');" title="Copy Google Meet Link">
+                                                <i class="feather-copy fs-9"></i>
+                                            </button>
+                                            <a href="https://api.whatsapp.com/send?text={{ urlencode('Hi, here is the Google Meet link for our scheduled meeting: ' . ($event->title ?: 'Discussion') . "\n\nJoin URL: " . $event->google_meet_link) }}" target="_blank" class="btn btn-xs btn-light border py-0.5 px-1.5 rounded-pill text-success" title="Share via WhatsApp">
+                                                <i class="feather-share-2 fs-9"></i>
+                                            </a>
+                                        </div>
                                     @endif
                                 </td>
 

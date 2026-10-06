@@ -344,6 +344,35 @@
                 <input type="hidden" id="lem_lead_id" name="lead_id">
 
                 <div class="modal-body p-4 bg-light">
+                    <!-- Google Calendar Integration Callout -->
+                    @php
+                        $gwService = app(\App\Services\GoogleWorkspaceService::class);
+                        $gwStatus = $gwService->isConnected();
+                        $gwConnected = !empty($gwStatus['connected']);
+                    @endphp
+                    @if($gwConnected)
+                        <div class="mb-3 p-2.5 rounded-3 border d-flex align-items-center gap-2" style="background: #f0fdf4; border-color: #bbf7d0 !important;">
+                            <i class="feather-video text-success fs-5 flex-shrink-0"></i>
+                            <div class="fs-11 text-dark">
+                                <span class="fw-bold text-success">Google Calendar & Meet Connected ({{ $gwStatus['email'] ?? 'Active' }})</span>
+                                <div class="text-muted" style="font-size: 10.5px;">Auto-creates Google Calendar invite with Meet link for client & assignee.</div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="mb-3 p-2.5 rounded-3 border d-flex align-items-center justify-content-between gap-2" style="background: #fffbeb; border-color: #fde68a !important;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="feather-alert-triangle text-warning fs-5 flex-shrink-0"></i>
+                                <div class="fs-11 text-dark">
+                                    <span class="fw-bold text-dark">Google Calendar Disconnected</span>
+                                    <div class="text-muted" style="font-size: 10.5px;">Sign in to generate Google Meet links automatically.</div>
+                                </div>
+                            </div>
+                            <a href="{{ route('google.workspace.connect') }}" class="btn btn-xs btn-primary fw-semibold text-white text-nowrap px-2 py-1" style="font-size: 11px;">
+                                <i class="feather-link-2 me-1"></i> Connect Now
+                            </a>
+                        </div>
+                    @endif
+
                     <!-- Event Type -->
                     <div class="mb-3">
                         <label class="form-label fs-12 fw-bold text-dark mb-1">Event Type <span class="text-danger">*</span></label>
@@ -390,6 +419,16 @@
                                 @endif
                             </select>
                         </div>
+                    </div>
+
+                    <!-- Additional Attendees (Emails) -->
+                    <div class="mb-3">
+                        <label class="form-label fs-12 fw-bold text-dark mb-1 d-flex align-items-center justify-content-between">
+                            <span><i class="feather-mail me-1 text-primary"></i> Invite Extra Guests / Attendees</span>
+                            <small class="text-muted fw-normal fs-11">Optional</small>
+                        </label>
+                        <input type="text" class="form-control form-control-sm" id="lem_additional_attendees" name="additional_attendees" placeholder="colleague@example.com, manager@domain.com">
+                        <small class="text-muted fs-11 mt-1 d-block">Comma-separated emails. Google Calendar will send invite emails & Meet links to them too.</small>
                     </div>
 
                     <!-- Description -->
@@ -583,11 +622,29 @@
                 </div>
 
                 <div class="mb-2">
+                    <label class="form-label fs-11 fw-bold text-muted mb-0.5 d-flex align-items-center justify-content-between">
+                        <span><i class="feather-mail me-1 text-primary"></i> Invite Extra Guests (Emails)</span>
+                        <small class="text-muted fw-normal" style="font-size: 10px;">Optional</small>
+                    </label>
+                    <input type="text" class="form-control form-control-sm" id="ue_additional_attendees" name="additional_attendees" placeholder="manager@example.com, partner@client.com" style="font-size: 12px;">
+                    <small class="text-muted d-block mt-0.5" style="font-size: 10px;">Comma-separated emails to auto-send Google Meet invites.</small>
+                </div>
+
+                <div class="mb-2">
                     <label class="form-label fs-11 fw-bold text-muted mb-0.5">Notes / Description</label>
                     <textarea class="form-control form-control-sm" id="ue_description" name="description" rows="2" placeholder="Key agenda or preparation notes..." style="font-size: 12px;"></textarea>
                 </div>
 
-                <div class="text-end">
+                <div class="d-flex align-items-center justify-content-between mt-2 pt-1 border-top">
+                    @if(!empty($gwConnected))
+                        <span class="fs-10 text-success fw-medium d-inline-flex align-items-center gap-1">
+                            <i class="feather-video fs-11"></i> Meet link will be generated
+                        </span>
+                    @else
+                        <a href="{{ route('google.workspace.connect') }}" class="fs-10 text-warning-emphasis fw-bold d-inline-flex align-items-center gap-1 text-decoration-none" title="Click to connect Google Calendar">
+                            <i class="feather-alert-triangle fs-11 text-warning"></i> Connect Google Calendar
+                        </a>
+                    @endif
                     <button type="submit" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1" id="ue_submit_btn">
                         <i class="feather-calendar fs-12"></i> Schedule Activity
                     </button>

@@ -7,6 +7,7 @@ use App\Models\LeadEvent;
 use App\Models\LeadHistory;
 use App\Models\Leads;
 use App\Models\User;
+use App\Services\GoogleWorkspaceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -235,6 +236,82 @@ class LeadEventController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        // Integrate with Google Workspace Calendar & Meet
+        try {
+            $attendeeEmails = [];
+            
+            // Client email
+            $leadUser = $lead->user;
+            $clientEmail = $leadUser?->email ?? ($lead->client_details['email'] ?? null);
+            if (!empty($clientEmail) && filter_var($clientEmail, FILTER_VALIDATE_EMAIL)) {
+                $attendeeEmails[] = trim($clientEmail);
+            }
+
+            // Assigned Executive email
+            $assignedUserId = $event->assigned_to ?: ($lead->lead_owner ?: Auth::id());
+            $assignedUser = $assignedUserId ? User::find($assignedUserId) : null;
+            if ($assignedUser && !empty($assignedUser->email) && filter_var($assignedUser->email, FILTER_VALIDATE_EMAIL)) {
+                $attendeeEmails[] = trim($assignedUser->email);
+            }
+
+            // Creator email if different
+            $creator = Auth::user();
+            if ($creator && !empty($creator->email) && filter_var($creator->email, FILTER_VALIDATE_EMAIL)) {
+                $attendeeEmails[] = trim($creator->email);
+            }
+
+            // Additional guest attendee emails from request
+            if ($request->filled('additional_attendees')) {
+                $rawAdditional = $request->input('additional_attendees');
+                $extraList = is_array($rawAdditional)
+                    ? $rawAdditional
+                    : preg_split('/[,;\s]+/', (string) $rawAdditional);
+
+                foreach ($extraList as $extEmail) {
+                    $extEmail = trim($extEmail);
+                    if (!empty($extEmail) && filter_var($extEmail, FILTER_VALIDATE_EMAIL)) {
+                        $attendeeEmails[] = $extEmail;
+                    }
+                }
+            }
+
+            $attendeeEmails = array_values(array_unique($attendeeEmails));
+
+            $eventDateStr = is_object($event->event_date) ? $event->event_date->format('Y-m-d') : $event->event_date;
+            $startIso = Carbon::parse($eventDateStr . ' ' . $event->start_time)->format('Y-m-d\TH:i:s');
+            $endIso = !empty($event->end_time)
+                ? Carbon::parse($eventDateStr . ' ' . $event->end_time)->format('Y-m-d\TH:i:s')
+                : Carbon::parse($startIso)->addMinutes(30)->format('Y-m-d\TH:i:s');
+
+            $summary = $event->title ?: ($event->type_label . ' with ' . ($leadUser?->name ?? 'Lead #' . $lead->id));
+            $descriptionNotes = ($event->description ? $event->description . "\n\n" : '') .
+                "Lead: " . ($leadUser?->name ?? 'N/A') . "\n" .
+                "Phone: " . ($leadUser?->contact_no ?? 'N/A') . "\n" .
+                "Assigned To: " . ($assignedUser?->name ?? 'N/A');
+
+            $workspaceService = app(GoogleWorkspaceService::class);
+            $gResult = $workspaceService->createCalendarEvent(
+                $summary,
+                $descriptionNotes,
+                $startIso,
+                $endIso,
+                $attendeeEmails
+            );
+
+            $googleError = null;
+            if (!empty($gResult['success'])) {
+                $event->google_event_id = $gResult['event_id'] ?? null;
+                $event->google_meet_link = $gResult['meet_link'] ?? null;
+                $event->attendees = $attendeeEmails;
+                $event->save();
+            } else {
+                $googleError = $gResult['error'] ?? 'Google Calendar is not connected.';
+            }
+        } catch (\Throwable $ge) {
+            $googleError = $ge->getMessage();
+            \Illuminate\Support\Facades\Log::warning('Google Calendar scheduling failed gracefully: ' . $ge->getMessage());
+        }
+
         // Audit Trail via LeadHistory (DOES NOT touch lead status/bucket)
         try {
             LeadHistory::create([
@@ -247,6 +324,7 @@ class LeadEventController extends Controller
                     'event_date' => $event->event_date->format('Y-m-d'),
                     'start_time' => $event->start_time,
                     'title' => $event->title,
+                    'google_meet_link' => $event->google_meet_link,
                 ]),
             ]);
         } catch (\Throwable $e) {
@@ -255,9 +333,19 @@ class LeadEventController extends Controller
 
         $event->load(['assignedUser', 'creator']);
 
+        $message = 'Event scheduled successfully.';
+        if (!empty($event->google_meet_link)) {
+            $message = 'Event scheduled & Google Meet link generated!';
+        } elseif (!empty($googleError)) {
+            $message = "Event scheduled in CRM. (Notice: Google Calendar sync failed: {$googleError})";
+        }
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Event scheduled successfully.',
+            'message' => $message,
+            'google_meet_link' => $event->google_meet_link,
+            'google_connected' => !empty($event->google_meet_link),
+            'google_error' => $googleError,
             'event' => $event,
         ]);
     }
@@ -388,6 +476,14 @@ class LeadEventController extends Controller
         $event->status = LeadEvent::STATUS_CANCELLED;
         $event->save();
 
+        if (!empty($event->google_event_id)) {
+            try {
+                app(GoogleWorkspaceService::class)->cancelCalendarEvent($event->google_event_id);
+            } catch (\Throwable $ge) {
+                \Illuminate\Support\Facades\Log::warning('Google Calendar event cancellation failed: ' . $ge->getMessage());
+            }
+        }
+
         try {
             LeadHistory::create([
                 'lead_id' => $event->lead_id,
@@ -411,7 +507,7 @@ class LeadEventController extends Controller
      */
     public function reschedule(Request $request, $id)
     {
-        $event = LeadEvent::with('lead')->findOrFail($id);
+        $event = LeadEvent::with(['lead.user'])->findOrFail($id);
 
         if (!$this->checkLeadAccess($event->lead)) {
             return response()->json([
@@ -442,6 +538,49 @@ class LeadEventController extends Controller
         $event->status = $validated['status'] ?? LeadEvent::STATUS_SCHEDULED;
         $event->save();
 
+        // Reschedule on Google Calendar if event id exists
+        if (!empty($event->google_event_id)) {
+            try {
+                $workspaceService = app(GoogleWorkspaceService::class);
+                $workspaceService->cancelCalendarEvent($event->google_event_id);
+
+                $eventDateStr = is_object($event->event_date) ? $event->event_date->format('Y-m-d') : $event->event_date;
+                $startIso = Carbon::parse($eventDateStr . ' ' . $event->start_time)->format('Y-m-d\TH:i:s');
+                $endIso = !empty($event->end_time)
+                    ? Carbon::parse($eventDateStr . ' ' . $event->end_time)->format('Y-m-d\TH:i:s')
+                    : Carbon::parse($startIso)->addMinutes(30)->format('Y-m-d\TH:i:s');
+
+                $summary = $event->title ?: ($event->type_label . ' (Rescheduled)');
+                $descriptionNotes = ($event->description ? $event->description . "\n\n" : '') . "Rescheduled Meeting.";
+
+                $attendees = $event->attendees ?? [];
+                if (empty($attendees)) {
+                    if (!empty($event->lead?->user?->email)) {
+                        $attendees[] = $event->lead->user->email;
+                    }
+                    if (Auth::user()?->email) {
+                        $attendees[] = Auth::user()->email;
+                    }
+                }
+
+                $gResult = $workspaceService->createCalendarEvent(
+                    $summary,
+                    $descriptionNotes,
+                    $startIso,
+                    $endIso,
+                    $attendees
+                );
+
+                if (!empty($gResult['success'])) {
+                    $event->google_event_id = $gResult['event_id'] ?? null;
+                    $event->google_meet_link = $gResult['meet_link'] ?? null;
+                    $event->save();
+                }
+            } catch (\Throwable $ge) {
+                \Illuminate\Support\Facades\Log::warning('Google Calendar event reschedule failed: ' . $ge->getMessage());
+            }
+        }
+
         try {
             LeadHistory::create([
                 'lead_id' => $event->lead_id,
@@ -450,6 +589,7 @@ class LeadEventController extends Controller
                 'changes' => json_encode([
                     'from' => "{$oldDate} {$oldTime}",
                     'to' => "{$event->event_date->format('Y-m-d')} {$event->start_time}",
+                    'google_meet_link' => $event->google_meet_link,
                 ]),
             ]);
         } catch (\Throwable $e) {
@@ -502,6 +642,9 @@ class LeadEventController extends Controller
                     'assigned_user_name' => optional($ev->assignedUser)->name ?? 'Unassigned',
                     'creator_name' => optional($ev->creator)->name ?? 'System',
                     'completed_at' => $ev->completed_at ? $ev->completed_at->format('d M Y, h:i A') : null,
+                    'google_meet_link' => $ev->google_meet_link,
+                    'google_event_id' => $ev->google_event_id,
+                    'attendees' => $ev->attendees,
                     'is_overdue' => ($ev->status === LeadEvent::STATUS_SCHEDULED && $ev->event_date && $ev->event_date->isPast() && !$ev->event_date->isToday()),
                     'is_today' => ($ev->event_date && $ev->event_date->isToday()),
                 ];
@@ -529,8 +672,17 @@ class LeadEventController extends Controller
 
         $leadId = $event->lead_id;
         $eventLabel = $event->type_label;
+        $googleEventId = $event->google_event_id;
 
         $event->delete();
+
+        if (!empty($googleEventId)) {
+            try {
+                app(GoogleWorkspaceService::class)->cancelCalendarEvent($googleEventId);
+            } catch (\Throwable $ge) {
+                \Illuminate\Support\Facades\Log::warning('Google Calendar event deletion failed: ' . $ge->getMessage());
+            }
+        }
 
         try {
             LeadHistory::create([
