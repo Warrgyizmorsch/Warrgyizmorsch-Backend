@@ -54,11 +54,26 @@ class WarrLeadController extends Controller
 
         // Status
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $statusVal = strtolower(trim($request->status));
+            if ($statusVal === 'hold') {
+                $query->whereIn('status', ['hold', 'dead']);
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
+        // Status counts for top metric cards
+        $newCount = WarrLead::where(function($q) {
+            $q->where('status', 'new')->orWhereNull('status')->orWhere('status', '');
+        })->count();
+        $holdCount = WarrLead::where('status', 'hold')->count();
+        $deadCount = WarrLead::where('status', 'dead')->count();
+        $holdTotalCount = WarrLead::whereIn('status', ['hold', 'dead'])->count();
+        $executedCount = WarrLead::where('status', 'executed')->count();
+
         // Pagination + keep query string
-        $leads = $query->paginate(10)->withQueryString();
+        $perPage = (int) $request->input('per_page', 15);
+        $leads = $query->paginate($perPage)->withQueryString();
 
         // Filtered count (after filters)
         $filteredLeadCount = $leads->total();
@@ -69,7 +84,12 @@ class WarrLeadController extends Controller
             'page_url',
             'statuses',
             'totalLeadsCount',
-            'filteredLeadCount'
+            'filteredLeadCount',
+            'newCount',
+            'holdCount',
+            'deadCount',
+            'holdTotalCount',
+            'executedCount'
         ));
     }
 

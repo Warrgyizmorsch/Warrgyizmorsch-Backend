@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block access to sensitive files
+    RewriteRule ^(\.env|\.git|storage/logs|composer\.(json|lock)|package\.(json|lock)) - [F,L,NC]
+
+    # Don't rewrite if request already starts with /public/
+    RewriteCond %{REQUEST_URI} !^/public/
+
+    # Forward all asset requests and routes to the public directory
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
