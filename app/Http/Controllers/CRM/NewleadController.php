@@ -34,7 +34,7 @@ class NewleadController extends Controller
             $digitsOnly = preg_replace('/\D+/', '', $search);
 
             // 1. Direct query on User table for Name, Email, Contact No
-            $users = User::where(function ($q) use ($search, $digitsOnly) {
+            $usersQuery = User::where(function ($q) use ($search, $digitsOnly) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('email', 'like', "%{$search}%")
                       ->orWhere('contact_no', 'like', "%{$search}%");
@@ -42,7 +42,21 @@ class NewleadController extends Controller
                         $q->orWhere('contact_no', 'like', "%{$digitsOnly}%")
                           ->orWhereRaw("REPLACE(REPLACE(contact_no, ' ', ''), '+', '') LIKE ?", ['%' . $digitsOnly . '%']);
                     }
-                })
+                });
+
+            // If user is Executive (Role 3), only suggest users for leads owned by this executive
+            if (auth()->check() && auth()->user()->role_id == 3) {
+                $executiveLeadUids = Leads::where('lead_owner', auth()->id())
+                    ->where(function($q) {
+                        $q->where('is_archived', 0)->orWhereNull('is_archived');
+                    })
+                    ->pluck('uid')
+                    ->filter()
+                    ->unique();
+                $usersQuery->whereIn('id', $executiveLeadUids);
+            }
+
+            $users = $usersQuery
                 ->select('id', 'name', 'email', 'contact_no')
                 ->limit(20)
                 ->get();
@@ -52,8 +66,12 @@ class NewleadController extends Controller
             // 2. Map associated lead status if exists
             $leadsByUser = collect();
             if (!empty($userIds)) {
-                $leadsByUser = Leads::whereIn('uid', $userIds)
-                    ->select('id', 'uid', 'business_name', 'lead_status')
+                $leadsQuery = Leads::whereIn('uid', $userIds)
+                    ->select('id', 'uid', 'business_name', 'lead_status', 'lead_owner');
+                if (auth()->check() && auth()->user()->role_id == 3) {
+                    $leadsQuery->where('lead_owner', auth()->id());
+                }
+                $leadsByUser = $leadsQuery
                     ->get()
                     ->keyBy('uid');
             }
@@ -284,21 +302,128 @@ class NewleadController extends Controller
         if ($request->view === 'pipeline') {
             $pipelineLeads = (clone $query)->orderBy('created_at', 'desc')->take(200)->get();
 
-            $pipelineUids = $pipelineLeads->pluck('uid')->filter()->unique();
-            $pipelineDuplicateGroup = collect();
-            if ($pipelineUids->isNotEmpty()) {
-                $pipelineDuplicateGroup = Leads::whereIn('uid', $pipelineUids)
-                    ->select('id', 'uid')
-                    ->get()
-                    ->groupBy('uid');
+            $pipelinePhones = [];
+            $pipelineEmails = [];
+            $pipelineUids = [];
+
+            foreach ($pipelineLeads as $l) {
+                if ($l->uid) {
+                    $pipelineUids[] = (int)$l->uid;
+                }
+                if ($l->user) {
+                    $rawPhone = trim((string)$l->user->contact_no);
+                    $cleanPhone = preg_replace('/\D+/', '', $rawPhone);
+                    if ($rawPhone !== '') {
+                        $pipelinePhones[] = $rawPhone;
+                    }
+                    if (strlen($cleanPhone) >= 6) {
+                        $pipelinePhones[] = $cleanPhone;
+                        if (strlen($cleanPhone) >= 10) {
+                            $pipelinePhones[] = substr($cleanPhone, -10);
+                        }
+                    }
+                    $cleanEmail = strtolower(trim((string)$l->user->email));
+                    if (!empty($cleanEmail)) {
+                        $pipelineEmails[] = $cleanEmail;
+                    }
+                }
             }
 
-            $pipelineLeads->transform(function ($lead) use ($pipelineDuplicateGroup) {
-                $matching = $pipelineDuplicateGroup->get($lead->uid, collect());
-                $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
+            $pipelinePhones = array_values(array_unique(array_filter($pipelinePhones)));
+            $pipelineEmails = array_values(array_unique(array_filter($pipelineEmails)));
+            $pipelineUids = array_values(array_unique(array_filter($pipelineUids)));
 
-                $lead->duplicate_count = $otherIds->count();
-                $lead->duplicate_ids = $otherIds;
+            $pipelineUsers = collect();
+            if (!empty($pipelinePhones) || !empty($pipelineEmails) || !empty($pipelineUids)) {
+                $pipelineUsers = User::where(function ($q) use ($pipelinePhones, $pipelineEmails, $pipelineUids) {
+                    if (!empty($pipelineUids)) {
+                        $q->whereIn('id', $pipelineUids);
+                    }
+                    if (!empty($pipelinePhones)) {
+                        $q->orWhereIn('contact_no', $pipelinePhones);
+                        foreach ($pipelinePhones as $p) {
+                            $q->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') = ?", [$p]);
+                        }
+                    }
+                    if (!empty($pipelineEmails)) {
+                        $q->orWhereIn('email', $pipelineEmails);
+                    }
+                })->select('id', 'contact_no', 'email')->get();
+            }
+
+            $pipeUserIds = $pipelineUsers->pluck('id')->merge($pipelineUids)->unique()->values();
+
+            $pipeMatchedLeads = collect();
+            if ($pipeUserIds->isNotEmpty()) {
+                $pipeMatchedQuery = Leads::whereIn('uid', $pipeUserIds)
+                    ->where(function($q) {
+                        $q->where('is_archived', 0)->orWhereNull('is_archived');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('is_converted')->orWhere('is_converted', 0);
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('lead_status')
+                          ->orWhere(DB::raw('LOWER(TRIM(lead_status))'), 'NOT LIKE', '%deal created%');
+                    });
+
+                if (auth()->check() && auth()->user()->role_id == 3) {
+                    $pipeMatchedQuery->where('lead_owner', auth()->id());
+                }
+
+                $pipeMatchedLeads = $pipeMatchedQuery->select('id', 'uid')->get();
+            }
+
+            $pipeUserMap = $pipelineUsers->keyBy('id');
+            $pipeLeadsByKey = collect();
+            foreach ($pipeMatchedLeads as $pml) {
+                $u = $pipeUserMap->get($pml->uid);
+                $keys = [];
+                if ($u) {
+                    $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                    if ($pClean !== '') {
+                        $keys[] = 'p:' . $pClean;
+                    }
+                    if (!empty($u->email)) {
+                        $keys[] = 'e:' . strtolower(trim($u->email));
+                    }
+                }
+                if (empty($keys) && $pml->uid) {
+                    $keys[] = 'u:' . $pml->uid;
+                }
+
+                foreach ($keys as $k) {
+                    if (!$pipeLeadsByKey->has($k)) {
+                        $pipeLeadsByKey->put($k, collect());
+                    }
+                    $pipeLeadsByKey->get($k)->push($pml->id);
+                }
+            }
+
+            $pipelineLeads->transform(function ($lead) use ($pipeUserMap, $pipeLeadsByKey) {
+                $u = $pipeUserMap->get($lead->uid) ?: $lead->user;
+                $matchedIds = collect();
+
+                if ($u) {
+                    $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                    if (strlen($pClean) >= 6) {
+                        $kPhone = 'p:' . substr($pClean, -10);
+                        $matchedIds = $matchedIds->merge($pipeLeadsByKey->get($kPhone, collect()));
+                    }
+                    if (!empty($u->email)) {
+                        $kEmail = 'e:' . strtolower(trim($u->email));
+                        $matchedIds = $matchedIds->merge($pipeLeadsByKey->get($kEmail, collect()));
+                    }
+                }
+                if ($matchedIds->isEmpty() && $lead->uid) {
+                    $matchedIds = $matchedIds->merge($pipeLeadsByKey->get('u:' . $lead->uid, collect()));
+                }
+
+                $uniqueIds = $matchedIds->unique()->values();
+                $totalCount = $uniqueIds->count();
+
+                $lead->duplicate_count = ($totalCount > 1) ? $totalCount : 0;
+                $lead->duplicate_ids = $uniqueIds->reject(fn($id) => $id == $lead->id)->values();
                 $lead->lastMessage = $lead->latestMessage;
 
                 return $lead;
@@ -310,22 +435,130 @@ class NewleadController extends Controller
         $leads = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends($request->query());
 
 
-        // Batch calculation for duplicate leads to eliminate N+1 queries
-        $uids = $leads->getCollection()->pluck('uid')->filter()->unique();
-        $duplicateGroup = collect();
-        if ($uids->isNotEmpty()) {
-            $duplicateGroup = Leads::whereIn('uid', $uids)
-                ->select('id', 'uid')
-                ->get()
-                ->groupBy('uid');
+        // Batch calculation for duplicate leads by Mobile, Email, and UID
+        $pageLeads = $leads->getCollection();
+        $phones = [];
+        $emails = [];
+        $uids = [];
+
+        foreach ($pageLeads as $l) {
+            if ($l->uid) {
+                $uids[] = (int)$l->uid;
+            }
+            if ($l->user) {
+                $rawPhone = trim((string)$l->user->contact_no);
+                $cleanPhone = preg_replace('/\D+/', '', $rawPhone);
+                if ($rawPhone !== '') {
+                    $phones[] = $rawPhone;
+                }
+                if ($cleanPhone !== '') {
+                    $phones[] = $cleanPhone;
+                }
+                $cleanEmail = strtolower(trim((string)$l->user->email));
+                if (!empty($cleanEmail)) {
+                    $emails[] = $cleanEmail;
+                }
+            }
         }
 
-        $leads->getCollection()->transform(function ($lead) use ($duplicateGroup) {
-            $matching = $duplicateGroup->get($lead->uid, collect());
-            $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
+        $phones = array_values(array_unique(array_filter($phones)));
+        $emails = array_values(array_unique(array_filter($emails)));
+        $uids = array_values(array_unique(array_filter($uids)));
 
-            $lead->duplicate_count = $otherIds->count();
-            $lead->duplicate_ids = $otherIds;
+        $matchingUsers = collect();
+        if (!empty($phones) || !empty($emails) || !empty($uids)) {
+            $matchingUsers = User::where(function ($q) use ($phones, $emails, $uids) {
+                if (!empty($uids)) {
+                    $q->whereIn('id', $uids);
+                }
+                if (!empty($phones)) {
+                    $q->orWhereIn('contact_no', $phones);
+                    foreach ($phones as $p) {
+                        $q->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') = ?", [$p]);
+                    }
+                }
+                if (!empty($emails)) {
+                    $q->orWhereIn('email', $emails);
+                }
+            })->select('id', 'contact_no', 'email')->get();
+        }
+
+        $allMatchedUserIds = $matchingUsers->pluck('id')->merge($uids)->unique()->values();
+
+        $allMatchedLeads = collect();
+        if ($allMatchedUserIds->isNotEmpty()) {
+            $matchedLeadsQuery = Leads::whereIn('uid', $allMatchedUserIds)
+                ->where(function($q) {
+                    $q->where('is_archived', 0)->orWhereNull('is_archived');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('is_converted')->orWhere('is_converted', 0);
+                })
+                ->where(function ($q) {
+                    $q->whereNull('lead_status')
+                      ->orWhere(DB::raw('LOWER(TRIM(lead_status))'), 'NOT LIKE', '%deal created%');
+                });
+
+            // For Role 3 (Executive), only count duplicate leads within their own assigned leads
+            if (auth()->check() && auth()->user()->role_id == 3) {
+                $matchedLeadsQuery->where('lead_owner', auth()->id());
+            }
+
+            $allMatchedLeads = $matchedLeadsQuery->select('id', 'uid')->get();
+        }
+
+        $userMap = $matchingUsers->keyBy('id');
+
+        $leadsByNormalizedKey = collect();
+        foreach ($allMatchedLeads as $ml) {
+            $u = $userMap->get($ml->uid);
+            $keys = [];
+            if ($u) {
+                $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                if ($pClean !== '') {
+                    $keys[] = 'p:' . $pClean;
+                }
+                if (!empty($u->email)) {
+                    $keys[] = 'e:' . strtolower(trim($u->email));
+                }
+            }
+            if (empty($keys) && $ml->uid) {
+                $keys[] = 'u:' . $ml->uid;
+            }
+
+            foreach ($keys as $k) {
+                if (!$leadsByNormalizedKey->has($k)) {
+                    $leadsByNormalizedKey->put($k, collect());
+                }
+                $leadsByNormalizedKey->get($k)->push($ml->id);
+            }
+        }
+
+        $leads->getCollection()->transform(function ($lead) use ($userMap, $leadsByNormalizedKey) {
+            $u = $userMap->get($lead->uid) ?: $lead->user;
+            $matchedIds = collect();
+
+            if ($u) {
+                $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                if ($pClean !== '') {
+                    $kPhone = 'p:' . $pClean;
+                    $matchedIds = $matchedIds->merge($leadsByNormalizedKey->get($kPhone, collect()));
+                }
+                if (!empty($u->email)) {
+                    $kEmail = 'e:' . strtolower(trim($u->email));
+                    $matchedIds = $matchedIds->merge($leadsByNormalizedKey->get($kEmail, collect()));
+                }
+            }
+            if ($matchedIds->isEmpty() && $lead->uid) {
+                $matchedIds = $matchedIds->merge($leadsByNormalizedKey->get('u:' . $lead->uid, collect()));
+            }
+
+            $uniqueIds = $matchedIds->unique()->values();
+            $totalCount = $uniqueIds->count();
+
+            // Total duplicate leads count (4 total leads with same phone/email -> Dup (4))
+            $lead->duplicate_count = ($totalCount > 1) ? $totalCount : 0;
+            $lead->duplicate_ids = $uniqueIds->reject(fn($id) => $id == $lead->id)->values();
             $lead->lastMessage = $lead->latestMessage;
 
             return $lead;
@@ -552,12 +785,14 @@ class NewleadController extends Controller
             $b->leads_count = $cnt;
         });
 
-        $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
+        $systemTotalLeadsCount = (empty($request->lead_status) || $request->lead_status === 'all') 
+            ? $leads->total() 
+            : ($totalLeadsCount ?? $leads->total());
 
-        if ($hasActiveFilter && empty($request->lead_status)) {
+        if (empty($request->lead_status) || $request->lead_status === 'all') {
             $childtotalLeadsCount = $leads->total();
         } else {
-            $childtotalLeadsCount = $childBuckets->sum('leads_count');
+            $childtotalLeadsCount = $totalLeadsCount ?? $childBuckets->sum('leads_count');
         }
 
         $filterBucket = $buckets;

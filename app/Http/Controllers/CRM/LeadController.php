@@ -467,10 +467,24 @@ class LeadController extends Controller
 
     public function update(Request $request, Leads $lead)
     {
+        $currentUserEmail = optional($lead->user)->email;
+        $submittedEmail = trim((string)$request->input('email', ''));
+        $submittedMobile = trim((string)$request->input('mobile', ''));
+        $ignoreId = $lead->uid ?: optional($lead->user)->id;
+
+        $isSameUserEmail = ($currentUserEmail && strtolower($submittedEmail) === strtolower($currentUserEmail));
+        $matchingUserByMobile = $submittedMobile ? User::where('contact_no', $submittedMobile)->first() : null;
+        $isLinkedUserEmail = ($matchingUserByMobile && strtolower((string)$matchingUserByMobile->email) === strtolower($submittedEmail));
+
+        $emailRule = ['required', 'email'];
+        if (!$isSameUserEmail && !$isLinkedUserEmail) {
+            $emailRule[] = \Illuminate\Validation\Rule::unique('users', 'email')->ignore($ignoreId);
+        }
+
         $data = $request->validate([
             // User fields
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $lead->uid,
+            'email' => $emailRule,
             'country_code' => 'nullable|string|max:10',
             'mobile' => 'required|string|max:20',
             'city' => 'nullable|string|max:255',
@@ -513,24 +527,32 @@ class LeadController extends Controller
         ]);
 
         // ----------------------------
-        // 1. Update related user
+        // 1. Update related user (Smart Decoupling if user is shared)
         // ----------------------------
-        if ($lead->user) {
+        $userData = [
+            'name' => $data['name'],
+            'email' => $data['email'] ?? null,
+            'contact_no' => $data['mobile'],
+            'country_code' => $data['country_code'] ?? null,
+            'city' => $data['city'] ?? null,
+            'state' => $data['state'] ?? null,
+            'pincode' => $data['pincode'] ?? null,
+            'address' => $data['address'] ?? null,
+        ];
+        $userColumns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
+        if (!empty($userColumns)) {
+            $userData = array_intersect_key($userData, array_flip($userColumns));
+        }
+
+        // Check if current user is shared with other leads
+        $isSharedUser = false;
+        if (!empty($lead->uid)) {
+            $isSharedUser = Leads::where('uid', $lead->uid)->where('id', '!=', $lead->id)->exists();
+        }
+
+        if ($lead->user && !$isSharedUser) {
+            // Dedicated user for this lead: safe to update directly
             $userOld = $lead->user->getOriginal();
-            $userData = [
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'contact_no' => $data['mobile'],
-                'country_code' => $data['country_code'] ?? null,
-                'city' => $data['city'] ?? null,
-                'state' => $data['state'] ?? null,
-                'pincode' => $data['pincode'] ?? null,
-                'address' => $data['address'] ?? null,
-            ];
-            $userColumns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
-            if (!empty($userColumns)) {
-                $userData = array_intersect_key($userData, array_flip($userColumns));
-            }
             $lead->user->update($userData);
 
             $userChanges = [];
@@ -551,6 +573,47 @@ class LeadController extends Controller
                     'changes' => $userChanges
                 ]);
             }
+        } else {
+            // User is shared with other leads OR lead has no user record attached!
+            // Decouple to avoid mutating other leads' data.
+            $targetUser = null;
+            if (!empty($data['mobile'])) {
+                $targetUser = User::where('contact_no', $data['mobile'])
+                    ->when($lead->uid, fn($q) => $q->where('id', '!=', $lead->uid))
+                    ->first();
+            }
+            if (!$targetUser && !empty($data['email'])) {
+                $targetUser = User::where('email', $data['email'])
+                    ->when($lead->uid, fn($q) => $q->where('id', '!=', $lead->uid))
+                    ->first();
+            }
+
+            if ($targetUser) {
+                $targetUser->update(array_filter($userData, fn($v) => !is_null($v)));
+                $lead->uid = $targetUser->id;
+                $lead->save();
+                $lead->setRelation('user', $targetUser);
+            } else {
+                $newUserData = array_merge($userData, [
+                    'email' => $data['email'] ?? ('user' . preg_replace('/\D+/', '', $data['mobile'] ?: (string)time()) . '@gmail.com'),
+                    'role_id' => 2,
+                    'password' => \Illuminate\Support\Facades\Hash::make('user@123'),
+                ]);
+                if (!empty($userColumns)) {
+                    $newUserData = array_intersect_key($newUserData, array_flip($userColumns));
+                }
+                $newUser = User::create($newUserData);
+                $lead->uid = $newUser->id;
+                $lead->save();
+                $lead->setRelation('user', $newUser);
+            }
+
+            LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => auth()->id(),
+                'action' => 'user_decoupled_updated',
+                'changes' => ['name' => ['old' => 'Shared Record', 'new' => $data['name']]]
+            ]);
         }
 
         $oldOwnerId = $lead->lead_owner;
