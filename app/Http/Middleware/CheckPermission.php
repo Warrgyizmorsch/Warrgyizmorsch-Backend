@@ -47,14 +47,18 @@ class CheckPermission
         );
 
         if ($dbRoute->wasRecentlyCreated) {
-            $roles = \App\Models\Role::where('is_deleted', false)->get();
-            foreach ($roles as $role) {
-                $isSeo = strcasecmp($role->name, 'SEO') === 0;
-                $allowed = ($role->id == 1 || !$isSeo) ? 1 : 0;
-                RolePermission::firstOrCreate(
-                    ['role_id' => $role->id, 'route_id' => $dbRoute->id],
-                    ['is_allowed' => $allowed]
-                );
+            try {
+                $roles = \App\Models\Role::where('is_deleted', false)->get();
+                foreach ($roles as $role) {
+                    $isSeo = strcasecmp($role->name, 'SEO') === 0;
+                    $allowed = ($role->id == 1 || !$isSeo) ? 1 : 0;
+                    RolePermission::firstOrCreate(
+                        ['role_id' => $role->id, 'route_id' => $dbRoute->id],
+                        ['is_allowed' => $allowed]
+                    );
+                }
+            } catch (\Throwable $e) {
+                // Ignore exception to ensure request flow is uninterrupted
             }
         }
 
@@ -83,8 +87,29 @@ class CheckPermission
                 ->where('route_id', $routeId)
                 ->first();
 
-            if ($rolePermission && $rolePermission->is_allowed) {
-                return $next($request); // role allows
+            if ($rolePermission) {
+                if ($rolePermission->is_allowed) {
+                    return $next($request); // role explicitly allows
+                } else {
+                    abort(403, 'Unauthorized: You don’t have permission to access this page.'); // role explicitly denied
+                }
+            } else {
+                // If route exists but role permission record wasn't created yet, apply default policy
+                $isSeo = strcasecmp(optional($user->role)->name ?? '', 'SEO') === 0;
+                $allowed = ($user->role_id == 1 || !$isSeo);
+
+                try {
+                    RolePermission::firstOrCreate(
+                        ['role_id' => $user->role_id, 'route_id' => $routeId],
+                        ['is_allowed' => $allowed ? 1 : 0]
+                    );
+                } catch (\Throwable $e) {
+                    // Ignore exception
+                }
+
+                if ($allowed) {
+                    return $next($request);
+                }
             }
         }
 

@@ -281,6 +281,79 @@
       opacity: 0.5;
     }
   </style>
+
+  {{-- Global Flash Message Alerts (SweetAlert2) --}}
+  @if(session('success'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: @json(session('success')),
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
+
+  @if(session('error'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'error',
+            title: @json(session('error')),
+            showConfirmButton: false,
+            timer: 4500,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
+
+  @if(session('warning'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'warning',
+            title: @json(session('warning')),
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
+
+  @if(session('info'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: @json(session('info')),
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
 </body>
 
 </html>
