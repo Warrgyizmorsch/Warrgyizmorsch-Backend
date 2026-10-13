@@ -40,6 +40,7 @@ class RouteSeeder extends Seeder
             ['name' => 'Bulk Delete Leads', 'route_name' => 'leads.bulkDelete'],
             ['name' => 'Archive Lead Action', 'route_name' => 'lead.archive'],
             ['name' => 'Restore Lead Action', 'route_name' => 'lead.restore'],
+            ['name' => 'Delete Lead Action', 'route_name' => 'lead.destroy'],
             ['name' => 'List Users', 'route_name' => 'users.index'],
             ['name' => 'Add User', 'route_name' => 'users.create'],
             ['name' => 'Login History', 'route_name' => 'users.session'],

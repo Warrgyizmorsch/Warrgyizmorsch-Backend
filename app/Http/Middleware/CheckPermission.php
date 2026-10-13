@@ -39,8 +39,24 @@ class CheckPermission
 
         $dbRoute = RouteModel::firstOrCreate(
             ['route_name' => $currentRouteName],
-            ['is_deleted' => false]
+            [
+                'name' => ucwords(str_replace(['.', '_', '-'], ' ', $currentRouteName)),
+                'method' => strtoupper($request->method() ?? 'GET'),
+                'is_deleted' => false,
+            ]
         );
+
+        if ($dbRoute->wasRecentlyCreated) {
+            $roles = \App\Models\Role::where('is_deleted', false)->get();
+            foreach ($roles as $role) {
+                $isSeo = strcasecmp($role->name, 'SEO') === 0;
+                $allowed = ($role->id == 1 || !$isSeo) ? 1 : 0;
+                RolePermission::firstOrCreate(
+                    ['role_id' => $role->id, 'route_id' => $dbRoute->id],
+                    ['is_allowed' => $allowed]
+                );
+            }
+        }
 
         if (!$dbRoute || $dbRoute->is_deleted) {
             abort(403, 'Unauthorized: Route not registered in system.');

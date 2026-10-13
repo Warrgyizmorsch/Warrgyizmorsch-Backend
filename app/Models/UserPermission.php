@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class UserPermission extends Model
 {
-    protected $fillable = ['user_id', 'route_id', 'menu_id'];
+    protected $fillable = ['user_id', 'route_id', 'menu_id', 'is_allowed'];
 
     protected static function booted()
     {
