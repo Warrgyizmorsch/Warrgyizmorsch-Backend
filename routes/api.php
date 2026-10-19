@@ -26,5 +26,6 @@ Route::get('/meta/fetch-leads/{formId}', [MetaWebhookController::class, 'fetchFo
 Route::match(['GET', 'POST'], '/twilio/voice', [\App\Http\Controllers\PluginController::class, 'handleTwilioVoiceWebhook'])->name('api.twilio.voice');
 Route::match(['GET', 'POST'], '/twilio/status-callback', [\App\Http\Controllers\PluginController::class, 'statusCallback'])->name('api.twilio.status.callback');
 Route::match(['GET', 'POST'], '/twilio/recording-callback', [\App\Http\Controllers\PluginController::class, 'statusCallback'])->name('api.twilio.recording.callback');
+Route::get('/twilio/recording/{id}', [\App\Http\Controllers\PluginController::class, 'streamRecording'])->name('api.twilio.recording');
 
 

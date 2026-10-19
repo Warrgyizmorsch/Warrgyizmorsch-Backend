@@ -354,4 +354,63 @@ class PluginController extends Controller
     {
         return view('back-end.plugins.dialer-window');
     }
+
+    /**
+     * Stream or download Twilio Call Recording audio without requiring Twilio login
+     */
+    public function streamRecording(int|string $id)
+    {
+        $log = TwilioCallLog::findOrFail($id);
+        if (empty($log->recording_url)) {
+            abort(404, 'No recording available for this call.');
+        }
+
+        $plugin = PluginSetting::where('plugin_key', 'twilio_call')->first();
+        $settings = $plugin?->settings ?? [];
+        $sid = $settings['account_sid'] ?? env('TWILIO_ACCOUNT_SID', '');
+        $token = $settings['auth_token'] ?? env('TWILIO_AUTH_TOKEN', '');
+
+        $url = $log->recording_url;
+        if (!str_ends_with(strtolower($url), '.mp3') && !str_ends_with(strtolower($url), '.wav')) {
+            $url .= '.mp3';
+        }
+
+        try {
+            $client = \Illuminate\Support\Facades\Http::timeout(30);
+            if (!empty($sid) && !empty($token)) {
+                $client = $client->withBasicAuth($sid, $token);
+            }
+            $response = $client->get($url);
+
+            if (!$response->successful()) {
+                // Retry without extension if .mp3 appended
+                $rawUrl = preg_replace('/\.mp3$/i', '', $url);
+                $fallback = \Illuminate\Support\Facades\Http::timeout(30);
+                if (!empty($sid) && !empty($token)) {
+                    $fallback = $fallback->withBasicAuth($sid, $token);
+                }
+                $response = $fallback->get($rawUrl);
+                
+                if (!$response->successful()) {
+                    Log::warning("Twilio recording fetch failed for log #{$id} [HTTP {$response->status()}]: {$url}");
+                    abort(404, 'Audio recording could not be retrieved from Twilio.');
+                }
+            }
+
+            $contentType = $response->header('Content-Type') ?: 'audio/mpeg';
+            $body = $response->body();
+
+            return response($body, 200, [
+                'Content-Type'        => $contentType,
+                'Content-Length'      => strlen($body),
+                'Content-Disposition' => 'inline; filename="call-recording-' . $log->id . '.mp3"',
+                'Accept-Ranges'       => 'bytes',
+                'Cache-Control'       => 'public, max-age=86400',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("Twilio recording stream exception for log #{$id}: " . $e->getMessage());
+            abort(500, 'Error streaming audio recording.');
+        }
+    }
 }
+

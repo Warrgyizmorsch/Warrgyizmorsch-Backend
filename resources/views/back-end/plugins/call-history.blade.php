@@ -356,12 +356,15 @@
                             </td>
                             <td>
                                 @if($log->recording_url)
+                                    @php
+                                        $audioUrl = route('call.history.recording', $log->id);
+                                    @endphp
                                     <div class="d-inline-flex align-items-center gap-2 bg-light rounded-3 p-1.5 border">
                                         <audio controls preload="none" style="height: 32px; width: 175px;">
-                                            <source src="{{ $log->recording_url }}" type="audio/mpeg">
+                                            <source src="{{ $audioUrl }}" type="audio/mpeg">
                                             Your browser does not support audio.
                                         </audio>
-                                        <a href="{{ $log->recording_url }}" target="_blank" download class="btn btn-sm btn-icon btn-light-primary rounded-circle" style="width: 30px; height: 30px;" title="Download Recording (MP3)">
+                                        <a href="{{ $audioUrl }}" target="_blank" download="recording-{{ $log->id }}.mp3" class="btn btn-sm btn-icon btn-light-primary rounded-circle" style="width: 30px; height: 30px;" title="Download Recording (MP3)">
                                             <i class="fa fa-download" style="font-size: 12px;"></i>
                                         </a>
                                     </div>
