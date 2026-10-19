@@ -89,6 +89,7 @@ class RouteSeeder extends Seeder
             ['name' => 'Send Ads Lead to CRM', 'route_name' => 'ads-leads.sendToLead'],
             ['name' => 'Delete Ads Lead', 'route_name' => 'ads-leads.destroy'],
             ['name' => 'Call History', 'route_name' => 'call.history'],
+            ['name' => 'Call Recording Stream', 'route_name' => 'call.history.recording'],
             ['name' => 'Call Plugins', 'route_name' => 'plugins.index'],
             ['name' => 'Twilio WebRTC Token', 'route_name' => 'twilio.token'],
             ['name' => 'Twilio Log Call', 'route_name' => 'twilio.log.call'],

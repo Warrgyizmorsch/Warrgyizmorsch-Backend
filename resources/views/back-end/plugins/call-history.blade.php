@@ -357,7 +357,9 @@
                             <td>
                                 @if($log->recording_url)
                                     @php
-                                        $audioUrl = route('call.history.recording', $log->id);
+                                        $audioUrl = \Illuminate\Support\Facades\Route::has('call.history.recording')
+                                            ? route('call.history.recording', $log->id)
+                                            : url('/call-history/recording/' . $log->id);
                                     @endphp
                                     <div class="d-inline-flex align-items-center gap-2 bg-light rounded-3 p-1.5 border">
                                         <audio controls preload="none" style="height: 32px; width: 175px;">
