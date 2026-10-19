@@ -90,6 +90,8 @@ class RouteSeeder extends Seeder
             ['name' => 'Delete Ads Lead', 'route_name' => 'ads-leads.destroy'],
             ['name' => 'Call History', 'route_name' => 'call.history'],
             ['name' => 'Call Plugins', 'route_name' => 'plugins.index'],
+            ['name' => 'Twilio WebRTC Token', 'route_name' => 'twilio.token'],
+            ['name' => 'Twilio Log Call', 'route_name' => 'twilio.log.call'],
         ];
 
         foreach ($routes as $route) {

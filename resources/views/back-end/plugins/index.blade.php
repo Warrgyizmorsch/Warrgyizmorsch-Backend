@@ -168,7 +168,7 @@
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="twilioSettingsForm" method="POST" action="{{ route('plugins.twilio.save') }}">
+            <form id="twilioSettingsForm" method="POST" action="{{ \Illuminate\Support\Facades\Route::has('plugins.twilio.save') ? route('plugins.twilio.save') : url('/admin/plugins/twilio/save') }}">
                 @csrf
                 <div class="modal-body p-4">
                     <div class="alert alert-light-primary d-flex align-items-center mb-4 border border-primary-subtle rounded-3 p-3">
@@ -278,7 +278,7 @@ function toggleWebRtcFields(enabled) {
 
 function togglePluginStatus(pluginKey, isActive) {
     $.ajax({
-        url: "{{ route('plugins.toggle') }}",
+        url: "{{ \Illuminate\Support\Facades\Route::has('plugins.toggle') ? route('plugins.toggle') : url('/admin/plugins/toggle-status') }}",
         type: "POST",
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         data: { plugin_key: pluginKey, is_active: isActive ? 1 : 0 },
@@ -298,7 +298,7 @@ function autoFixTwilioKeys() {
     btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin me-1"></i> Generating Keys...');
 
     $.ajax({
-        url: "{{ route('plugins.twilio.autofix') }}",
+        url: "{{ \Illuminate\Support\Facades\Route::has('plugins.twilio.autofix') ? route('plugins.twilio.autofix') : url('/admin/plugins/twilio/auto-fix-keys') }}",
         type: "POST",
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
         success: function(res) {

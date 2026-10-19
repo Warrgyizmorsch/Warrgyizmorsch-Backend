@@ -250,7 +250,7 @@ class TwilioSoftphoneController {
         try {
             $('#twilioStatusText').text('Connecting...').removeClass('bg-success bg-danger').addClass('bg-secondary');
             const res = await $.ajax({
-                url: "{{ route('twilio.token') }}",
+                url: "{{ \Illuminate\Support\Facades\Route::has('twilio.token') ? route('twilio.token') : url('/admin/twilio/token') }}",
                 type: "GET",
                 dataType: "json"
             });
@@ -311,7 +311,7 @@ class TwilioSoftphoneController {
 
     async refreshToken() {
         try {
-            const fresh = await $.get("{{ route('twilio.token') }}");
+            const fresh = await $.get("{{ \Illuminate\Support\Facades\Route::has('twilio.token') ? route('twilio.token') : url('/admin/twilio/token') }}");
             if (fresh && fresh.token && this.device) {
                 await this.device.updateToken(fresh.token);
                 console.log('Twilio token refreshed successfully');
@@ -566,7 +566,7 @@ class TwilioSoftphoneController {
 
     postCallLog(data) {
         $.ajax({
-            url: "{{ route('twilio.log.call') }}",
+            url: "{{ \Illuminate\Support\Facades\Route::has('twilio.log.call') ? route('twilio.log.call') : url('/admin/twilio/log-call') }}",
             type: "POST",
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             data: data
