@@ -74,7 +74,8 @@
                 if (strtolower(trim($menu->title ?? '')) === 'setting') {
                     $isPluginActive = request()->routeIs('plugins.*');
                     $html .= '<li class="nxl-item ' . ($isPluginActive ? 'active' : '') . '">';
-                    $html .= '<a href="' . route('plugins.index') . '" class="nxl-link">';
+                    $pluginUrl = \Illuminate\Support\Facades\Route::has('plugins.index') ? route('plugins.index') : url('/admin/plugins');
+                    $html .= '<a href="' . $pluginUrl . '" class="nxl-link">';
                     $html .= '<span class="nxl-mtext">Call Plugin</span>';
                     $html .= '</a></li>';
                 }
@@ -106,7 +107,7 @@
                     @if(in_array(strtolower(trim($menu->title ?? '')), ['whatsapp', 'emails']) && !$renderedCallHistory)
                         {{-- Twilio Call History right after Communication menus --}}
                         <li class="nxl-item {{ request()->routeIs('call.history*') ? 'active' : '' }}">
-                            <a href="{{ route('call.history', ['provider' => 'twilio']) }}" class="nxl-link">
+                            <a href="{{ \Illuminate\Support\Facades\Route::has('call.history') ? route('call.history', ['provider' => 'twilio']) : url('/call-history?provider=twilio') }}" class="nxl-link">
                                 <span class="nxl-micon"><i class="feather-phone-call"></i></span>
                                 <span class="nxl-mtext">Call History</span>
                             </a>
@@ -117,7 +118,7 @@
 
                 @if(!$renderedCallHistory)
                     <li class="nxl-item {{ request()->routeIs('call.history*') ? 'active' : '' }}">
-                        <a href="{{ route('call.history', ['provider' => 'twilio']) }}" class="nxl-link">
+                        <a href="{{ \Illuminate\Support\Facades\Route::has('call.history') ? route('call.history', ['provider' => 'twilio']) : url('/call-history?provider=twilio') }}" class="nxl-link">
                             <span class="nxl-micon"><i class="feather-phone-call"></i></span>
                             <span class="nxl-mtext">Call History</span>
                         </a>
@@ -135,7 +136,7 @@
                 @endphp
                 @if(!$hasSettingMenu)
                 <li class="nxl-item {{ request()->routeIs('plugins.*') ? 'active' : '' }}">
-                    <a href="{{ route('plugins.index') }}" class="nxl-link">
+                    <a href="{{ \Illuminate\Support\Facades\Route::has('plugins.index') ? route('plugins.index') : url('/admin/plugins') }}" class="nxl-link">
                         <span class="nxl-micon"><i class="feather-settings"></i></span>
                         <span class="nxl-mtext">Call Plugin</span>
                     </a>

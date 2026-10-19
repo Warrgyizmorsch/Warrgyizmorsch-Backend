@@ -389,27 +389,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 
-Route::get('/twilio-diagnostic', function () {
-    $plugin = \App\Models\PluginSetting::where('plugin_key', 'twilio_call')->first();
-    $service = new \App\Services\TwilioVoiceService();
-    $tokenRes = $service->generateAccessToken('agent_diagnostic');
-    return response()->json([
-        'plugin_in_db' => $plugin ? [
-            'is_active' => $plugin->is_active,
-            'account_sid' => $plugin->settings['account_sid'] ?? null,
-            'has_auth_token' => !empty($plugin->settings['auth_token']),
-            'twilio_number' => $plugin->settings['twilio_number'] ?? null,
-            'api_key_sid' => $plugin->settings['api_key_sid'] ?? null,
-            'has_api_secret' => !empty($plugin->settings['api_secret']),
-            'twiml_app_sid' => $plugin->settings['twiml_app_sid'] ?? null,
-        ] : null,
-        'token_generation' => [
-            'success' => $tokenRes['success'] ?? false,
-            'message' => $tokenRes['message'] ?? null,
-            'token_length' => isset($tokenRes['token']) ? strlen($tokenRes['token']) : 0,
-        ]
-    ]);
-});
+Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
 
 
 

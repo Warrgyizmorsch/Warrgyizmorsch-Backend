@@ -88,6 +88,8 @@ class RouteSeeder extends Seeder
             ['name' => 'Ads Leads', 'route_name' => 'ads-leads.index'],
             ['name' => 'Send Ads Lead to CRM', 'route_name' => 'ads-leads.sendToLead'],
             ['name' => 'Delete Ads Lead', 'route_name' => 'ads-leads.destroy'],
+            ['name' => 'Call History', 'route_name' => 'call.history'],
+            ['name' => 'Call Plugins', 'route_name' => 'plugins.index'],
         ];
 
         foreach ($routes as $route) {
