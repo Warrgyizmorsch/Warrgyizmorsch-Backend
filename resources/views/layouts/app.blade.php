@@ -354,6 +354,9 @@
       });
     </script>
   @endif
+
+  {{-- Twilio Voice WebRTC Softphone Widget --}}
+  @include('partials.twilio-softphone-widget')
 </body>
 
 </html>

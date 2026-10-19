@@ -364,9 +364,57 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/callback', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'callback'])->name('callback');
         Route::get('/status', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'status'])->name('status');
     });
+
+    // Call Plugins Page (Screens 3 & 4)
+    Route::get('/admin/plugins', [\App\Http\Controllers\PluginController::class, 'index'])->name('plugins.index');
+    Route::post('/admin/plugins/twilio/save', [\App\Http\Controllers\PluginController::class, 'saveTwilio'])->name('plugins.twilio.save');
+    Route::post('/admin/plugins/toggle-status', [\App\Http\Controllers\PluginController::class, 'toggleStatus'])->name('plugins.toggle');
+    Route::post('/admin/plugins/twilio/auto-fix-keys', [\App\Http\Controllers\PluginController::class, 'autoFixKeys'])->name('plugins.twilio.autofix');
+
+    // Call History Page (Screen 1)
+    Route::get('/call-history', [\App\Http\Controllers\PluginController::class, 'callHistory'])->name('call.history');
+    Route::get('/admin/plugins/twilio/call-history', [\App\Http\Controllers\PluginController::class, 'callHistory'])->name('plugins.twilio.call.history');
+
+    // Softphone WebRTC AJAX
+    Route::get('/admin/plugins/twilio/token', [\App\Http\Controllers\PluginController::class, 'getWebRtcToken'])->name('plugins.twilio.token');
+    Route::post('/admin/plugins/twilio/log-call', [\App\Http\Controllers\PluginController::class, 'logCall'])->name('plugins.twilio.log.call');
+
+    // Twilio Voice Softphone & WebRTC (Compatible aliases)
+    Route::prefix('admin/twilio')->name('twilio.')->group(function () {
+        Route::get('/token', [\App\Http\Controllers\PluginController::class, 'getWebRtcToken'])->name('token');
+        Route::post('/log-call', [\App\Http\Controllers\PluginController::class, 'logCall'])->name('log.call');
+        Route::post('/auto-fix-keys', [\App\Http\Controllers\PluginController::class, 'autoFixKeys'])->name('autofix');
+    });
 });
 
-Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
+
+
+Route::get('/twilio-diagnostic', function () {
+    $plugin = \App\Models\PluginSetting::where('plugin_key', 'twilio_call')->first();
+    $service = new \App\Services\TwilioVoiceService();
+    $tokenRes = $service->generateAccessToken('agent_diagnostic');
+    return response()->json([
+        'plugin_in_db' => $plugin ? [
+            'is_active' => $plugin->is_active,
+            'account_sid' => $plugin->settings['account_sid'] ?? null,
+            'has_auth_token' => !empty($plugin->settings['auth_token']),
+            'twilio_number' => $plugin->settings['twilio_number'] ?? null,
+            'api_key_sid' => $plugin->settings['api_key_sid'] ?? null,
+            'has_api_secret' => !empty($plugin->settings['api_secret']),
+            'twiml_app_sid' => $plugin->settings['twiml_app_sid'] ?? null,
+        ] : null,
+        'token_generation' => [
+            'success' => $tokenRes['success'] ?? false,
+            'message' => $tokenRes['message'] ?? null,
+            'token_length' => isset($tokenRes['token']) ? strlen($tokenRes['token']) : 0,
+        ]
+    ]);
+});
+
+
+
+
+
 
 
 Route::get('/run-lead-events-test-suite', function () {

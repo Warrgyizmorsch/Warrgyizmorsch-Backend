@@ -833,8 +833,19 @@
                                     </a>
                                     {{-- Mobile No --}}
                                     <div class="fs-11 text-secondary fw-medium text-truncate">
-                                        <i class="fas fa-phone-alt fs-10 text-primary me-1"></i>
-                                        {{ optional($lead->user)->contact_no ?? 'N/A' }}
+                                        @php
+                                            $cPhone = optional($lead->user)->contact_no ?? optional($lead->user)->mobile_no ?? '';
+                                            $cCC = preg_replace('/\D+/', '', (string)(optional($lead->user)->country_code ?? ''));
+                                        @endphp
+                                        @if($cPhone)
+                                            <a href="javascript:void(0);" onclick="event.preventDefault(); event.stopPropagation(); initiateTwilioCall('{{ $cCC . $cPhone }}', '{{ addslashes($userName) }}')" class="text-decoration-none text-dark hover-blue d-inline-flex align-items-center gap-1" title="Click to Call with Twilio">
+                                                <i class="fas fa-phone-alt fs-10 text-success me-1"></i>
+                                                <span class="text-primary fw-semibold">{{ $cPhone }}</span>
+                                            </a>
+                                        @else
+                                            <i class="fas fa-phone-alt fs-10 text-muted me-1"></i>
+                                            <span class="text-muted">N/A</span>
+                                        @endif
                                     </div>
                                     {{-- Email --}}
                                     <div class="fs-11 text-muted text-truncate">
@@ -988,13 +999,30 @@
                                         <button type="button" class="btn btn-xs btn-icon rounded-2 border shadow-2xs d-flex align-items-center justify-content-center" style="width: 25px; height: 25px; background-color: #dcfce7; color: #16a34a; border-color: #86efac !important;" onclick="convertLeads([{{ $lead->id }}]); return false;" title="Convert Lead to Order">
                                             <i class="fas fa-arrows-rotate fs-10"></i>
                                         </button>
+                                        @php
+                                            $lPhone = optional($lead->user)->contact_no ?? optional($lead->user)->mobile_no ?? '';
+                                            $lCC    = preg_replace('/\D+/', '', (string)(optional($lead->user)->country_code ?? ''));
+                                            $lName  = addslashes(optional($lead->user)->name ?? 'Customer');
+                                        @endphp
+                                        @if($lPhone)
+                                        <a href="#"
+                                           id="twilioCallBtnlead{{ $lead->id }}"
+                                           onclick="event.preventDefault(); event.stopPropagation(); initiateTwilioCall('{{ $lCC . $lPhone }}', '{{ $lName }}');"
+                                           class="btn btn-xs btn-icon p-0 d-inline-flex align-items-center justify-content-center shadow-xs rounded-2"
+                                           style="width: 25px; height: 25px; background-color: #25D366; color: #ffffff;"
+                                           title="Call via Twilio Softphone">
+                                            <i class="fa fa-phone text-white" style="font-size: 10px;"></i>
+                                        </a>
+                                        @else
                                         <button type="button" class="btn btn-xs btn-icon btn-light text-primary border shadow-2xs rounded-2 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;" onclick="openSendEmailModal({{ $lead->id }}, '{{ e(optional($lead->user)->name ?? '') }}', '{{ e(optional($lead->user)->email ?? '') }}')" title="Send Email">
                                             <i class="fas fa-paper-plane fs-10"></i>
                                         </button>
+                                        @endif
                                         <div class="dropdown">
                                             <a class="btn btn-xs btn-icon btn-light text-dark border shadow-2xs rounded-2 d-flex align-items-center justify-content-center dropdown-toggle" style="width: 25px; height: 25px;" href="#" role="button" id="moreOptions{{ $lead->id }}" data-bs-toggle="dropdown" aria-expanded="false" title="More Options">
                                                 <i class="fas fa-ellipsis-v fs-10"></i>
                                             </a>
+
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" aria-labelledby="moreOptions{{ $lead->id }}">
                                                 <li>
                                                     <a class="dropdown-item d-flex align-items-center text-primary fw-bold" href="javascript:void(0);" onclick="openSendEmailModal({{ $lead->id }}, '{{ e(optional($lead->user)->name ?? '') }}', '{{ e(optional($lead->user)->email ?? '') }}')">
@@ -1030,8 +1058,8 @@
                                                     </li>
                                                 @endif
                                                 <li>
-                                                    <a class="dropdown-item d-flex align-items-center text-muted" href="tel:{{ optional($lead->user)->contact_no }}">
-                                                        <i class="fas fa-phone-alt me-2" style="color: #006FC9; width: 20px;"></i> Phone
+                                                    <a class="dropdown-item d-flex align-items-center text-muted" href="javascript:void(0);" onclick="initiateTwilioCall('{{ optional($lead->user)->contact_no }}', '{{ addslashes(optional($lead->user)->name ?? 'User') }}')">
+                                                        <i class="fas fa-phone-alt me-2" style="color: #006FC9; width: 20px;"></i> Call (Softphone)
                                                     </a>
                                                 </li>
                                                 <li>

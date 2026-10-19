@@ -230,6 +230,23 @@
 
                             {{-- Action Icons Bar --}}
                             <div class="d-flex align-items-center gap-2 ms-auto">
+                                @php
+                                    $orderPhone = optional($order->user)->contact_no ?? optional($order->user)->mobile_no ?? '';
+                                    $orderCC    = preg_replace('/\D+/', '', (string)(optional($order->user)->country_code ?? ''));
+                                    $orderName  = addslashes(optional($order->user)->name ?? 'Customer');
+                                @endphp
+                                @if($orderPhone)
+                                <a href="#"
+                                   id="twilioCallBtnOrder{{ $order->id }}"
+                                   onclick="event.preventDefault(); event.stopPropagation(); initiateTwilioCall('{{ $orderCC . $orderPhone }}', '{{ $orderName }}');"
+                                   class="btn btn-sm btn-icon p-0 d-inline-flex align-items-center justify-content-center shadow-xs"
+                                   style="width:28px;height:28px;border-radius:6px;background-color:#25D366;color:#ffffff;transition:transform 0.2s ease,background-color 0.2s ease;"
+                                   onmouseover="this.style.backgroundColor='#1ebd58';this.style.transform='scale(1.1)';"
+                                   onmouseout="this.style.backgroundColor='#25D366';this.style.transform='scale(1)';"
+                                   title="Call via Twilio Softphone">
+                                    <i class="fa fa-phone text-white" style="font-size:12px;"></i>
+                                </a>
+                                @endif
                                 <a href="javascript:void(0);" class="text-secondary fs-5 open-callback"
                                     data-bs-toggle="offcanvas" data-bs-target="#proposalSent{{ $leadId }}" title="Comments / Callbacks">
                                     <i class="fas fa-comment-dots" style="color: #006FC9;"></i>
@@ -240,6 +257,7 @@
                                         style="background-color: #006FC9;"></i>
                                 </a>
                             </div>
+
                         </div>
 
                         {{-- COLLAPSIBLE ORDER DETAILS - TABBED LAYOUT --}}

@@ -83,7 +83,7 @@
             @if($contactNo)
                 <div>
                     <i class="feather-phone text-primary me-1"></i>
-                    <a href="tel:{{ $contactNo }}" class="text-secondary text-decoration-none">{{ $contactNo }}</a>
+                    <a href="javascript:void(0)" onclick="initiateTwilioCall('{{ $contactNo }}', '{{ addslashes($userName) }}')" class="text-secondary text-decoration-none" title="Click to Call with Twilio">{{ $contactNo }}</a>
                 </div>
             @endif
             @if($userEmail)

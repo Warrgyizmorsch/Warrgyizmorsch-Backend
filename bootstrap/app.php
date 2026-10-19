@@ -30,7 +30,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'archive-deals/*',
             'new-leads-table/*',
             'leads/*',
+            'api/twilio/*',
+            'twilio/*',
+            'admin/twilio/voice',
+            'admin/twilio/status-callback',
+            'admin/twilio/recording-callback',
         ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

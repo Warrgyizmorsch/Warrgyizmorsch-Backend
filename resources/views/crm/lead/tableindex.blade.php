@@ -1490,10 +1490,15 @@
 
                                     {{-- Phone --}}
                                     <td>
-                                        @if(optional($lead->user)->contact_no)
-                                            <a href="tel:{{ optional($lead->user)->contact_no }}" class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5 fw-medium">
-                                                <i class="feather-phone text-muted fs-11"></i>
-                                                <span>{{ optional($lead->user)->contact_no }}</span>
+                                        @php
+                                            $tPhone = optional($lead->user)->contact_no ?? optional($lead->user)->mobile_no ?? '';
+                                            $tCC    = preg_replace('/\D+/', '', (string)(optional($lead->user)->country_code ?? ''));
+                                            $tName  = addslashes(optional($lead->user)->name ?? 'Lead');
+                                        @endphp
+                                        @if($tPhone)
+                                            <a href="javascript:void(0)" onclick="initiateTwilioCall('{{ $tCC . $tPhone }}', '{{ $tName }}')" class="text-decoration-none text-dark d-inline-flex align-items-center gap-1.5 fw-medium" title="Click to Call with Twilio">
+                                                <i class="feather-phone text-success fs-11"></i>
+                                                <span>{{ $tPhone }}</span>
                                             </a>
                                         @else
                                             <span class="text-muted">—</span>

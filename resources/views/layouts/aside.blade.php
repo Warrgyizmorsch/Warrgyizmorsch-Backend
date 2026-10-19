@@ -71,6 +71,13 @@
                 foreach ($menu->children as $child) {
                     $html .= renderMenu($child); // 🔁 recursive call
                 }
+                if (strtolower(trim($menu->title ?? '')) === 'setting') {
+                    $isPluginActive = request()->routeIs('plugins.*');
+                    $html .= '<li class="nxl-item ' . ($isPluginActive ? 'active' : '') . '">';
+                    $html .= '<a href="' . route('plugins.index') . '" class="nxl-link">';
+                    $html .= '<span class="nxl-mtext">Call Plugin</span>';
+                    $html .= '</a></li>';
+                }
                 $html .= '</ul>';
             }
 
@@ -93,9 +100,47 @@
 
         <div class="navbar-content">
             <ul class="nxl-navbar">
+                @php $renderedCallHistory = false; @endphp
                 @foreach($menus as $menu)
                     {!! renderMenu($menu) !!}
+                    @if(in_array(strtolower(trim($menu->title ?? '')), ['whatsapp', 'emails']) && !$renderedCallHistory)
+                        {{-- Twilio Call History right after Communication menus --}}
+                        <li class="nxl-item {{ request()->routeIs('call.history*') ? 'active' : '' }}">
+                            <a href="{{ route('call.history', ['provider' => 'twilio']) }}" class="nxl-link">
+                                <span class="nxl-micon"><i class="feather-phone-call"></i></span>
+                                <span class="nxl-mtext">Call History</span>
+                            </a>
+                        </li>
+                        @php $renderedCallHistory = true; @endphp
+                    @endif
                 @endforeach
+
+                @if(!$renderedCallHistory)
+                    <li class="nxl-item {{ request()->routeIs('call.history*') ? 'active' : '' }}">
+                        <a href="{{ route('call.history', ['provider' => 'twilio']) }}" class="nxl-link">
+                            <span class="nxl-micon"><i class="feather-phone-call"></i></span>
+                            <span class="nxl-mtext">Call History</span>
+                        </a>
+                    </li>
+                @endif
+
+                @php
+                    $hasSettingMenu = false;
+                    foreach ($menus as $m) {
+                        if (strtolower(trim($m->title ?? '')) === 'setting') {
+                            $hasSettingMenu = true;
+                            break;
+                        }
+                    }
+                @endphp
+                @if(!$hasSettingMenu)
+                <li class="nxl-item {{ request()->routeIs('plugins.*') ? 'active' : '' }}">
+                    <a href="{{ route('plugins.index') }}" class="nxl-link">
+                        <span class="nxl-micon"><i class="feather-settings"></i></span>
+                        <span class="nxl-mtext">Call Plugin</span>
+                    </a>
+                </li>
+                @endif
             </ul>
         </div>
     </div>
