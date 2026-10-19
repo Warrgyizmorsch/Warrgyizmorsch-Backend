@@ -16,7 +16,7 @@
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <a href="{{ route('admin.plugins.index') }}" class="btn btn-sm btn-light fw-bold">
+                <a href="{{ \Illuminate\Support\Facades\Route::has('plugins.index') ? route('plugins.index') : url('/admin/plugins') }}" class="btn btn-sm btn-light fw-bold">
                     <i class="fa fa-cog me-1"></i> Twilio Settings
                 </a>
                 <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="window.twilioSoftphone && window.twilioSoftphone.toggleWidget()">

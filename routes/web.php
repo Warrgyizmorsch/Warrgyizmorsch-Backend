@@ -367,6 +367,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Call Plugins Page (Screens 3 & 4)
     Route::get('/admin/plugins', [\App\Http\Controllers\PluginController::class, 'index'])->name('plugins.index');
+    Route::get('/admin/plugins/dashboard', [\App\Http\Controllers\PluginController::class, 'index'])->name('admin.plugins.index');
     Route::post('/admin/plugins/twilio/save', [\App\Http\Controllers\PluginController::class, 'saveTwilio'])->name('plugins.twilio.save');
     Route::post('/admin/plugins/toggle-status', [\App\Http\Controllers\PluginController::class, 'toggleStatus'])->name('plugins.toggle');
     Route::post('/admin/plugins/twilio/auto-fix-keys', [\App\Http\Controllers\PluginController::class, 'autoFixKeys'])->name('plugins.twilio.autofix');
