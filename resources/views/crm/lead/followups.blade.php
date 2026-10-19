@@ -398,6 +398,19 @@
                                         </button>
 
                                         @if($lead)
+                                            {{-- Call Action Button (Twilio) --}}
+                                            @php
+                                                $fPhone = optional($user)->contact_no ?? optional($user)->mobile_no ?? '';
+                                                $fCC    = preg_replace('/\D+/', '', (string)(optional($user)->country_code ?? ''));
+                                                $fName  = addslashes(optional($user)->name ?: 'Customer');
+                                            @endphp
+                                            <button type="button" class="table-action-btn text-success" 
+                                                    onclick="event.preventDefault(); event.stopPropagation(); initiateTwilioCall('{{ $fCC . $fPhone }}', '{{ $fName }}')"
+                                                    title="{{ $fPhone ? 'Call ' . $fPhone . ' via Twilio' : 'Open Softphone' }}"
+                                                    style="color: #059669 !important; border-color: #a7f3d0; background-color: #ecfdf5;">
+                                                <i class="feather-phone"></i>
+                                            </button>
+
                                             {{-- Edit Lead Modal --}}
                                             <button type="button" class="table-action-btn text-success" title="Edit Details"
                                                     onclick="openLeadEditModal({{ $lead->id }})">

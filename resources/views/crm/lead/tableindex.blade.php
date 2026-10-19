@@ -1062,7 +1062,7 @@
                         <thead>
                             <tr>
                                 <th class="monday-select-col lead-select-column"><input type="checkbox" class="form-check-input" id="checkAll"></th>
-                                <th style="width: 175px; min-width: 175px; text-align: center;" class="lead-actions-column">Actions</th>
+                                <th style="width: 205px; min-width: 205px; text-align: center;" class="lead-actions-column">Actions</th>
                                 <th style="min-width: 230px;" class="lead-info-column">Lead</th>
                                 <th style="width: 175px; min-width: 175px; text-align: center;" class="lead-status-column">Status</th>
                                 <th style="min-width: 210px;" class="lead-activity-column">
@@ -1098,6 +1098,12 @@
                                     {{-- Actions (Left Aligned) --}}
                                     <td class="lead-actions-column">
                                         <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                            @php
+                                                $actPhone = optional($lead->user)->contact_no ?? optional($lead->user)->mobile_no ?? '';
+                                                $actCC    = preg_replace('/\D+/', '', (string)(optional($lead->user)->country_code ?? ''));
+                                                $actName  = addslashes(optional($lead->user)->name ?: ($lead->business_name ?: 'Lead'));
+                                            @endphp
+
                                             @if($isArchive)
                                                 {{-- Restore from Archive Button --}}
                                                 <button type="button" class="table-action-btn text-success" 
@@ -1111,6 +1117,14 @@
                                                         onclick="openViewDetailsModalLazy({{ $lead->id }})"
                                                         title="View Details">
                                                     <i class="feather-eye"></i>
+                                                </button>
+
+                                                {{-- Call Action Button (Twilio) --}}
+                                                <button type="button" class="table-action-btn text-success action-twilio-call-btn" 
+                                                        onclick="event.preventDefault(); event.stopPropagation(); initiateTwilioCall('{{ $actCC . $actPhone }}', '{{ $actName }}')"
+                                                        title="{{ $actPhone ? 'Call ' . $actPhone . ' via Twilio' : 'Open Softphone' }}"
+                                                        style="color: #059669 !important; border-color: #a7f3d0; background-color: #ecfdf5;">
+                                                    <i class="feather-phone"></i>
                                                 </button>
 
                                                 {{-- View Comments / Messages --}}
@@ -1138,6 +1152,14 @@
                                                 <button type="button" class="table-action-btn text-success" title="Edit Lead"
                                                         onclick="openLeadEditModal({{ $lead->id }})">
                                                     <i class="feather-edit"></i>
+                                                </button>
+
+                                                {{-- Call Action Button (Twilio) --}}
+                                                <button type="button" class="table-action-btn text-success action-twilio-call-btn" 
+                                                        onclick="event.preventDefault(); event.stopPropagation(); initiateTwilioCall('{{ $actCC . $actPhone }}', '{{ $actName }}')"
+                                                        title="{{ $actPhone ? 'Call ' . $actPhone . ' via Twilio' : 'Open Softphone' }}"
+                                                        style="color: #059669 !important; border-color: #a7f3d0; background-color: #ecfdf5;">
+                                                    <i class="feather-phone"></i>
                                                 </button>
 
                                                 {{-- View Comments / History Button --}}

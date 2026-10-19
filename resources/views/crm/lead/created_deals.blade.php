@@ -596,6 +596,19 @@
                                             <i class="feather-edit"></i>
                                         </a>
 
+                                        {{-- Call Action Button (Twilio) --}}
+                                        @php
+                                            $dealPhone = optional($lead->user)->contact_no ?? optional($lead->user)->mobile_no ?? '';
+                                            $dealCC    = preg_replace('/\D+/', '', (string)(optional($lead->user)->country_code ?? ''));
+                                            $dealName  = addslashes(optional($lead->user)->name ?: ($lead->business_name ?: 'Deal Contact'));
+                                        @endphp
+                                        <button type="button" class="table-action-btn text-success action-twilio-call-btn" 
+                                                onclick="event.preventDefault(); event.stopPropagation(); initiateTwilioCall('{{ $dealCC . $dealPhone }}', '{{ $dealName }}')"
+                                                title="{{ $dealPhone ? 'Call ' . $dealPhone . ' via Twilio' : 'Open Softphone' }}"
+                                                style="color: #059669 !important; border-color: #a7f3d0; background-color: #ecfdf5;">
+                                            <i class="feather-phone"></i>
+                                        </button>
+
                                         {{-- View Details Modal --}}
                                         <button type="button" class="table-action-btn text-info" 
                                                 onclick="openViewDetailsModalLazy({{ $lead->id }})"
