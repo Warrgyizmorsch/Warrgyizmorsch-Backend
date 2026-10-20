@@ -653,7 +653,8 @@
                     let pInfo = '';
                     pInfo += fItem('feather-user', 'Full Name', user.name);
                     pInfo += fItem('feather-phone', 'Contact No.', user.contact_no);
-                    pInfo += fItem('feather-mail', 'Email', user.email);
+                    const cleanUserEmail = (user.email && !user.email.startsWith('lead_') && !/^user\d+@gmail\.com$/i.test(user.email)) ? user.email : null;
+                    pInfo += fItem('feather-mail', 'Email', cleanUserEmail);
                     pInfo += fItem('feather-briefcase', 'Business Name', lead.business_name);
                     pInfo += fItem('feather-hash', 'GST Number', lead.gst_number);
                     pInfo += fItem('feather-globe', 'Website', lead.website);
@@ -932,6 +933,19 @@
             form.reportValidity();
             return;
         }
+
+        const mobileVal = (form.querySelector('#inp_mobile')?.value || '').trim();
+        const emailVal = (form.querySelector('#inp_email')?.value || '').trim();
+        const linkedinVal = (form.querySelector('#inp_linkedin_url')?.value || '').trim();
+
+        if (!mobileVal && !emailVal && !linkedinVal) {
+            e.preventDefault();
+            appToast('error', 'Please provide at least one contact method: Phone, Email, or LinkedIn URL.');
+            const mobileInput = form.querySelector('#inp_mobile');
+            if (mobileInput) mobileInput.focus();
+            return;
+        }
+
         e.preventDefault();
         const submitButton = form.querySelector('#btnSubmit');
         const originalText = submitButton ? submitButton.textContent : 'Save';
@@ -1096,7 +1110,13 @@
             setValue('#inp_mobile', user.contact_no);
             setValue('#inp_country_code', user.country_code);
             setValue('#inp_name', user.name);
-            setValue('#inp_email', user.email);
+            const cleanModalEmail = (email) => {
+                if (!email) return '';
+                if (email.startsWith('lead_') && email.endsWith('@crm.local')) return '';
+                if (/^user\d+@gmail\.com$/i.test(email)) return '';
+                return email;
+            };
+            setValue('#inp_email', cleanModalEmail(user.email));
             setValue('#inp_city', lead.city || user.city);
             setValue('#inp_state', lead.state || user.state);
             setValue('#inp_pincode', lead.pincode || user.pincode);

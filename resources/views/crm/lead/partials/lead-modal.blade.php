@@ -29,18 +29,20 @@
                         <div class="row">
                             <!-- Left Column: Client Details -->
                             <div class="col-lg-6 border-end pe-3">
-                                <h6 class="fw-bold mb-2 text-primary border-bottom pb-1">Client Details</h6>
+                                <div class="d-flex align-items-center justify-content-between border-bottom pb-1 mb-2">
+                                    <h6 class="fw-bold mb-0 text-primary">Client Details</h6>
+                                    <span class="text-muted fs-11"><i class="fas fa-info-circle text-primary me-1"></i>At least one required: Phone, Email, or LinkedIn</span>
+                                </div>
                                 <div class="row g-2 mb-2">
                                     <div class="col-md-6">
                                         <label class="form-label-sm">Client Name <span class="text-danger">*</span></label>
-                                        <input type="text" name="name" id="inp_name" class="form-control form-control-sm auto-name" required>
+                                        <input type="text" name="name" id="inp_name" class="form-control form-control-sm auto-name" placeholder="Client Name" required>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label-sm">Mobile <span class="text-danger">*</span></label>
-                                        <input type="tel" name="mobile" id="inp_mobile" class="form-control form-control-sm phone-input" required>
+                                        <label class="form-label-sm">Mobile</label>
+                                        <input type="tel" name="mobile" id="inp_mobile" class="form-control form-control-sm phone-input" placeholder="Mobile Number">
                                         <input type="hidden" name="country_code" id="inp_country_code" class="country-code-input">
                                     </div>
-                                    
                                 </div>
                                 <div class="row g-2 mb-2">
                                     <div class="col-md-6">

@@ -245,9 +245,9 @@ class LeadController extends Controller
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email',
+            'email' => 'nullable|required_without_all:mobile,linkedin_url|email',
             'country_code' => 'nullable|string|max:10',
-            'mobile' => 'required|string|max:20',
+            'mobile' => 'nullable|required_without_all:email,linkedin_url|string|max:20',
             'city' => 'nullable|string|max:255',
 
             // Lead fields
@@ -274,7 +274,7 @@ class LeadController extends Controller
              'services.*' => 'nullable',
              'pain_points' => 'nullable|string',
              'website' => 'nullable|string|max:255',
-             'linkedin_url' => 'nullable|string|max:500',
+             'linkedin_url' => 'nullable|required_without_all:mobile,email|string|max:500',
              'business_name' => 'nullable|string|max:255',
              'gst_number' => 'nullable|string|max:255',
              'city' => 'nullable|string|max:255',
@@ -284,15 +284,28 @@ class LeadController extends Controller
              'cloned_contacts' => 'nullable|array',
              'documents' => 'nullable|array',
              'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
+        ], [
+            'mobile.required_without_all' => 'Please provide at least one: Phone Number, Email, or LinkedIn URL.',
+            'email.required_without_all' => 'Please provide at least one: Phone Number, Email, or LinkedIn URL.',
+            'linkedin_url.required_without_all' => 'Please provide at least one: Phone Number, Email, or LinkedIn URL.',
         ]);
 
-        // 🔍 Search existing user by mobile number
-        $user = User::where('contact_no', $data['mobile'])->first();
+        $submittedMobile = !empty($data['mobile']) ? trim($data['mobile']) : null;
+        $submittedEmail = !empty($data['email']) ? trim($data['email']) : null;
+
+        // 🔍 Search existing user by mobile number or email
+        $user = null;
+        if ($submittedMobile) {
+            $user = User::where('contact_no', $submittedMobile)->first();
+        }
+        if (!$user && $submittedEmail) {
+            $user = User::where('email', $submittedEmail)->first();
+        }
 
         $userData = [
             'name' => $data['name'],
-            'email' => $data['email'] ?? 'user' . $data['mobile'] . '@gmail.com',
-            'contact_no' => $data['mobile'],
+            'email' => $submittedEmail,
+            'contact_no' => $submittedMobile,
             'country_code' => $data['country_code'] ?? null,
             'role_id' => 2,
             'password' => bcrypt('user@123'),
@@ -488,7 +501,7 @@ class LeadController extends Controller
             'name' => 'required|string|max:255',
             'email' => $emailRule,
             'country_code' => 'nullable|string|max:10',
-            'mobile' => 'required|string|max:20',
+            'mobile' => 'nullable|string|max:20',
             'city' => 'nullable|string|max:255',
 
             // Lead fields
@@ -535,7 +548,7 @@ class LeadController extends Controller
         $userData = [
             'name' => $data['name'],
             'email' => $data['email'] ?? null,
-            'contact_no' => $data['mobile'],
+            'contact_no' => $data['mobile'] ?? null,
             'country_code' => $data['country_code'] ?? null,
             'city' => $data['city'] ?? null,
             'state' => $data['state'] ?? null,
@@ -598,7 +611,7 @@ class LeadController extends Controller
                 $lead->setRelation('user', $targetUser);
             } else {
                 $newUserData = array_merge($userData, [
-                    'email' => $data['email'] ?? ('user' . preg_replace('/\D+/', '', $data['mobile'] ?: (string)time()) . '@gmail.com'),
+                    'email' => !empty($data['email']) ? trim($data['email']) : null,
                     'role_id' => 2,
                     'password' => \Illuminate\Support\Facades\Hash::make('user@123'),
                 ]);

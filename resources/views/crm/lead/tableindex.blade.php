@@ -1501,9 +1501,13 @@
 
                                     {{-- Email --}}
                                     <td>
-                                        @if(optional($lead->user)->email)
-                                            <a href="mailto:{{ optional($lead->user)->email }}" class="text-decoration-none fw-medium" style="color: #0073ea;" title="{{ optional($lead->user)->email }}">
-                                                {{ optional($lead->user)->email }}
+                                        @php
+                                            $leadEmail = optional($lead->user)->email;
+                                            $isDummyEmail = $leadEmail && (str_starts_with($leadEmail, 'lead_') || preg_match('/^user\d+@gmail\.com$/', $leadEmail));
+                                        @endphp
+                                        @if($leadEmail && !$isDummyEmail)
+                                            <a href="mailto:{{ $leadEmail }}" class="text-decoration-none fw-medium" style="color: #0073ea;" title="{{ $leadEmail }}">
+                                                {{ $leadEmail }}
                                             </a>
                                         @else
                                             <span class="text-muted">—</span>
@@ -1798,7 +1802,8 @@
                     let pInfo = '';
                     pInfo += fItem('feather-user', 'Full Name', user.name);
                     pInfo += fItem('feather-phone', 'Contact No.', user.contact_no);
-                    pInfo += fItem('feather-mail', 'Email', user.email);
+                    const cleanUserEmail = (user.email && !user.email.startsWith('lead_') && !/^user\d+@gmail\.com$/i.test(user.email)) ? user.email : null;
+                    pInfo += fItem('feather-mail', 'Email', cleanUserEmail);
                     pInfo += fItem('feather-briefcase', 'Business Name', lead.business_name);
                     pInfo += fItem('feather-hash', 'GST Number', lead.gst_number);
                     pInfo += fItem('feather-globe', 'Website', lead.website);
@@ -2095,13 +2100,27 @@
             setVal('#formMethod', 'PUT');
             setVal('#inp_name', user.name);
             setVal('#inp_mobile', user.contact_no);
-            setVal('#inp_email', user.email);
+            const cleanModalEmail = (email) => {
+                if (!email) return '';
+                if (email.startsWith('lead_') && email.endsWith('@crm.local')) return '';
+                if (/^user\d+@gmail\.com$/i.test(email)) return '';
+                return email;
+            };
+            setVal('#inp_email', cleanModalEmail(user.email));
             setVal('#inp_city', lead.city || user.city);
             setVal('#inp_state', lead.state || user.state);
             setVal('#inp_pincode', lead.pincode || user.pincode);
             setVal('#inp_address', lead.address || user.address);
             setVal('#inp_platform', lead.platform);
             setVal('#inp_owner', lead.lead_owner);
+            setVal('#inp_employee_strength', lead.employee_strength);
+            setVal('#inp_industry', lead.industry);
+            setVal('#inp_website', lead.website);
+            setVal('#inp_linkedin_url', lead.linkedin_url);
+            setVal('#inp_business', lead.business_name);
+            setVal('#inp_gst', lead.gst_number);
+            setVal('#inp_product', lead.product || lead.applying_country_for_a_visa);
+            setVal('#inp_pain_points', lead.pain_points || lead.description);
 
             if (lead.budget) {
                 let rawBudget = String(lead.budget).trim();

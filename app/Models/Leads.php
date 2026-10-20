@@ -48,6 +48,7 @@ class Leads extends Model
         'employee_strength',
         'industry',
         'website',
+        'linkedin_url',
         'business_name',
         'gst_number',
         'state',
