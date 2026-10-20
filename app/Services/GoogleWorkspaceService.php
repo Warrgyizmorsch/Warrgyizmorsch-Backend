@@ -48,30 +48,43 @@ class GoogleWorkspaceService
             ];
         }
 
-        try {
-            $response = $this->client()->get("{$this->baseUrl}/auth/me");
-            if ($response->successful()) {
-                $data = $response->json();
+        return \Illuminate\Support\Facades\Cache::remember('gw_is_connected_status_' . md5($this->apiToken), 30, function () {
+            try {
+                $response = $this->client()->get("{$this->baseUrl}/auth/me");
+                if ($response->successful()) {
+                    $data = $response->json();
+
+                    // Specifically verify that Google Calendar is actually linked & authorized
+                    $calCheck = $this->client()->get("{$this->baseUrl}/workspace/calendar/events", ['limit' => 1]);
+                    if (!$calCheck->successful()) {
+                        return [
+                            'connected' => false,
+                            'email' => $data['email'] ?? null,
+                            'detail' => $calCheck->json('detail') ?? 'Google Calendar is not linked or token expired.',
+                        ];
+                    }
+
+                    return [
+                        'connected' => true,
+                        'email' => $data['email'] ?? null,
+                        'user_id' => $data['id'] ?? null,
+                        'detail' => 'Connected to Google Workspace',
+                    ];
+                }
+
                 return [
-                    'connected' => true,
-                    'email' => $data['email'] ?? null,
-                    'user_id' => $data['id'] ?? null,
-                    'detail' => 'Connected to Google Workspace',
+                    'connected' => false,
+                    'email' => null,
+                    'detail' => $response->json('detail') ?? 'Session expired or token invalid.',
+                ];
+            } catch (\Throwable $e) {
+                return [
+                    'connected' => false,
+                    'email' => null,
+                    'detail' => $e->getMessage(),
                 ];
             }
-
-            return [
-                'connected' => false,
-                'email' => null,
-                'detail' => $response->json('detail') ?? 'Session expired or token invalid.',
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'connected' => false,
-                'email' => null,
-                'detail' => $e->getMessage(),
-            ];
-        }
+        });
     }
 
     /**

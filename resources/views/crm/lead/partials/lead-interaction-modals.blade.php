@@ -641,8 +641,8 @@
                             <i class="feather-video fs-11"></i> Meet link will be generated
                         </span>
                     @else
-                        <a href="{{ route('google.workspace.connect') }}" class="fs-10 text-warning-emphasis fw-bold d-inline-flex align-items-center gap-1 text-decoration-none" title="Click to connect Google Calendar">
-                            <i class="feather-alert-triangle fs-11 text-warning"></i> Connect Google Calendar
+                        <a href="{{ route('google.workspace.connect') }}" target="_blank" class="btn btn-xs btn-outline-warning text-dark fw-bold d-inline-flex align-items-center gap-1.5 text-decoration-none shadow-2xs py-1 px-2.5 rounded-2" style="font-size: 11px;" title="Click to connect Google Calendar">
+                            <i class="feather-alert-triangle text-warning fs-12"></i> Connect Google Calendar
                         </a>
                     @endif
                     <button type="submit" class="btn btn-sm btn-primary px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1" id="ue_submit_btn">
