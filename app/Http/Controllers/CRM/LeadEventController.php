@@ -219,7 +219,7 @@ class LeadEventController extends Controller
             'start_time' => 'required|string',
             'end_time' => 'nullable|string',
             'assigned_to' => 'nullable|exists:users,id',
-            'title' => 'nullable|string|max:255',
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
         ]);
 

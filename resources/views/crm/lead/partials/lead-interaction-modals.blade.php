@@ -377,6 +377,7 @@
                     <div class="mb-3">
                         <label class="form-label fs-12 fw-bold text-dark mb-1">Event Type <span class="text-danger">*</span></label>
                         <select class="form-select form-select-sm" id="lem_event_type" name="event_type" required>
+                            <option value="" disabled selected>-- Select Event Type --</option>
                             <option value="meeting_schedule">Meeting Schedule</option>
                             <option value="discovery_call">Discovery Call</option>
                             <option value="projection_call">Projection Call</option>
@@ -386,8 +387,8 @@
 
                     <!-- Title -->
                     <div class="mb-3">
-                        <label class="form-label fs-12 fw-bold text-dark mb-1">Title / Purpose</label>
-                        <input type="text" class="form-control form-control-sm" id="lem_title" name="title" placeholder="e.g. Initial Demo, Product Consultation">
+                        <label class="form-label fs-12 fw-bold text-dark mb-1">Title / Purpose <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="lem_title" name="title" required placeholder="e.g. Initial Demo, Product Consultation">
                     </div>
 
                     <!-- Date & Start Time -->
@@ -582,6 +583,7 @@
                     <div class="col-6">
                         <label class="form-label fs-11 fw-bold text-muted mb-0.5">Event Type <span class="text-danger">*</span></label>
                         <select class="form-select form-select-sm" id="ue_event_type" name="event_type" required style="font-size: 12px;">
+                            <option value="" disabled selected>-- Select Event Type --</option>
                             <option value="meeting_schedule">Meeting Schedule</option>
                             <option value="discovery_call">Discovery Call</option>
                             <option value="projection_call">Projection Call</option>
@@ -606,8 +608,8 @@
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label fs-11 fw-bold text-muted mb-0.5">Title / Subject</label>
-                    <input type="text" class="form-control form-control-sm" id="ue_title" name="title" placeholder="e.g. Initial Demo, Product Consultation" style="font-size: 12px;">
+                    <label class="form-label fs-11 fw-bold text-muted mb-0.5">Title / Subject <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm" id="ue_title" name="title" required placeholder="e.g. Initial Demo, Product Consultation" style="font-size: 12px;">
                 </div>
 
                 <div class="row g-2 mb-2">

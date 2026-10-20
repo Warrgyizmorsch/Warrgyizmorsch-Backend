@@ -1918,14 +1918,43 @@
             return;
         }
 
+        const eventType = (document.getElementById('lem_event_type')?.value || '').trim();
+        const title = (document.getElementById('lem_title')?.value || '').trim();
+        const eventDate = (document.getElementById('lem_event_date')?.value || '').trim();
+        const startTime = (document.getElementById('lem_start_time')?.value || '').trim();
+
+        if (!eventType) {
+            alert('Please select an Event Type.');
+            document.getElementById('lem_event_type')?.focus();
+            return;
+        }
+
+        if (!title) {
+            alert('Please enter Title / Purpose for the event.');
+            document.getElementById('lem_title')?.focus();
+            return;
+        }
+
+        if (!eventDate) {
+            alert('Please select Event Date.');
+            document.getElementById('lem_event_date')?.focus();
+            return;
+        }
+
+        if (!startTime) {
+            alert('Please select Start Time.');
+            document.getElementById('lem_start_time')?.focus();
+            return;
+        }
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
 
         const payload = {
-            event_type: document.getElementById('lem_event_type').value,
-            title: document.getElementById('lem_title').value,
-            event_date: document.getElementById('lem_event_date').value,
-            start_time: document.getElementById('lem_start_time').value,
+            event_type: eventType,
+            title: title,
+            event_date: eventDate,
+            start_time: startTime,
             end_time: document.getElementById('lem_end_time').value || null,
             assigned_to: document.getElementById('lem_assigned_to').value || null,
             additional_attendees: document.getElementById('lem_additional_attendees')?.value || null,
@@ -2062,11 +2091,13 @@
         if (form) {
             form.reset();
             if (idInp) idInp.value = leadId;
+            const eventTypeSelect = document.getElementById('ue_event_type');
+            if (eventTypeSelect) eventTypeSelect.selectedIndex = 0;
             const today = new Date().toISOString().split('T')[0];
             const dateInput = document.getElementById('ue_event_date');
             if (dateInput) dateInput.value = today;
             const timeInput = document.getElementById('ue_start_time');
-            if (timeInput) timeInput.value = '10:00';
+            if (timeInput) timeInput.value = '';
         }
 
         const bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
@@ -2101,6 +2132,51 @@
         const leadId = document.getElementById('ue_lead_id').value;
         if (!leadId) return;
 
+        const eventType = (document.getElementById('ue_event_type')?.value || '').trim();
+        const title = (document.getElementById('ue_title')?.value || '').trim();
+        const eventDate = (document.getElementById('ue_event_date')?.value || '').trim();
+        const startTime = (document.getElementById('ue_start_time')?.value || '').trim();
+
+        if (!eventType) {
+            if (window.Swal) {
+                Swal.fire({ icon: 'warning', title: 'Required Field', text: 'Please select an Event Type.' });
+            } else {
+                alert('Please select an Event Type.');
+            }
+            document.getElementById('ue_event_type')?.focus();
+            return;
+        }
+
+        if (!title) {
+            if (window.Swal) {
+                Swal.fire({ icon: 'warning', title: 'Required Field', text: 'Please enter Title / Subject for this activity.' });
+            } else {
+                alert('Please enter Title / Subject for this activity.');
+            }
+            document.getElementById('ue_title')?.focus();
+            return;
+        }
+
+        if (!eventDate) {
+            if (window.Swal) {
+                Swal.fire({ icon: 'warning', title: 'Required Field', text: 'Please select an Event Date.' });
+            } else {
+                alert('Please select an Event Date.');
+            }
+            document.getElementById('ue_event_date')?.focus();
+            return;
+        }
+
+        if (!startTime) {
+            if (window.Swal) {
+                Swal.fire({ icon: 'warning', title: 'Required Field', text: 'Please select a Start Time.' });
+            } else {
+                alert('Please select a Start Time.');
+            }
+            document.getElementById('ue_start_time')?.focus();
+            return;
+        }
+
         const originalBtnText = submitBtn.innerHTML;
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Scheduling...';
@@ -2124,14 +2200,25 @@
 
             const data = await response.json();
             if (!response.ok || data.status !== 'success') {
-                throw new Error(data.message || 'Failed to schedule event');
+                let errMsg = data.message || 'Failed to schedule event';
+                if (data.errors && typeof data.errors === 'object') {
+                    const errorMessages = Object.values(data.errors).flat();
+                    if (errorMessages.length > 0) {
+                        errMsg = errorMessages.join(' ');
+                    }
+                }
+                throw new Error(errMsg);
             }
 
             form.reset();
             document.getElementById('ue_lead_id').value = leadId;
+            const eventTypeSelect = document.getElementById('ue_event_type');
+            if (eventTypeSelect) eventTypeSelect.selectedIndex = 0;
             const today = new Date().toISOString().split('T')[0];
             const dateInput = document.getElementById('ue_event_date');
             if (dateInput) dateInput.value = today;
+            const timeInput = document.getElementById('ue_start_time');
+            if (timeInput) timeInput.value = '';
 
             if (window.Swal) {
                 if (data.google_error) {
