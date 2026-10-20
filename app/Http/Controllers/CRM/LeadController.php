@@ -274,6 +274,7 @@ class LeadController extends Controller
              'services.*' => 'nullable',
              'pain_points' => 'nullable|string',
              'website' => 'nullable|string|max:255',
+             'linkedin_url' => 'nullable|string|max:500',
              'business_name' => 'nullable|string|max:255',
              'gst_number' => 'nullable|string|max:255',
              'city' => 'nullable|string|max:255',
@@ -315,6 +316,7 @@ class LeadController extends Controller
         $leadData = $data;
         $leadData['client_details'] = $request->cloned_contacts ?? [];
         $leadData['website'] = $data['website'] ?? null;
+        $leadData['linkedin_url'] = $data['linkedin_url'] ?? null;
         $leadData['business_name'] = $data['business_name'] ?? null;
         $leadData['gst_number'] = $data['gst_number'] ?? null;
         
@@ -476,8 +478,8 @@ class LeadController extends Controller
         $matchingUserByMobile = $submittedMobile ? User::where('contact_no', $submittedMobile)->first() : null;
         $isLinkedUserEmail = ($matchingUserByMobile && strtolower((string)$matchingUserByMobile->email) === strtolower($submittedEmail));
 
-        $emailRule = ['required', 'email'];
-        if (!$isSameUserEmail && !$isLinkedUserEmail) {
+        $emailRule = ['nullable', 'email'];
+        if ($submittedEmail && !$isSameUserEmail && !$isLinkedUserEmail) {
             $emailRule[] = \Illuminate\Validation\Rule::unique('users', 'email')->ignore($ignoreId);
         }
 
@@ -513,6 +515,7 @@ class LeadController extends Controller
             'services.*' => 'nullable',
             'pain_points' => 'nullable|string',
             'website' => 'nullable|string|max:255',
+            'linkedin_url' => 'nullable|string|max:500',
             'business_name' => 'nullable|string|max:255',
             'gst_number' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',

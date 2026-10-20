@@ -1780,11 +1780,16 @@
                     // Helper field renderer
                     function fItem(icon, label, value) {
                         let val = (value && value !== 'null' && value !== 'undefined') ? value : 'N/A';
+                        let display = val;
+                        if (val !== 'N/A' && (label === 'Website' || label === 'LinkedIn URL')) {
+                            let url = val.startsWith('http') ? val : ('https://' + val);
+                            display = `<a href="${url}" target="_blank" class="text-primary text-decoration-none d-inline-flex align-items-center gap-1"><i class="fas fa-external-link-alt fs-10"></i> ${val}</a>`;
+                        }
                         return `
                             <div class="col-md-4 col-sm-6">
                                 <div class="p-2 border rounded bg-light">
                                     <div class="text-muted fs-10 text-uppercase fw-bold mb-0.5"><i class="${icon} me-1 text-primary"></i> ${label}</div>
-                                    <div class="fw-semibold text-dark fs-12 text-truncate" title="${val}">${val}</div>
+                                    <div class="fw-semibold text-dark fs-12 text-truncate" title="${val}">${display}</div>
                                 </div>
                             </div>`;
                     }
@@ -1797,6 +1802,7 @@
                     pInfo += fItem('feather-briefcase', 'Business Name', lead.business_name);
                     pInfo += fItem('feather-hash', 'GST Number', lead.gst_number);
                     pInfo += fItem('feather-globe', 'Website', lead.website);
+                    pInfo += fItem('feather-link', 'LinkedIn URL', lead.linkedin_url);
                     document.getElementById('vd_personalInfo').innerHTML = pInfo;
 
                     // Lead Info & Campaign - Bucket removed, only actual Status shown

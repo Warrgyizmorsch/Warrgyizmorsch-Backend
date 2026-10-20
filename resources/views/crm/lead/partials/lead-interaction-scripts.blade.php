@@ -635,11 +635,16 @@
                     // Helper field renderer
                     function fItem(icon, label, value) {
                         let val = (value && value !== 'null' && value !== 'undefined') ? value : 'N/A';
+                        let display = val;
+                        if (val !== 'N/A' && (label === 'Website' || label === 'LinkedIn URL')) {
+                            let url = val.startsWith('http') ? val : ('https://' + val);
+                            display = `<a href="${url}" target="_blank" class="text-primary text-decoration-none d-inline-flex align-items-center gap-1"><i class="fas fa-external-link-alt fs-10"></i> ${val}</a>`;
+                        }
                         return `
                             <div class="col-md-4 col-sm-6">
                                 <div class="p-2 border rounded bg-light">
                                     <div class="text-muted fs-10 text-uppercase fw-bold mb-0.5"><i class="${icon} me-1 text-primary"></i> ${label}</div>
-                                    <div class="fw-semibold text-dark fs-12 text-truncate" title="${val}">${val}</div>
+                                    <div class="fw-semibold text-dark fs-12 text-truncate" title="${val}">${display}</div>
                                 </div>
                             </div>`;
                     }
@@ -652,6 +657,7 @@
                     pInfo += fItem('feather-briefcase', 'Business Name', lead.business_name);
                     pInfo += fItem('feather-hash', 'GST Number', lead.gst_number);
                     pInfo += fItem('feather-globe', 'Website', lead.website);
+                    pInfo += fItem('feather-link', 'LinkedIn URL', lead.linkedin_url);
                     document.getElementById('vd_personalInfo').innerHTML = pInfo;
 
                     // Lead Info & Campaign - Bucket removed, only actual Status shown
@@ -747,6 +753,7 @@
             employee_strength: form.querySelector('#inp_employee_strength')?.value || '',
             industry: form.querySelector('#inp_industry')?.value || '',
             website: form.querySelector('#inp_website')?.value || '',
+            linkedin_url: form.querySelector('#inp_linkedin_url')?.value || '',
             gst_number: form.querySelector('#inp_gst')?.value || '',
             lead_source: form.querySelector('#inp_lead_source')?.value || '',
             lead_owner: form.querySelector('#inp_lead_owner')?.value || '',
@@ -763,7 +770,7 @@
             savedAt: Date.now()
         };
 
-        const hasAnyContent = Boolean(data.name || data.mobile || data.email || data.business_name || data.city || data.address || data.website || data.budget);
+        const hasAnyContent = Boolean(data.name || data.mobile || data.email || data.business_name || data.city || data.address || data.website || data.linkedin_url || data.budget);
         if (hasAnyContent) {
             localStorage.setItem(LEAD_FORM_DRAFT_KEY, JSON.stringify(data));
             const draftBadge = document.getElementById('leadDraftBadge');
@@ -800,6 +807,7 @@
             setVal('#inp_employee_strength', data.employee_strength);
             setVal('#inp_industry', data.industry);
             setVal('#inp_website', data.website);
+            setVal('#inp_linkedin_url', data.linkedin_url);
             setVal('#inp_gst', data.gst_number);
             setVal('#inp_lead_source', data.lead_source);
             setVal('#inp_lead_owner', data.lead_owner);
@@ -1112,6 +1120,7 @@
             setValue('#inp_employee_strength', lead.employee_strength);
             setValue('#inp_industry', lead.industry);
             setValue('#inp_website', lead.website);
+            setValue('#inp_linkedin_url', lead.linkedin_url);
             setValue('#inp_business', lead.business_name);
             setValue('#inp_gst', lead.gst_number);
             setValue('#inp_product', lead.product || lead.applying_country_for_a_visa);

@@ -96,11 +96,15 @@
                                         </select>
                                     </div>
 
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label-sm">Website</label>
-                                        <input type="text" name="website" id="inp_website"  class="form-control form-control-sm">
+                                        <input type="text" name="website" id="inp_website" class="form-control form-control-sm" placeholder="https://example.com">
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
+                                        <label class="form-label-sm"><i class="fab fa-linkedin text-primary me-1"></i>LinkedIn URL</label>
+                                        <input type="text" name="linkedin_url" id="inp_linkedin_url" class="form-control form-control-sm" placeholder="https://linkedin.com/in/username">
+                                    </div>
+                                    <div class="col-md-4">
                                         <label class="form-label-sm">GST NO.</label>
                                         <input type="text" name="gst_number" id="inp_gst" class="form-control form-control-sm">
                                     </div>

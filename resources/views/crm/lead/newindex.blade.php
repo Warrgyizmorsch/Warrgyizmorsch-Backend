@@ -3037,6 +3037,7 @@
                 contactHtml += fieldHtml('fa-envelope', 'Email', user.email);
                 contactHtml += fieldHtml('fa-phone', 'Mobile No.', user.contact_no);
                 contactHtml += fieldHtml('fa-globe', 'Website', lead.website);
+                contactHtml += fieldHtml('fab fa-linkedin', 'LinkedIn URL', lead.linkedin_url);
                 document.getElementById('viewContactInfo').innerHTML = contactHtml;
 
                 // Lead Information
