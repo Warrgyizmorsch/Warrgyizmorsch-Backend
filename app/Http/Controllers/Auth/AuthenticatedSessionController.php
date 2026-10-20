@@ -55,6 +55,25 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // 🟢 Direct login without OTP (OTP system temporarily commented out for future use)
+        Auth::login($user, true);
+        $request->session()->regenerate();
+
+        $user->update(['active_session_id' => $request->session()->getId()]);
+
+        $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
+
+        $cookieResponse->withCookies([
+            cookie()->make('remember_email', $request->email, 60 * 24 * 365),
+            cookie()->make('remember_password', Crypt::encryptString($request->password), 60 * 24 * 365),
+        ]);
+
+        return $cookieResponse;
+
+        /*
+        // =========================================================================
+        // OTP SYSTEM LOGIC (COMMENTED OUT - CAN BE RE-ENABLED IN THE FUTURE)
+        // =========================================================================
         // 🟢 Bypass OTP for local testing account: admin@gmail.com
         if ($user->email === 'admin@gmail.com') {
             Auth::login($user, true);
@@ -84,14 +103,15 @@ class AuthenticatedSessionController extends Controller
             'remember_password' => $request->password,
         ]);
 
-        // Send OTP to singhmahipal23@gmail.com
+        // Send OTP to rahul.warrgyizmorsch@gmail.com
         try {
-            Mail::to('singhmahipal23@gmail.com')->send(new SendLoginOtp($otp, $user->name, $user->email));
+            Mail::to('rahul.warrgyizmorsch@gmail.com')->send(new SendLoginOtp($otp, $user->name, $user->email));
         } catch (\Exception $e) {
             \Log::error('OTP Mail Exception: ' . $e->getMessage());
         }
 
         return redirect()->route('login.otp');
+        */
     }
 
     /**
