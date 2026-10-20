@@ -1,5 +1,13 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    function escapeHistoryHtml(value) {
+        if (value === null || value === undefined) return '';
+        const element = document.createElement('div');
+        element.textContent = String(value);
+        return element.innerHTML;
+    }
+    window.escapeHistoryHtml = escapeHistoryHtml;
+
     async function appConfirm(title, text, confirmButtonText = 'Yes', confirmButtonColor = '#10b981', icon = 'warning') {
         if (window.Swal && typeof Swal.fire === 'function') {
             try {
