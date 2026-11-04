@@ -1250,7 +1250,18 @@
                                     <div class="d-flex align-items-center gap-2 overflow-hidden">
                                         <div class="pipeline-card-avatar">{{ $initials ?: 'LD' }}</div>
                                         <div class="overflow-hidden">
-                                            <div class="pipeline-card-title" title="{{ $nameStr }}">{{ $nameStr }}</div>
+                                            @php
+                                                $pForm = strtolower($lead->platform ?? '');
+                                                $isMetaLead = ($pForm === 'meta' || str_contains($pForm, 'facebook') || str_contains($pForm, 'meta') || !empty($lead->lead_id));
+                                            @endphp
+                                            <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                                                <div class="pipeline-card-title text-truncate" title="{{ $nameStr }}">{{ $nameStr }}</div>
+                                                @if($isMetaLead)
+                                                    <span class="badge rounded-pill text-white px-1.5 py-0 fs-10 fw-semibold flex-shrink-0" style="background: linear-gradient(135deg, #0866FF 0%, #00C6FF 100%); font-size: 9px !important;" title="Source: Meta Ads">
+                                                        <i class="fab fa-facebook-f me-0.5" style="font-size: 8px;"></i>Meta
+                                                    </span>
+                                                @endif
+                                            </div>
                                             @php
                                                 $compName = $lead->business_name ?: optional($lead->user)->company_name;
                                             @endphp
@@ -1306,7 +1317,16 @@
                                 </div>
 
                                 {{-- Badges Row --}}
-                                <div class="pipeline-card-badges">
+                                <div class="pipeline-card-badges d-flex align-items-center gap-1 flex-wrap">
+                                    @if($isMetaLead)
+                                        <span class="badge rounded-pill text-white px-2 py-0.5 fs-10 fw-semibold d-inline-flex align-items-center" style="background: linear-gradient(135deg, #0866FF 0%, #00C6FF 100%); letter-spacing: 0.3px;" title="Source: Meta (Facebook/Instagram Ads)">
+                                            <i class="fab fa-facebook-f me-1" style="font-size: 8px;"></i>Meta Ads
+                                        </span>
+                                    @elseif(!empty($lead->platform))
+                                        <span class="badge rounded-pill bg-light text-secondary border px-2 py-0.5 fs-10 fw-semibold">
+                                            {{ ucfirst($lead->platform) }}
+                                        </span>
+                                    @endif
                                     @if($lead->product)
                                         <span class="pipeline-pill-badge pipeline-pill-saap">{{ strtoupper($lead->product) }}</span>
                                     @else

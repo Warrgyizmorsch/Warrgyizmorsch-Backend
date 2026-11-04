@@ -750,34 +750,34 @@ $exportColumns = [
                                             <!-- Source -->
                                             <td>
                                                 @php
-    if (!empty($lead->platform)) {
-
-        // remove query params
-        $cleanUrl = strtok(trim($lead->platform), '?');
-
-        // if it is a URL show Website
-        if (filter_var($cleanUrl, FILTER_VALIDATE_URL)) {
-            $source = "Website";
-        } else {
-            $source = $cleanUrl;
-        }
-
-    } else {
-        $source = "Website";
-    }
-
-    // convert to short form (first letter of each word)
-    $words = preg_split('/[\s\-_]+/', $source);
-    $shortForm = '';
-
-    foreach ($words as $word) {
-        $shortForm .= strtoupper(substr($word, 0, 1));
-    }
+                                                    $pForm = strtolower($lead->platform ?? '');
+                                                    $isMetaLead = ($pForm === 'meta' || str_contains($pForm, 'facebook') || str_contains($pForm, 'meta') || !empty($lead->lead_id));
                                                 @endphp
 
-                                                <span class="badge bg-soft-dark text-dark">
-                                                    {{ $shortForm }}
-                                                </span>
+                                                @if($isMetaLead)
+                                                    <span class="badge rounded-pill text-white px-2 py-1 fs-11 fw-semibold d-inline-flex align-items-center" style="background: linear-gradient(135deg, #0866FF 0%, #00C6FF 100%);" title="Source: Meta (Facebook/Instagram Ads)">
+                                                        <i class="fab fa-facebook-f me-1" style="font-size: 9px;"></i>Meta Ads
+                                                    </span>
+                                                @else
+                                                    @php
+                                                        if (!empty($lead->platform)) {
+                                                            $cleanUrl = strtok(trim($lead->platform), '?');
+                                                            $source = filter_var($cleanUrl, FILTER_VALIDATE_URL) ? "Website" : $cleanUrl;
+                                                        } else {
+                                                            $source = "Website";
+                                                        }
+
+                                                        $words = preg_split('/[\s\-_]+/', $source);
+                                                        $shortForm = '';
+                                                        foreach ($words as $word) {
+                                                            $shortForm .= strtoupper(substr($word, 0, 1));
+                                                        }
+                                                    @endphp
+
+                                                    <span class="badge bg-soft-dark text-dark" title="{{ $source }}">
+                                                        {{ $shortForm ?: 'W' }}
+                                                    </span>
+                                                @endif
                                             </td>
 
                                             <!-- Bucket (relationship or ID) -->

@@ -55,21 +55,38 @@
      draggable="true">
     <div class="card-body p-3"
          onclick="if (!event.target.closest('button, a, select, input')) openViewDetailsModalLazy({{ $lead->id }})">
-        {{-- Card Header: Engagement Status & Date --}}
+        {{-- Card Header: Engagement Status, Source Platform & Date --}}
+        @php
+            $pForm = strtolower($lead->platform ?? '');
+            $isMetaLead = ($pForm === 'meta' || str_contains($pForm, 'facebook') || str_contains($pForm, 'meta') || !empty($lead->lead_id));
+        @endphp
         <div class="d-flex align-items-center justify-content-between mb-2">
-            <!-- <span class="badge {{ $badgeBg }} px-2 py-1 fs-11 rounded-2 text-uppercase fw-semibold">
-                {{ $lead->lead_engagement_status ?? 'Standard' }}
-            </span> -->
+            @if($isMetaLead)
+                <span class="badge rounded-pill text-white px-2 py-1 fs-11 fw-semibold shadow-2xs d-inline-flex align-items-center" style="background: linear-gradient(135deg, #0866FF 0%, #00C6FF 100%); letter-spacing: 0.3px;" title="Source: Meta (Facebook/Instagram Ads)">
+                    <i class="fab fa-facebook-f me-1" style="font-size: 10px;"></i>Meta Ads
+                </span>
+            @elseif(!empty($lead->platform))
+                <span class="badge rounded-pill bg-light text-secondary border px-2 py-0.5 fs-10 fw-semibold">
+                    {{ ucfirst($lead->platform) }}
+                </span>
+            @else
+                <span></span>
+            @endif
             <small class="text-muted fs-11 ms-auto">
                 <i class="feather-calendar me-1"></i>{{ $createdDate }}
             </small>
         </div>
 
         {{-- Lead Title & Business Name --}}
-        <h6 class="mb-1 fw-bold text-dark fs-14">
-            <a href="javascript:void(0)" onclick="openViewDetailsModalLazy({{ $lead->id }})" class="text-dark text-decoration-none hover-primary">
+        <h6 class="mb-1 fw-bold text-dark fs-14 d-flex align-items-center justify-content-between gap-1">
+            <a href="javascript:void(0)" onclick="openViewDetailsModalLazy({{ $lead->id }})" class="text-dark text-decoration-none hover-primary text-truncate">
                 {{ $userName }}
             </a>
+            @if($isMetaLead)
+                <span class="badge bg-light-primary text-primary border border-primary-subtle rounded-pill px-1.5 py-0 fs-10 fw-semibold flex-shrink-0" title="Meta Lead">
+                    Meta
+                </span>
+            @endif
         </h6>
 
         @if(!empty($lead->business_name) && $lead->business_name !== $userName)

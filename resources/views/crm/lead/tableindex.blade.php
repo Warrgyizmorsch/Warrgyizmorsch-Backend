@@ -1249,9 +1249,20 @@
                                                 @endif
                                             </button>
 
-                                            {{-- Name & Duplicate badge --}}
+                                            {{-- Name, Meta badge & Duplicate badge --}}
+                                            @php
+                                                $pForm = strtolower($lead->platform ?? '');
+                                                $isMetaLead = ($pForm === 'meta' || str_contains($pForm, 'facebook') || str_contains($pForm, 'meta') || !empty($lead->lead_id));
+                                            @endphp
                                             <div class="d-flex flex-column gap-0.5">
-                                                <span class="fw-bold text-dark fs-13">{{ optional($lead->user)->name ?? 'N/A' }}</span>
+                                                <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                                                    <span class="fw-bold text-dark fs-13">{{ optional($lead->user)->name ?? 'N/A' }}</span>
+                                                    @if($isMetaLead)
+                                                        <span class="badge rounded-pill text-white px-1.5 py-0 fs-10 fw-semibold d-inline-flex align-items-center" style="background: linear-gradient(135deg, #0866FF 0%, #00C6FF 100%); font-size: 9px !important;" title="Source: Meta (Facebook/Instagram Ads)">
+                                                            <i class="fab fa-facebook-f me-0.5" style="font-size: 8px;"></i>Meta
+                                                        </span>
+                                                    @endif
+                                                </div>
                                                 @if($lead->duplicate_count > 0)
                                                     <span class="badge bg-danger text-white rounded-pill" style="font-size: 9px; width: fit-content;" title="Duplicate Lead">
                                                         Dup ({{ $lead->duplicate_count }})
@@ -1496,7 +1507,17 @@
 
                                     {{-- Title / Platform --}}
                                     <td>
-                                        <span class="text-muted">{{ $lead->platform ?: (optional($lead->category)->category_name ?: '—') }}</span>
+                                        @if($isMetaLead)
+                                            <span class="badge rounded-pill text-white px-2 py-1 fs-11 fw-semibold d-inline-flex align-items-center" style="background: linear-gradient(135deg, #0866FF 0%, #00C6FF 100%);" title="Source: Meta (Facebook/Instagram Ads)">
+                                                <i class="fab fa-facebook-f me-1" style="font-size: 9px;"></i>Meta Ads
+                                            </span>
+                                        @elseif(!empty($lead->platform))
+                                            <span class="badge bg-light text-dark border px-2 py-1 fs-11 fw-semibold">
+                                                {{ ucfirst($lead->platform) }}
+                                            </span>
+                                        @else
+                                            <span class="text-muted">{{ optional($lead->category)->category_name ?: '—' }}</span>
+                                        @endif
                                     </td>
 
                                     {{-- Email --}}

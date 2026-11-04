@@ -20,7 +20,6 @@ class MetaWebhookController extends Controller
         $mode = $request->input('hub.mode') ?? $request->input('hub_mode');
         $token = $request->input('hub.verify_token') ?? $request->input('hub_verify_token');
         $challenge = $request->input('hub.challenge') ?? $request->input('hub_challenge');
-
         if ($mode === 'subscribe' && $token === env('META_VERIFY_TOKEN')) {
             return response($challenge, 200);
         }
@@ -180,6 +179,20 @@ class MetaWebhookController extends Controller
                 ]);
             }
 
+            // Resolve active default bucket
+            $defaultBucket = DB::table('buckets')
+                ->where('is_deleted', 0)
+                ->where(function ($q) {
+                    $q->where('name', 'New Lead')
+                      ->orWhere('name', 'Yet to Call')
+                      ->orWhere('type', 'lead');
+                })
+                ->orderByRaw("CASE WHEN name = 'New Lead' THEN 1 WHEN name = 'Yet to Call' THEN 2 ELSE 3 END")
+                ->first();
+
+            $bucketId = $defaultBucket->id ?? 83;
+            $bucketName = $defaultBucket->name ?? 'New Lead';
+
             $leadCreated = Leads::create([
                 'lead_id' => $metaLeadId,
                 'uid' => $user->id,
@@ -198,8 +211,9 @@ class MetaWebhookController extends Controller
                 'applying_country_for_a_visa' => $leadFields['applying_country_for_a_visa'],
                 'what_course_are_you_planning_to_study' => $leadFields['what_course_are_you_planning_to_study'],
                 'english_test_status' => $leadFields['english_test_status'],
-                'lead_status' => DB::table('buckets')->where('id', 2)->value('name') ?? 'Meta leads',
-                'lead_bucket_id' => 1,
+                'lead_status' => $bucketName,
+                'lead_bucket_id' => $bucketId,
+                'lead_bucket_name' => $bucketName,
             ]);
 
             $this->saveDynamicFields($leadCreated->id, $lead);
