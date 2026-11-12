@@ -201,6 +201,18 @@ class LeadsImportJob implements ShouldQueue
             return ['', ''];
         };
 
+        // Placeholder email for rows without a usable email. The counter only moves
+        // forward and every candidate is checked against the DB, so it can never
+        // land on an email that an earlier import already gave to another user.
+        $dummySeq = 0;
+        $nextDummyEmail = function () use (&$dummySeq) {
+            $dummySeq = max($dummySeq, (int) (User::max('id') ?? 0)) + 1;
+            while (User::where('email', "user{$dummySeq}@demo.com")->exists()) {
+                $dummySeq++;
+            }
+            return "user{$dummySeq}@demo.com";
+        };
+
         Log::info('Detected import field mapping', $detectedFields);
 
         $defaultBucketId = \App\Models\Bucket::whereNull('parent_id')
@@ -254,24 +266,47 @@ class LeadsImportJob implements ShouldQueue
                 }
                 $processed[$uniqueKey] = true;
 
-                // Dummy email if missing
-                if (empty($email)) {
-                    $lastUserId = User::max('id') ?? 0;
-                    $email = 'user' . ($lastUserId + $r) . '@demo.com';
-                }
+                // --- Find or create user ---
+                // 1) Phone first, 2) then email.
+                // Same user ONLY when phone AND email both match. Anything else is a
+                // different person and gets a new user, so one lead never borrows
+                // another person's name/phone/email.
+                $phoneUsers = User::where('contact_no', $phone)->orderBy('id')->get();
+                $newUserEmail = null; // null => placeholder email is generated on create
 
-                // Find or create user
-                $user = User::where(function ($q) use ($phone, $email) {
-                    if ($phone && $email) $q->where('contact_no', $phone)->orWhere('email', $email);
-                    elseif ($phone) $q->where('contact_no', $phone);
-                    elseif ($email) $q->where('email', $email);
-                })->first();
+                if ($email === '') {
+                    // No email in the file: phone alone identifies the person
+                    $user = $phoneUsers->first();
+                } else {
+                    // Phone + email both match => duplicate person, reuse that user
+                    $user = $phoneUsers->first(
+                        fn($u) => strtolower(trim((string)$u->email)) === $email
+                    );
+                    $emailTaken = $user ? true : User::where('email', $email)->exists();
+
+                    if (!$user) {
+                        // Same phone and that user only has a placeholder email (no real
+                        // email to conflict with): same person, real email is now known
+                        $user = $phoneUsers->first(
+                            fn($u) => str_ends_with(strtolower((string)$u->email), '@demo.com')
+                        );
+                        if ($user && !$emailTaken) {
+                            $user->update(['email' => $email]);
+                        }
+                    }
+
+                    // users.email is unique: when this email already belongs to a user with
+                    // a different phone, the new user gets a placeholder email instead
+                    if (!$emailTaken) {
+                        $newUserEmail = $email;
+                    }
+                }
 
                 if (!$user) {
                     $fullName = trim($firstName . ' ' . $lastName) ?: 'user' . ((User::max('id') ?? 0) + 1);
                     $user = User::create([
                         'name' => $fullName,
-                        'email' => $email,
+                        'email' => $newUserEmail ?? $nextDummyEmail(),
                         'contact_no' => $phone,
                         'country_code' => $countryCode,
                         'city' => $cell($r, 'city'),
