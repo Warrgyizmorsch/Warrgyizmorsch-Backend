@@ -299,10 +299,28 @@ class PluginController extends Controller
                 $log->save();
             }
 
-            return response('', 204);
+            // This URL is also the <Dial action>. If nobody answered, tell the caller.
+            $dialStatus = strtolower((string) $request->input('DialCallStatus', ''));
+            if ($dialStatus !== '' && $dialStatus !== 'completed') {
+                return response(
+                    '<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">No agent was available to take your call. Please try again later.</Say></Response>',
+                    200,
+                    ['Content-Type' => 'text/xml']
+                );
+            }
+
+            return response(
+                '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+                200,
+                ['Content-Type' => 'text/xml']
+            );
         } catch (\Throwable $e) {
             Log::error('Twilio status-callback error: ' . $e->getMessage());
-            return response('', 200);
+            return response(
+                '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+                200,
+                ['Content-Type' => 'text/xml']
+            );
         }
     }
 
@@ -390,7 +408,7 @@ class PluginController extends Controller
                     $fallback = $fallback->withBasicAuth($sid, $token);
                 }
                 $response = $fallback->get($rawUrl);
-                
+
                 if (!$response->successful()) {
                     Log::warning("Twilio recording fetch failed for log #{$id} [HTTP {$response->status()}]: {$url}");
                     abort(404, 'Audio recording could not be retrieved from Twilio.');
@@ -413,4 +431,3 @@ class PluginController extends Controller
         }
     }
 }
-
