@@ -24,18 +24,21 @@ class LoginListener
         
         $user = $event->user;
 
-        // ✅ Make sure current session row has the user_id
-        DB::table('sessions')
-            ->where('id', session()->getId())
-            ->update([
-                'user_id' => $user->id,
-            ]);
+        // Attempt sessions table cleanup if database session driver is ever used
+        try {
+            DB::table('sessions')
+                ->where('id', session()->getId())
+                ->update([
+                    'user_id' => $user->id,
+                ]);
 
-        // ✅ Force single session (remove other sessions of this user)
-        DB::table('sessions')
-            ->where('user_id', $user->id)
-            ->where('id', '!=', session()->getId())
-            ->delete();
+            DB::table('sessions')
+                ->where('user_id', $user->id)
+                ->where('id', '!=', session()->getId())
+                ->delete();
+        } catch (\Throwable $e) {
+            // Silently ignore if sessions table is not used
+        }
 
         // ✅ Parse User Agent
         $agent = new Agent();

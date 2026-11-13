@@ -229,9 +229,18 @@
                                 <div class="col-lg-4 mb-4">
                                     <label class="form-label">Budget</label>
                                     <div class="input-group">
-                                        <div class="input-group-text"><i class="feather-dollar-sign"></i></div>
+                                        <button class="btn btn-outline-secondary dropdown-toggle px-2.5 fw-bold" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="budgetCurrencyBtnCreate" style="border-color: #cbd5e1; background-color: #f8fafc; min-width: 48px;">
+                                            <span id="budgetCurrencySymbolCreate">₹</span>
+                                        </button>
+                                        <ul class="dropdown-menu shadow-sm py-1 border-0" style="min-width: 130px; border-radius: 8px;">
+                                            <li><a class="dropdown-item py-1.5 fs-12 fw-semibold" href="javascript:void(0);" onclick="document.getElementById('budgetCurrencySymbolCreate').textContent = '₹'; document.getElementById('inp_budget_currency_create').value = '₹';">₹ Rupee (INR)</a></li>
+                                            <li><a class="dropdown-item py-1.5 fs-12 fw-semibold" href="javascript:void(0);" onclick="document.getElementById('budgetCurrencySymbolCreate').textContent = '$'; document.getElementById('inp_budget_currency_create').value = '$';">$ Dollar (USD)</a></li>
+                                            <li><a class="dropdown-item py-1.5 fs-12 fw-semibold" href="javascript:void(0);" onclick="document.getElementById('budgetCurrencySymbolCreate').textContent = '€'; document.getElementById('inp_budget_currency_create').value = '€';">€ Euro (EUR)</a></li>
+                                            <li><a class="dropdown-item py-1.5 fs-12 fw-semibold" href="javascript:void(0);" onclick="document.getElementById('budgetCurrencySymbolCreate').textContent = '£'; document.getElementById('inp_budget_currency_create').value = '£';">£ Pound (GBP)</a></li>
+                                        </ul>
+                                        <input type="hidden" name="budget_currency" id="inp_budget_currency_create" value="₹">
                                         <input type="text" name="budget" value="{{ old('budget', $lead->budget) }}"
-                                            class="form-control" placeholder="Budget">
+                                            class="form-control" placeholder="Budget (e.g. 50,000)">
                                     </div>
                                     @error('budget') <small class="text-danger">{{ $message }}</small> @enderror
                                 </div>

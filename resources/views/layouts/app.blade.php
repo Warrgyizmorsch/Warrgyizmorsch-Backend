@@ -242,6 +242,7 @@
 
   {{-- Vendor Scripts --}}
   <script src="{{ asset('crm-assets/assets/vendors/js/vendors.min.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="{{ asset('crm-assets/assets/vendors/js/daterangepicker.min.js') }}"></script>
   <script src="{{ asset('crm-assets/assets/vendors/js/apexcharts.min.js') }}"></script>
   <script src="{{ asset('crm-assets/assets/vendors/js/jquery.time-to.min.js') }}"></script>
@@ -251,9 +252,7 @@
 
   {{-- App Scripts --}}
   <script src="{{ asset('crm-assets/assets/js/common-init.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/js/leads-init.min.js') }}"></script>
   <script src="{{ asset('crm-assets/assets/js/theme-customizer-init.min.js') }}"></script>
-  <script src="{{ asset('crm-assets/assets/js/analytics-init.min.js') }}"></script>
 
   {{-- Extra Scripts from child views --}}
   @stack('scripts')
@@ -282,6 +281,82 @@
       opacity: 0.5;
     }
   </style>
+
+  {{-- Global Flash Message Alerts (SweetAlert2) --}}
+  @if(session('success'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: @json(session('success')),
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
+
+  @if(session('error'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'error',
+            title: @json(session('error')),
+            showConfirmButton: false,
+            timer: 4500,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
+
+  @if(session('warning'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'warning',
+            title: @json(session('warning')),
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
+
+  @if(session('info'))
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: @json(session('info')),
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true
+          });
+        }
+      });
+    </script>
+  @endif
+
+  {{-- Twilio Voice WebRTC Softphone Widget --}}
+  @include('partials.twilio-softphone-widget')
 </body>
 
 </html>

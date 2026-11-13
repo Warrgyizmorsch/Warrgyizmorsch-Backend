@@ -34,7 +34,7 @@ class NewleadController extends Controller
             $digitsOnly = preg_replace('/\D+/', '', $search);
 
             // 1. Direct query on User table for Name, Email, Contact No
-            $users = User::where(function ($q) use ($search, $digitsOnly) {
+            $usersQuery = User::where(function ($q) use ($search, $digitsOnly) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('email', 'like', "%{$search}%")
                       ->orWhere('contact_no', 'like', "%{$search}%");
@@ -42,7 +42,21 @@ class NewleadController extends Controller
                         $q->orWhere('contact_no', 'like', "%{$digitsOnly}%")
                           ->orWhereRaw("REPLACE(REPLACE(contact_no, ' ', ''), '+', '') LIKE ?", ['%' . $digitsOnly . '%']);
                     }
-                })
+                });
+
+            // If user is Executive (Role 3), only suggest users for leads owned by this executive
+            if (auth()->check() && auth()->user()->role_id == 3) {
+                $executiveLeadUids = Leads::where('lead_owner', auth()->id())
+                    ->where(function($q) {
+                        $q->where('is_archived', 0)->orWhereNull('is_archived');
+                    })
+                    ->pluck('uid')
+                    ->filter()
+                    ->unique();
+                $usersQuery->whereIn('id', $executiveLeadUids);
+            }
+
+            $users = $usersQuery
                 ->select('id', 'name', 'email', 'contact_no')
                 ->limit(20)
                 ->get();
@@ -52,8 +66,12 @@ class NewleadController extends Controller
             // 2. Map associated lead status if exists
             $leadsByUser = collect();
             if (!empty($userIds)) {
-                $leadsByUser = Leads::whereIn('uid', $userIds)
-                    ->select('id', 'uid', 'business_name', 'lead_status')
+                $leadsQuery = Leads::whereIn('uid', $userIds)
+                    ->select('id', 'uid', 'business_name', 'lead_status', 'lead_owner');
+                if (auth()->check() && auth()->user()->role_id == 3) {
+                    $leadsQuery->where('lead_owner', auth()->id());
+                }
+                $leadsByUser = $leadsQuery
                     ->get()
                     ->keyBy('uid');
             }
@@ -169,29 +187,7 @@ class NewleadController extends Controller
             }
         }
 
-        if ($request->filled('deleted_leads')) {
-            $mainBucketIds = Bucket::whereNull('parent_id')
-                ->where('is_deleted', 0)
-                ->pluck('id')
-                ->toArray();
 
-            $targetBucketIdForFilter = $request->bucket_id ?? 46;
-            $childNames = Bucket::where('parent_id', $targetBucketIdForFilter)
-                ->where('is_deleted', 0)
-                ->pluck('name')
-                ->map(fn($n) => strtolower(trim($n)))
-                ->toArray();
-
-            $query->where(function($q) use ($mainBucketIds, $childNames) {
-                $q->whereNotIn('lead_bucket_id', $mainBucketIds)
-                  ->orWhere(function($subQ) use ($childNames) {
-                      $subQ->whereNotIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames)
-                           ->where(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), '!=', 'yet to call')
-                           ->whereNotNull('lead_status')
-                           ->where('lead_status', '!=', '');
-                  });
-            });
-        }
 
         if ($request->filled('country'))
             $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
@@ -236,7 +232,7 @@ class NewleadController extends Controller
                   ->orWhere('is_converted', 0);
             });
 
-            if (!$request->filled('search') && !$request->filled('search_uid') && !$request->filled('deleted_leads')) {
+            if (!$request->filled('search') && !$request->filled('search_uid')) {
                 $query->where(function ($q) use ($orderBucketIds) {
                     $q->whereNull('lead_bucket_id')
                       ->orWhereNotIn('lead_bucket_id', $orderBucketIds);
@@ -306,21 +302,128 @@ class NewleadController extends Controller
         if ($request->view === 'pipeline') {
             $pipelineLeads = (clone $query)->orderBy('created_at', 'desc')->take(200)->get();
 
-            $pipelineUids = $pipelineLeads->pluck('uid')->filter()->unique();
-            $pipelineDuplicateGroup = collect();
-            if ($pipelineUids->isNotEmpty()) {
-                $pipelineDuplicateGroup = Leads::whereIn('uid', $pipelineUids)
-                    ->select('id', 'uid')
-                    ->get()
-                    ->groupBy('uid');
+            $pipelinePhones = [];
+            $pipelineEmails = [];
+            $pipelineUids = [];
+
+            foreach ($pipelineLeads as $l) {
+                if ($l->uid) {
+                    $pipelineUids[] = (int)$l->uid;
+                }
+                if ($l->user) {
+                    $rawPhone = trim((string)$l->user->contact_no);
+                    $cleanPhone = preg_replace('/\D+/', '', $rawPhone);
+                    if ($rawPhone !== '') {
+                        $pipelinePhones[] = $rawPhone;
+                    }
+                    if (strlen($cleanPhone) >= 6) {
+                        $pipelinePhones[] = $cleanPhone;
+                        if (strlen($cleanPhone) >= 10) {
+                            $pipelinePhones[] = substr($cleanPhone, -10);
+                        }
+                    }
+                    $cleanEmail = strtolower(trim((string)$l->user->email));
+                    if (!empty($cleanEmail)) {
+                        $pipelineEmails[] = $cleanEmail;
+                    }
+                }
             }
 
-            $pipelineLeads->transform(function ($lead) use ($pipelineDuplicateGroup) {
-                $matching = $pipelineDuplicateGroup->get($lead->uid, collect());
-                $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
+            $pipelinePhones = array_values(array_unique(array_filter($pipelinePhones)));
+            $pipelineEmails = array_values(array_unique(array_filter($pipelineEmails)));
+            $pipelineUids = array_values(array_unique(array_filter($pipelineUids)));
 
-                $lead->duplicate_count = $otherIds->count();
-                $lead->duplicate_ids = $otherIds;
+            $pipelineUsers = collect();
+            if (!empty($pipelinePhones) || !empty($pipelineEmails) || !empty($pipelineUids)) {
+                $pipelineUsers = User::where(function ($q) use ($pipelinePhones, $pipelineEmails, $pipelineUids) {
+                    if (!empty($pipelineUids)) {
+                        $q->whereIn('id', $pipelineUids);
+                    }
+                    if (!empty($pipelinePhones)) {
+                        $q->orWhereIn('contact_no', $pipelinePhones);
+                        foreach ($pipelinePhones as $p) {
+                            $q->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') = ?", [$p]);
+                        }
+                    }
+                    if (!empty($pipelineEmails)) {
+                        $q->orWhereIn('email', $pipelineEmails);
+                    }
+                })->select('id', 'contact_no', 'email')->get();
+            }
+
+            $pipeUserIds = $pipelineUsers->pluck('id')->merge($pipelineUids)->unique()->values();
+
+            $pipeMatchedLeads = collect();
+            if ($pipeUserIds->isNotEmpty()) {
+                $pipeMatchedQuery = Leads::whereIn('uid', $pipeUserIds)
+                    ->where(function($q) {
+                        $q->where('is_archived', 0)->orWhereNull('is_archived');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('is_converted')->orWhere('is_converted', 0);
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('lead_status')
+                          ->orWhere(DB::raw('LOWER(TRIM(lead_status))'), 'NOT LIKE', '%deal created%');
+                    });
+
+                if (auth()->check() && auth()->user()->role_id == 3) {
+                    $pipeMatchedQuery->where('lead_owner', auth()->id());
+                }
+
+                $pipeMatchedLeads = $pipeMatchedQuery->select('id', 'uid')->get();
+            }
+
+            $pipeUserMap = $pipelineUsers->keyBy('id');
+            $pipeLeadsByKey = collect();
+            foreach ($pipeMatchedLeads as $pml) {
+                $u = $pipeUserMap->get($pml->uid);
+                $keys = [];
+                if ($u) {
+                    $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                    if ($pClean !== '') {
+                        $keys[] = 'p:' . $pClean;
+                    }
+                    if (!empty($u->email)) {
+                        $keys[] = 'e:' . strtolower(trim($u->email));
+                    }
+                }
+                if (empty($keys) && $pml->uid) {
+                    $keys[] = 'u:' . $pml->uid;
+                }
+
+                foreach ($keys as $k) {
+                    if (!$pipeLeadsByKey->has($k)) {
+                        $pipeLeadsByKey->put($k, collect());
+                    }
+                    $pipeLeadsByKey->get($k)->push($pml->id);
+                }
+            }
+
+            $pipelineLeads->transform(function ($lead) use ($pipeUserMap, $pipeLeadsByKey) {
+                $u = $pipeUserMap->get($lead->uid) ?: $lead->user;
+                $matchedIds = collect();
+
+                if ($u) {
+                    $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                    if (strlen($pClean) >= 6) {
+                        $kPhone = 'p:' . substr($pClean, -10);
+                        $matchedIds = $matchedIds->merge($pipeLeadsByKey->get($kPhone, collect()));
+                    }
+                    if (!empty($u->email)) {
+                        $kEmail = 'e:' . strtolower(trim($u->email));
+                        $matchedIds = $matchedIds->merge($pipeLeadsByKey->get($kEmail, collect()));
+                    }
+                }
+                if ($matchedIds->isEmpty() && $lead->uid) {
+                    $matchedIds = $matchedIds->merge($pipeLeadsByKey->get('u:' . $lead->uid, collect()));
+                }
+
+                $uniqueIds = $matchedIds->unique()->values();
+                $totalCount = $uniqueIds->count();
+
+                $lead->duplicate_count = ($totalCount > 1) ? $totalCount : 0;
+                $lead->duplicate_ids = $uniqueIds->reject(fn($id) => $id == $lead->id)->values();
                 $lead->lastMessage = $lead->latestMessage;
 
                 return $lead;
@@ -332,22 +435,130 @@ class NewleadController extends Controller
         $leads = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends($request->query());
 
 
-        // Batch calculation for duplicate leads to eliminate N+1 queries
-        $uids = $leads->getCollection()->pluck('uid')->filter()->unique();
-        $duplicateGroup = collect();
-        if ($uids->isNotEmpty()) {
-            $duplicateGroup = Leads::whereIn('uid', $uids)
-                ->select('id', 'uid')
-                ->get()
-                ->groupBy('uid');
+        // Batch calculation for duplicate leads by Mobile, Email, and UID
+        $pageLeads = $leads->getCollection();
+        $phones = [];
+        $emails = [];
+        $uids = [];
+
+        foreach ($pageLeads as $l) {
+            if ($l->uid) {
+                $uids[] = (int)$l->uid;
+            }
+            if ($l->user) {
+                $rawPhone = trim((string)$l->user->contact_no);
+                $cleanPhone = preg_replace('/\D+/', '', $rawPhone);
+                if ($rawPhone !== '') {
+                    $phones[] = $rawPhone;
+                }
+                if ($cleanPhone !== '') {
+                    $phones[] = $cleanPhone;
+                }
+                $cleanEmail = strtolower(trim((string)$l->user->email));
+                if (!empty($cleanEmail)) {
+                    $emails[] = $cleanEmail;
+                }
+            }
         }
 
-        $leads->getCollection()->transform(function ($lead) use ($duplicateGroup) {
-            $matching = $duplicateGroup->get($lead->uid, collect());
-            $otherIds = $matching->pluck('id')->reject(fn($id) => $id == $lead->id)->values();
+        $phones = array_values(array_unique(array_filter($phones)));
+        $emails = array_values(array_unique(array_filter($emails)));
+        $uids = array_values(array_unique(array_filter($uids)));
 
-            $lead->duplicate_count = $otherIds->count();
-            $lead->duplicate_ids = $otherIds;
+        $matchingUsers = collect();
+        if (!empty($phones) || !empty($emails) || !empty($uids)) {
+            $matchingUsers = User::where(function ($q) use ($phones, $emails, $uids) {
+                if (!empty($uids)) {
+                    $q->whereIn('id', $uids);
+                }
+                if (!empty($phones)) {
+                    $q->orWhereIn('contact_no', $phones);
+                    foreach ($phones as $p) {
+                        $q->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') = ?", [$p]);
+                    }
+                }
+                if (!empty($emails)) {
+                    $q->orWhereIn('email', $emails);
+                }
+            })->select('id', 'contact_no', 'email')->get();
+        }
+
+        $allMatchedUserIds = $matchingUsers->pluck('id')->merge($uids)->unique()->values();
+
+        $allMatchedLeads = collect();
+        if ($allMatchedUserIds->isNotEmpty()) {
+            $matchedLeadsQuery = Leads::whereIn('uid', $allMatchedUserIds)
+                ->where(function($q) {
+                    $q->where('is_archived', 0)->orWhereNull('is_archived');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('is_converted')->orWhere('is_converted', 0);
+                })
+                ->where(function ($q) {
+                    $q->whereNull('lead_status')
+                      ->orWhere(DB::raw('LOWER(TRIM(lead_status))'), 'NOT LIKE', '%deal created%');
+                });
+
+            // For Role 3 (Executive), only count duplicate leads within their own assigned leads
+            if (auth()->check() && auth()->user()->role_id == 3) {
+                $matchedLeadsQuery->where('lead_owner', auth()->id());
+            }
+
+            $allMatchedLeads = $matchedLeadsQuery->select('id', 'uid')->get();
+        }
+
+        $userMap = $matchingUsers->keyBy('id');
+
+        $leadsByNormalizedKey = collect();
+        foreach ($allMatchedLeads as $ml) {
+            $u = $userMap->get($ml->uid);
+            $keys = [];
+            if ($u) {
+                $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                if ($pClean !== '') {
+                    $keys[] = 'p:' . $pClean;
+                }
+                if (!empty($u->email)) {
+                    $keys[] = 'e:' . strtolower(trim($u->email));
+                }
+            }
+            if (empty($keys) && $ml->uid) {
+                $keys[] = 'u:' . $ml->uid;
+            }
+
+            foreach ($keys as $k) {
+                if (!$leadsByNormalizedKey->has($k)) {
+                    $leadsByNormalizedKey->put($k, collect());
+                }
+                $leadsByNormalizedKey->get($k)->push($ml->id);
+            }
+        }
+
+        $leads->getCollection()->transform(function ($lead) use ($userMap, $leadsByNormalizedKey) {
+            $u = $userMap->get($lead->uid) ?: $lead->user;
+            $matchedIds = collect();
+
+            if ($u) {
+                $pClean = preg_replace('/\D+/', '', (string)$u->contact_no);
+                if ($pClean !== '') {
+                    $kPhone = 'p:' . $pClean;
+                    $matchedIds = $matchedIds->merge($leadsByNormalizedKey->get($kPhone, collect()));
+                }
+                if (!empty($u->email)) {
+                    $kEmail = 'e:' . strtolower(trim($u->email));
+                    $matchedIds = $matchedIds->merge($leadsByNormalizedKey->get($kEmail, collect()));
+                }
+            }
+            if ($matchedIds->isEmpty() && $lead->uid) {
+                $matchedIds = $matchedIds->merge($leadsByNormalizedKey->get('u:' . $lead->uid, collect()));
+            }
+
+            $uniqueIds = $matchedIds->unique()->values();
+            $totalCount = $uniqueIds->count();
+
+            // Total duplicate leads count (4 total leads with same phone/email -> Dup (4))
+            $lead->duplicate_count = ($totalCount > 1) ? $totalCount : 0;
+            $lead->duplicate_ids = $uniqueIds->reject(fn($id) => $id == $lead->id)->values();
             $lead->lastMessage = $lead->latestMessage;
 
             return $lead;
@@ -454,7 +665,7 @@ class NewleadController extends Controller
         $allTargetBucketIds = array_merge([$targetBucketId], $targetBucketChildIds);
 
         // Calculate Total Leads Count for the active target bucket
-        if (!$request->filled('bucket_id') && !$request->filled('deleted_leads')) {
+        if (!$request->filled('bucket_id')) {
             $totalLeadsCount = $leads->total();
         } else {
             if ($user && ($user->role_id == 1 || $user->role_id == 2)) {
@@ -487,17 +698,7 @@ class NewleadController extends Controller
 
         $filteredLeadCount = $leads->total();
 
-        $allMappedBucketIds = Bucket::where('is_deleted', 0)->pluck('id')->toArray();
-        $otherLeadsCount = Leads::where(function ($q) use ($allMappedBucketIds) {
-            $q->whereNotIn('lead_bucket_id', $allMappedBucketIds)->orWhereNull('lead_bucket_id');
-        })
-        ->where(function ($q) {
-            $q->whereNull('is_converted')->orWhere('is_converted', 0);
-        })
-        ->when(auth()->check() && auth()->user()->role_id == 3, function ($qq) {
-            $qq->where('lead_owner', auth()->id());
-        })
-        ->count();
+        $otherLeadsCount = 0;
 
         $childBuckets = collect();
         $childtotalLeadsCount = 0;
@@ -523,6 +724,7 @@ class NewleadController extends Controller
             ->where(function($q) {
                 $q->where('type', 'lead')->orWhereNull('type');
             })
+            ->where(DB::raw('LOWER(TRIM(name))'), 'NOT LIKE', '%deal created%')
             ->with(['children' => function($cq) {
                 $cq->where('is_deleted', 0);
             }])
@@ -532,6 +734,10 @@ class NewleadController extends Controller
         $statusCountsQuery = (clone $query)
             ->where(function($lq) {
                 $lq->whereNull('is_converted')->orWhere('is_converted', 0);
+            })
+            ->where(function($sq2) {
+                $sq2->whereNull('lead_status')
+                    ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'NOT LIKE', '%deal created%');
             });
 
         $statusCounts = $statusCountsQuery
@@ -546,8 +752,11 @@ class NewleadController extends Controller
                     $cName = strtolower(trim($child->name));
                     $cId = $child->id;
                     $childCnt = $statusCounts->filter(function ($item) use ($cName, $cId) {
-                        $itemStatus = strtolower(trim($item->status_name));
-                        return ($itemStatus === $cName || $item->lead_bucket_id == $cId);
+                        $itemStatus = strtolower(trim($item->status_name ?? ''));
+                        if ($itemStatus !== '') {
+                            return $itemStatus === $cName;
+                        }
+                        return $item->lead_bucket_id == $cId;
                     })->sum('cnt');
                     $child->leads_count = $childCnt;
                 });
@@ -558,28 +767,32 @@ class NewleadController extends Controller
             $childIds = $b->children->pluck('id')->toArray();
             $childNames = $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
 
-            $cnt = $statusCounts->filter(function ($item) use ($bName, $bId, $childNames, $childIds) {
-                $itemStatus = strtolower(trim($item->status_name));
-                if ($itemStatus === $bName || $item->lead_bucket_id == $bId) {
-                    return true;
+            $isYetToCall = ($bName === 'yet to call');
+            $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
+            $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
+            $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
+
+            $cnt = $statusCounts->filter(function ($item) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+                $itemStatus = strtolower(trim($item->status_name ?? ''));
+                if ($itemStatus !== '') {
+                    return in_array($itemStatus, $matchingStatuses);
                 }
-                if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) {
-                    return true;
+                if ($isYetToCall) {
+                    return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds) || is_null($item->lead_bucket_id) || $item->lead_bucket_id == 0);
                 }
-                if ($bName === 'yet to call' && ($itemStatus === '' || is_null($itemStatus))) {
-                    return true;
-                }
-                return false;
+                return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds));
             })->sum('cnt');
             $b->leads_count = $cnt;
         });
 
-        $systemTotalLeadsCount = $hasActiveFilter ? $leads->total() : Leads::when(auth()->check() && auth()->user()->role_id == 3, fn($qq) => $qq->where('lead_owner', auth()->id()))->count();
+        $systemTotalLeadsCount = (empty($request->lead_status) || $request->lead_status === 'all') 
+            ? $leads->total() 
+            : ($totalLeadsCount ?? $leads->total());
 
-        if ($hasActiveFilter && empty($request->lead_status)) {
+        if (empty($request->lead_status) || $request->lead_status === 'all') {
             $childtotalLeadsCount = $leads->total();
         } else {
-            $childtotalLeadsCount = $childBuckets->sum('leads_count');
+            $childtotalLeadsCount = $totalLeadsCount ?? $childBuckets->sum('leads_count');
         }
 
         $filterBucket = $buckets;
@@ -590,13 +803,9 @@ class NewleadController extends Controller
             ->pluck('id')
             ->toArray();
 
-        $deletedLeadsCount = Leads::whereNotNull('lead_bucket_id')
-            ->where('lead_bucket_id', '!=', '')
-            ->whereNotIn('lead_bucket_id', $mainBucketIds)
-            ->when(auth()->check() && auth()->user()->role_id == 3, function ($q) {
-                $q->where('lead_owner', auth()->id());
-            })
-            ->count();
+        // Existing leads are never dumped into "Other" because their master status was deleted
+        $deletedLeadsCount = 0;
+        $otherLeadsCount = 0;
 
         $categorys = Category::where('is_active', 1)->get();
 
@@ -639,6 +848,8 @@ class NewleadController extends Controller
             'call_recording' => 'nullable|file|mimes:mp3,wav,m4a,ogg,aac,amr,3gp,mp4|max:51200 ',
             'followup_documents' => 'nullable|array',
             'followup_documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'integer|exists:tags,id',
         ]);
 
         $uploadedFollowupDocs = [];
@@ -671,28 +882,56 @@ class NewleadController extends Controller
             $bucketId = $bucketObj ? $bucketObj->id : 1;
         }
 
-        $isLeadBucket = false;
+        $isOrderBucket = false;
         if ($bucketObj) {
-            $isLeadBucket = str_contains(strtolower($bucketObj->name), 'lead') || $bucketObj->id == 1;
+            $bType = strtolower($bucketObj->type ?? '');
+            $bName = strtolower(trim($bucketObj->name ?? ''));
+            if ($bType === 'order' || str_contains($bName, 'deal created') || str_contains($bName, 'deal')) {
+                $isOrderBucket = true;
+            } elseif ($bucketObj->parent_id) {
+                $parentObj = Bucket::find($bucketObj->parent_id);
+                if ($parentObj) {
+                    $pbType = strtolower($parentObj->type ?? '');
+                    $pbName = strtolower(trim($parentObj->name ?? ''));
+                    if ($pbType === 'order' || str_contains($pbName, 'deal created') || str_contains($pbName, 'deal')) {
+                        $isOrderBucket = true;
+                    }
+                }
+            }
         }
+        $isLeadBucket = !$isOrderBucket;
 
-        $engStatus = strtolower(trim($request->lead_engagement_status ?? ''));
-        $validEngStatuses = ['hot', 'warm', 'cold', 'dead'];
+        $bucketName = null;
+        if ($bucketObj) {
+            if ($bucketObj->parent_id) {
+                $parentObj = Bucket::find($bucketObj->parent_id);
+                $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+            } else {
+                $bucketName = $bucketObj->name;
+            }
+        }
 
         $updateData = [
             'lead_bucket_id' => $bucketId,
             'lead_status'    => $request->lead_status,
             'is_converted'   => $isLeadBucket ? 0 : 1,
         ];
+        if ($bucketName) {
+            $updateData['lead_bucket_name'] = $bucketName;
+        }
+
+        $validEngStatuses = ['new', 'hot', 'warm', 'cold', 'dead'];
+        $engStatus = strtolower(trim((string)$request->input('lead_engagement_status', '')));
 
         if (in_array($engStatus, $validEngStatuses)) {
             $updateData['lead_engagement_status'] = $engStatus;
         }
 
         $lead->update($updateData);
+        $lead->tags()->sync($request->input('tag_ids', []));
 
         if (!$isLeadBucket) {
-            \App\Models\Order::updateOrCreate(
+            $order = \App\Models\Order::updateOrCreate(
                 ['lead_id' => $lead->id],
                 [
                     'order_number'            => 'ORD-' . (10000 + $lead->id),
@@ -707,6 +946,7 @@ class NewleadController extends Controller
                     'converted_at'            => now(),
                 ]
             );
+            $order->tags()->sync($request->input('tag_ids', []));
         } else {
             \App\Models\Order::where('lead_id', $lead->id)->delete();
         }
@@ -716,12 +956,19 @@ class NewleadController extends Controller
             $audioPath = $request->file('call_recording')->store('call_recordings', 'public');
         }
         $bucketName = $bucketObj ? $bucketObj->name : '';
+        if (!empty($request->next_followup_date)) {
+            CallBack::where('lead_id', $lead->id)
+                ->where(function($q) {
+                    $q->where('is_done', 0)->orWhereNull('is_done');
+                })
+                ->update(['is_done' => 1]);
+        }
         CallBack::create([
             'lead_id' => $lead->id,
             'message' => $request->message,
             'status' => $request->lead_status,
             'bucket' => $bucketName,
-            'lead_engagement_status' => in_array($engStatus, $validEngStatuses) ? $engStatus : null,
+            'lead_engagement_status' => in_array($engStatus, $validEngStatuses) ? $engStatus : ($lead->lead_engagement_status ?? null),
             'followup_type' => $request->followup_type,
             'followup_status' => $request->followup_status ?? null,
             'created_by' => auth()->user()->id,
@@ -750,6 +997,21 @@ class NewleadController extends Controller
         }
 
         $request->validate($rules);
+
+        // Ensure table has AUTO_INCREMENT if not set in MySQL
+        static $schemaChecked = false;
+        if (!$schemaChecked) {
+            $schemaChecked = true;
+            try {
+                \Illuminate\Support\Facades\DB::statement("ALTER TABLE `todo_tasks` MODIFY COLUMN `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT");
+            } catch (\Throwable $e) {
+                try {
+                    \Illuminate\Support\Facades\DB::statement("ALTER TABLE `todo_tasks` ADD PRIMARY KEY (`id`), MODIFY COLUMN `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT");
+                } catch (\Throwable $e2) {
+                    // ignore if already primary key or auto increment
+                }
+            }
+        }
 
         \App\Models\TodoTask::create([
             'lead_id' => $leadId,
@@ -820,8 +1082,20 @@ class NewleadController extends Controller
             $lead->lead_bucket_id = $request->lead_bucket_id;
             $tBucket = Bucket::find($request->lead_bucket_id);
             if ($tBucket) {
-                $isLeadB = str_contains(strtolower($tBucket->name), 'lead') || $tBucket->id == 1;
-                $lead->is_converted = $isLeadB ? 0 : 1;
+                $bType = strtolower($tBucket->type ?? '');
+                $bName = strtolower(trim($tBucket->name ?? ''));
+                $isOrderB = ($bType === 'order' || str_contains($bName, 'deal created') || str_contains($bName, 'deal'));
+                if (!$isOrderB && $tBucket->parent_id) {
+                    $pBucket = Bucket::find($tBucket->parent_id);
+                    if ($pBucket) {
+                        $pbType = strtolower($pBucket->type ?? '');
+                        $pbName = strtolower(trim($pBucket->name ?? ''));
+                        if ($pbType === 'order' || str_contains($pbName, 'deal created') || str_contains($pbName, 'deal')) {
+                            $isOrderB = true;
+                        }
+                    }
+                }
+                $lead->is_converted = $isOrderB ? 1 : 0;
             }
         }
 
@@ -1417,6 +1691,9 @@ class NewleadController extends Controller
             'bucket.children',
             'messages.user',
             'todoTasks.assignee',
+            'tags:id,name,color',
+            'events.assignedUser',
+            'events.creator',
         ]);
 
         $messages = $lead->messages->sortByDesc('created_at')->values()->map(function ($msg) {
@@ -1429,6 +1706,7 @@ class NewleadController extends Controller
                 'followup_type' => $msg->followup_type,
                 'followup_status' => $msg->followup_status,
                 'next_followup_date' => $msg->next_followup_date ? \Carbon\Carbon::parse($msg->next_followup_date)->format('d M y, h:i A') : null,
+                'next_followup_date_formatted' => $msg->next_followup_date ? \Carbon\Carbon::parse($msg->next_followup_date)->format('d M Y, h:i A') : null,
                 'next_followup_date_raw' => $msg->next_followup_date,
                 'call_recording' => $msg->call_recording ? asset('storage/' . $msg->call_recording) : null,
                 'followup_documents' => is_array($msg->followup_documents) ? $msg->followup_documents : (is_string($msg->followup_documents) ? json_decode($msg->followup_documents, true) : []),
@@ -1451,6 +1729,47 @@ class NewleadController extends Controller
             ];
         });
 
+        $statusHistories = \App\Models\LeadHistory::with('user:id,name')
+            ->where('lead_id', $lead->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($h) {
+                return [
+                    'id' => $h->id,
+                    'action' => $h->action,
+                    'changes' => is_array($h->changes) ? $h->changes : (is_string($h->changes) ? json_decode($h->changes, true) : []),
+                    'user_name' => optional($h->user)->name ?? 'System',
+                    'created_at_formatted' => $h->created_at ? $h->created_at->format('d M y, h:i A') : '',
+                    'created_at_raw' => $h->created_at ? $h->created_at->toIso8601String() : null,
+                ];
+            });
+
+        $leadEvents = ($lead->events ?? collect())->sortBy('event_date')->values()->map(function ($ev) {
+            return [
+                'id' => $ev->id,
+                'lead_id' => $ev->lead_id,
+                'event_type' => $ev->event_type,
+                'event_type_label' => $ev->type_label,
+                'title' => $ev->title,
+                'description' => $ev->description,
+                'event_date' => $ev->event_date ? $ev->event_date->format('Y-m-d') : null,
+                'event_date_formatted' => $ev->event_date ? $ev->event_date->format('d M Y') : '',
+                'start_time' => $ev->start_time,
+                'start_time_formatted' => $ev->start_time ? \Carbon\Carbon::parse($ev->start_time)->format('h:i A') : '',
+                'end_time' => $ev->end_time,
+                'end_time_formatted' => $ev->end_time ? \Carbon\Carbon::parse($ev->end_time)->format('h:i A') : '',
+                'status' => $ev->status,
+                'status_label' => $ev->status_label,
+                'assigned_to' => $ev->assigned_to,
+                'assigned_user_name' => optional($ev->assignedUser)->name ?? 'Unassigned',
+                'creator_name' => optional($ev->creator)->name ?? 'System',
+                'created_at_formatted' => $ev->created_at ? $ev->created_at->format('d M Y, h:i A') : '',
+                'completed_at' => $ev->completed_at ? $ev->completed_at->format('d M Y, h:i A') : null,
+                'is_overdue' => ($ev->status === \App\Models\LeadEvent::STATUS_SCHEDULED && $ev->event_date && $ev->event_date->isPast() && !$ev->event_date->isToday()),
+                'is_today' => ($ev->event_date && $ev->event_date->isToday()),
+            ];
+        });
+
         return response()->json([
             'status' => 'success',
             'lead' => $lead,
@@ -1458,6 +1777,8 @@ class NewleadController extends Controller
             'owner' => $lead->owner,
             'messages' => $messages,
             'todoTasks' => $todoTasks,
+            'statusHistories' => $statusHistories,
+            'leadEvents' => $leadEvents,
         ]);
     }
 
@@ -1612,5 +1933,349 @@ class NewleadController extends Controller
         }
     }
 
+    /* =========================================================================
+       NEW LEADS PIPELINE (KANBAN) VIEW METHODS
+       ========================================================================= */
 
+    private function applyPipelineFilters(Request $request, $query)
+    {
+        if (auth()->check() && auth()->user()->role_id == 3) {
+            $query->where('lead_owner', auth()->id());
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $digitsOnly = preg_replace('/\D+/', '', $search);
+            $last10 = (strlen($digitsOnly) >= 10) ? substr($digitsOnly, -10) : $digitsOnly;
+
+            $searchUserIds = User::where(function ($uQ) use ($search, $digitsOnly, $last10) {
+                $uQ->where('name', 'like', "%{$search}%")
+                   ->orWhere('email', 'like', "%{$search}%")
+                   ->orWhere('contact_no', 'like', "%{$search}%");
+
+                if ($digitsOnly !== '') {
+                    $uQ->orWhere('contact_no', 'like', "%{$digitsOnly}%")
+                       ->orWhere('contact_no', 'like', "%{$last10}%")
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%'])
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $last10 . '%']);
+                }
+            })->pluck('id')->toArray();
+
+            $query->where(function ($q) use ($searchUserIds, $search) {
+                if (!empty($searchUserIds)) {
+                    $q->whereIn('uid', $searchUserIds);
+                } else {
+                    $q->where('business_name', 'like', "%{$search}%");
+                }
+            });
+        }
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $from = Carbon::parse($request->from)->startOfDay();
+            $to = Carbon::parse($request->to)->endOfDay();
+            $query->whereBetween('date', [$from, $to]);
+        } elseif ($request->filled('from')) {
+            $query->whereDate('date', Carbon::parse($request->from)->toDateString());
+        }
+
+        if ($request->filled('source')) {
+            $query->where('platform', 'like', "%{$request->source}%");
+        }
+
+        if ($request->filled('owner_id')) {
+            if ($request->owner_id === 'null') {
+                $query->whereNull('lead_owner');
+            } else {
+                $query->where('lead_owner', $request->owner_id);
+            }
+        }
+
+        if ($request->filled('country')) {
+            $query->where('applying_country_for_a_visa', 'like', "%{$request->country}%");
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        $query->where(function ($q) {
+            $q->whereNull('is_converted')->orWhere('is_converted', 0);
+        });
+
+        $orderBucketIds = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where('type', 'order')
+            ->pluck('id')
+            ->toArray();
+
+        if (!empty($orderBucketIds)) {
+            $query->where(function ($q) use ($orderBucketIds) {
+                $q->whereNull('lead_bucket_id')->orWhereNotIn('lead_bucket_id', $orderBucketIds);
+            });
+        }
+    }
+
+    private function applyBucketQueryFilter($query, $bucket)
+    {
+        $bName = strtolower(trim($bucket->name));
+        $bId = $bucket->id;
+        $childIds = $bucket->children ? $bucket->children->pluck('id')->toArray() : [];
+        $childNames = $bucket->children ? $bucket->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
+
+        $isYetToCall = ($bName === 'yet to call');
+        $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
+        $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
+        $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
+
+        $query->where(function ($q) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+            $q->where(function ($sq) use ($matchingStatuses) {
+                $sq->whereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $matchingStatuses);
+            });
+
+            if ($isYetToCall) {
+                $q->orWhere(function ($sq) use ($bId, $childIds) {
+                    $sq->where(function ($emptyStatus) {
+                        $emptyStatus->whereNull('lead_status')
+                                    ->orWhere(DB::raw('TRIM(COALESCE(lead_status, ""))'), '');
+                    })->where(function ($bk) use ($bId, $childIds) {
+                        $bk->where('lead_bucket_id', $bId)
+                           ->orWhereNull('lead_bucket_id')
+                           ->orWhere('lead_bucket_id', 0);
+                        if (!empty($childIds)) {
+                            $bk->orWhereIn('lead_bucket_id', $childIds);
+                        }
+                    });
+                });
+            } else {
+                $q->orWhere(function ($sq) use ($bId, $childIds) {
+                    $sq->where(function ($emptyStatus) {
+                        $emptyStatus->whereNull('lead_status')
+                                    ->orWhere(DB::raw('TRIM(COALESCE(lead_status, ""))'), '');
+                    })->where(function ($bk) use ($bId, $childIds) {
+                        $bk->where('lead_bucket_id', $bId);
+                        if (!empty($childIds)) {
+                            $bk->orWhereIn('lead_bucket_id', $childIds);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    public function pipelineIndex(Request $request)
+    {
+        if (!auth()->check()) {
+            return redirect()->route('login');
+        }
+        @session_write_close();
+
+        $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->orderBy('name')->get(['id', 'name', 'email']);
+        $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
+        $categories = Category::where('is_active', 1)->orderBy('category_name')->get();
+
+        $mainStatuses = [
+            'yet to call',
+            'new lead',
+            'call done',
+            'lead qualification',
+            'connected / in conversation',
+            'hot lead',
+            'warm lead',
+            'cold lead',
+            'application / deal in progress',
+            'won / enrolled',
+            'lost / closed'
+        ];
+
+        $buckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where(function($q) {
+                $q->where('type', 'lead')->orWhereNull('type');
+            })
+            ->with('children')
+            ->orderByRaw("FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "') = 0, FIELD(LOWER(TRIM(name)), '" . implode("','", $mainStatuses) . "'), id ASC")
+            ->get();
+
+        $statusCountsQuery = Leads::query();
+        $this->applyPipelineFilters($request, $statusCountsQuery);
+
+        $statusCounts = $statusCountsQuery
+            ->reorder()
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_id')
+            ->get();
+
+        $columnCards = [];
+        $perPage = 15;
+
+        foreach ($buckets as $b) {
+            $bName = strtolower(trim($b->name));
+            $bId = $b->id;
+            $childIds = $b->children ? $b->children->pluck('id')->toArray() : [];
+            $childNames = $b->children ? $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
+
+            $isYetToCall = ($bName === 'yet to call');
+            $isLostClosed = ($bName === 'lost / closed' || $bName === 'closed' || $bName === 'lost' || str_contains($bName, 'lost') || str_contains($bName, 'closed'));
+            $lostClosedStatuses = ['closed', 'lost', 'lost / closed', 'not qualified', 'wrong number'];
+            $matchingStatuses = array_unique(array_filter(array_merge([$bName], $childNames, $isLostClosed ? $lostClosedStatuses : [])));
+
+            $colTotal = $statusCounts->filter(function ($item) use ($bId, $childIds, $isYetToCall, $matchingStatuses) {
+                $itemStatus = strtolower(trim($item->status_name ?? ''));
+                if ($itemStatus !== '') {
+                    return in_array($itemStatus, $matchingStatuses);
+                }
+                if ($isYetToCall) {
+                    return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds) || is_null($item->lead_bucket_id) || $item->lead_bucket_id == 0);
+                }
+                return ($item->lead_bucket_id == $bId || in_array($item->lead_bucket_id, $childIds));
+            })->sum('cnt');
+
+            $cardQuery = Leads::with([
+                'user:id,name,email,contact_no,city,state,address',
+                'owner:id,name',
+                'bucket:id,name,bucket_color',
+                'category:id,category_name',
+                'tags:id,name,color',
+                'latestMessage.user:id,name'
+            ]);
+
+            $this->applyPipelineFilters($request, $cardQuery);
+            $this->applyBucketQueryFilter($cardQuery, $b);
+
+            $paginator = $cardQuery->orderBy('id', 'desc')->paginate($perPage, ['*'], 'col_' . $bId, 1);
+
+            $columnCards[$bId] = [
+                'bucket' => $b,
+                'total' => $colTotal,
+                'leads' => $paginator->items(),
+                'has_more' => $paginator->hasMorePages(),
+                'next_page' => $paginator->hasMorePages() ? 2 : null,
+            ];
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $columnHtmlMap = [];
+            foreach ($buckets as $b) {
+                $bId = $b->id;
+                $colData = $columnCards[$bId];
+                $cardsHtml = '';
+                foreach ($colData['leads'] as $leadItem) {
+                    $cardsHtml .= view('crm.lead.pipeline-card', ['lead' => $leadItem])->render();
+                }
+                $columnHtmlMap[$bId] = [
+                    'cards_html' => $cardsHtml,
+                    'total' => $colData['total'],
+                    'has_more' => $colData['has_more'],
+                    'next_page' => $colData['next_page'],
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'columns' => $columnHtmlMap,
+            ]);
+        }
+
+        return view('crm.lead.pipeline', compact('buckets', 'owners', 'sources', 'categories', 'columnCards'));
+    }
+
+    public function pipelineCards(Request $request)
+    {
+        if (!auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+        @session_write_close();
+
+        $bucketId = $request->input('bucket_id');
+        $page = (int) $request->input('page', 1);
+        $perPage = 15;
+
+        if (!$bucketId) {
+            return response()->json(['success' => false, 'message' => 'Bucket ID required'], 400);
+        }
+
+        $bucket = Bucket::with('children')->find($bucketId);
+        if (!$bucket) {
+            return response()->json(['success' => false, 'message' => 'Bucket not found'], 404);
+        }
+
+        $cardQuery = Leads::with([
+            'user:id,name,email,contact_no,city,state,address',
+            'owner:id,name',
+            'bucket:id,name,bucket_color',
+            'category:id,category_name',
+            'tags:id,name,color',
+            'latestMessage.user:id,name'
+        ]);
+
+        $this->applyPipelineFilters($request, $cardQuery);
+        $this->applyBucketQueryFilter($cardQuery, $bucket);
+
+        $paginator = $cardQuery->orderBy('id', 'desc')->paginate($perPage, ['*'], 'col_' . $bucketId, $page);
+
+        $cardsHtml = '';
+        foreach ($paginator->items() as $leadItem) {
+            $cardsHtml .= view('crm.lead.pipeline-card', ['lead' => $leadItem])->render();
+        }
+
+        return response()->json([
+            'success' => true,
+            'cards_html' => $cardsHtml,
+            'has_more' => $paginator->hasMorePages(),
+            'next_page' => $paginator->hasMorePages() ? ($page + 1) : null,
+        ]);
+    }
+
+    public function pipelineDragUpdate(Request $request, Leads $lead)
+    {
+        if (!auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        if (auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
+            return response()->json(['success' => false, 'message' => 'Permission denied'], 403);
+        }
+
+        $targetBucketId = $request->input('target_bucket_id');
+        $targetBucket = Bucket::find($targetBucketId);
+
+        if (!$targetBucket) {
+            return response()->json(['success' => false, 'message' => 'Target bucket invalid'], 400);
+        }
+
+        $oldBucketId = $lead->lead_bucket_id;
+        $oldStatus = $lead->lead_status;
+
+        $lead->lead_bucket_id = $targetBucket->id;
+        if ($request->filled('lead_status')) {
+            $lead->lead_status = $request->input('lead_status');
+        } else {
+            $lead->lead_status = $targetBucket->name;
+        }
+        $lead->save();
+
+        try {
+            \App\Models\LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => auth()->id(),
+                'action' => 'pipeline_drag_update',
+                'changes' => json_encode([
+                    'from_bucket' => $oldBucketId,
+                    'to_bucket' => $targetBucket->id,
+                    'from_status' => $oldStatus,
+                    'to_status' => $lead->lead_status,
+                ]),
+            ]);
+        } catch (\Throwable $e) {
+            // Ignore audit log error silently
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lead status updated successfully',
+            'lead_id' => $lead->id,
+            'new_bucket_id' => $targetBucket->id,
+            'new_status' => $lead->lead_status,
+        ]);
+    }
 }

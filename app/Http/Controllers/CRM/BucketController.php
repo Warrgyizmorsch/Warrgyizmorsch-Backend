@@ -36,14 +36,12 @@ class BucketController extends Controller
 
     public function leadStatuses()
     {
-        // return redirect()->route('bucket.index', ['type' => 'lead']);
-         $allBuckets = (clone $query)->whereNull('parent_id')->orderBy('id', 'asc')->get();
+        return redirect()->route('bucket.index', ['type' => 'lead']);
     }
 
     public function orderStatuses()
     {
-        // return redirect()->route('bucket.index', ['type' => 'order']);
-        return redirect()->route('bucket.index', ['type' => 'lead']);
+        return redirect()->route('bucket.index', ['type' => 'order']);
     }
 
     public function store(Request $request)
@@ -71,6 +69,9 @@ class BucketController extends Controller
                 return redirect()->back()
                     ->withInput()
                     ->with('error', "Type mismatch: Cannot add a {$type} child status under an {$parentType} parent status.");
+            }
+            if ($parent->parent_id) {
+                return redirect()->back()->withInput()->with('error', 'A sub-status can only be added under a main status.');
             }
         }
 
@@ -147,6 +148,9 @@ class BucketController extends Controller
                     ->withInput()
                     ->with('error', "Type mismatch: Cannot assign a {$type} status under an {$parentType} parent status.");
             }
+            if ($parent->parent_id) {
+                return redirect()->back()->withInput()->with('error', 'A sub-status can only be assigned under a main status.');
+            }
         }
 
         $bucket->update([
@@ -167,28 +171,14 @@ class BucketController extends Controller
     {
         $type = $bucket->type ?? 'lead';
 
-        // Delete Protection 1: Check active child statuses
-        $hasChildren = Bucket::where('parent_id', $bucket->id)->where('is_deleted', 0)->exists();
-        if ($hasChildren) {
-            return redirect()->route('bucket.index', ['type' => $type])
-                ->with('error', "Cannot delete status '{$bucket->name}' because it has active sub-statuses.");
-        }
+        // When a parent status is deleted, soft-delete its child statuses as well
+        Bucket::where('parent_id', $bucket->id)->update(['is_deleted' => 1]);
 
-        // Delete Protection 2: Check active Leads usage
-        $leadCount = \App\Models\Leads::where('lead_bucket_id', $bucket->id)->count();
-        if ($leadCount > 0) {
-            return redirect()->route('bucket.index', ['type' => $type])
-                ->with('error', "Cannot delete status '{$bucket->name}' because it is currently assigned to {$leadCount} lead(s).");
-        }
-
-        // Delete Protection 3: Check active Orders usage
-        $orderCount = \App\Models\Order::where('order_bucket_id', $bucket->id)->count();
-        if ($orderCount > 0) {
-            return redirect()->route('bucket.index', ['type' => $type])
-                ->with('error', "Cannot delete status '{$bucket->name}' because it is currently assigned to {$orderCount} order(s).");
-        }
-
+        // Soft-delete this bucket (marks is_deleted = 1)
         $bucket->delete();
+
+        // STRICT RULE: Existing lead data must NEVER be modified or reclassified during bucket deletion.
+        // leads.lead_bucket_id, leads.lead_bucket_name, and leads.lead_status remain permanently untouched.
 
         return redirect()->route('bucket.index', ['type' => $type])
             ->with('success', 'Status deleted successfully.');

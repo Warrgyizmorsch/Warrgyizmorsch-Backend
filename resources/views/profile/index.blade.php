@@ -12,7 +12,7 @@
                 </h5>
             </div>
             <ul class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/dashboard">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url('/dashboard') }}">Home</a></li>
                 <li class="breadcrumb-item active">
                     Profile
                 </li>
@@ -28,7 +28,7 @@
                         <div class="mb-4 text-center">
                             <div class="wd-150 ht-150 mx-auto mb-3 position-relative">
                                 <div class="avatar-image wd-150 ht-150 border border-5 border-gray-3 rounded-circle overflow-hidden" style="object-fit: cover;">
-                                    <img src="{{ $user->image ? asset('storage/' . $user->image) : asset('/images/blank.jpeg') }}" alt="" class="img-fluid rounded-circle" style="width:150px;height:150px;object-fit:cover;cursor:pointer;">
+                                    <img src="{{ $user->image ? asset('storage/' . $user->image) : asset('/images/blank.jpeg') }}" onerror="this.onerror=null;this.src='{{ asset('images/blank.jpeg') }}';" alt="" class="img-fluid rounded-circle" style="width:150px;height:150px;object-fit:cover;cursor:pointer;">
                                 </div>
                                 <div class="wd-10 ht-10 text-success rounded-circle position-absolute translate-middle" style="top:76%; right:10px">
                                     <i class="bi bi-patch-check-fill"></i>

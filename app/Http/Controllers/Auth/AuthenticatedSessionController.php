@@ -41,6 +41,13 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // 🚫 Block users with role 'User' (role_id: 2 / client accounts) from logging in
+        if ($user && ($user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user')) {
+            throw ValidationException::withMessages([
+                'email' => 'Access denied. Accounts with "User" role are not allowed to login.',
+            ]);
+        }
+
         // Validate password first
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -48,17 +55,31 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // 🟢 Direct login without OTP (OTP system temporarily commented out for future use)
+        Auth::login($user, true);
+        $request->session()->regenerate();
+
+        $user->update(['active_session_id' => $request->session()->getId()]);
+
+        $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
+
+        $cookieResponse->withCookies([
+            cookie()->make('remember_email', $request->email, 60 * 24 * 365),
+            cookie()->make('remember_password', Crypt::encryptString($request->password), 60 * 24 * 365),
+        ]);
+
+        return $cookieResponse;
+
+        /*
+        // =========================================================================
+        // OTP SYSTEM LOGIC (COMMENTED OUT - CAN BE RE-ENABLED IN THE FUTURE)
+        // =========================================================================
         // 🟢 Bypass OTP for local testing account: admin@gmail.com
         if ($user->email === 'admin@gmail.com') {
-            $hasActiveSession = DB::table('sessions')->where('user_id', $user->id)->exists();
-
-            if ($hasActiveSession) {
-                session(['otp_verified_user_id' => $user->id]);
-                return redirect()->route('login.force_logout_prompt');
-            }
-
             Auth::login($user, true);
             $request->session()->regenerate();
+
+            $user->update(['active_session_id' => $request->session()->getId()]);
 
             $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
@@ -82,14 +103,15 @@ class AuthenticatedSessionController extends Controller
             'remember_password' => $request->password,
         ]);
 
-        // Send OTP to singhmahipal23@gmail.com
+        // Send OTP to rahul.warrgyizmorsch@gmail.com
         try {
-            Mail::to('singhmahipal23@gmail.com')->send(new SendLoginOtp($otp, $user->name, $user->email));
+            Mail::to('rahul.warrgyizmorsch@gmail.com')->send(new SendLoginOtp($otp, $user->name, $user->email));
         } catch (\Exception $e) {
             \Log::error('OTP Mail Exception: ' . $e->getMessage());
         }
 
         return redirect()->route('login.otp');
+        */
     }
 
     /**
@@ -130,17 +152,20 @@ class AuthenticatedSessionController extends Controller
             return back()->with('error', 'Invalid OTP code. Please try again.');
         }
 
-        // OTP Validated! Check if user is logged in elsewhere
-        $hasActiveSession = DB::table('sessions')->where('user_id', $userId)->exists();
-
-        if ($hasActiveSession) {
-            session(['otp_verified_user_id' => $userId]);
-            return redirect()->route('login.force_logout_prompt');
+        $user = User::find($userId);
+        if (!$user || $user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user') {
+            session()->forget(['otp_user_id', 'otp_code', 'otp_expires_at', 'otp_remember', 'remember_email', 'remember_password']);
+            return redirect()->route('login')->withErrors(['email' => 'Access denied. Accounts with "User" role are not allowed to login.']);
         }
 
         // Complete Login
         Auth::loginUsingId($userId, true);
         $request->session()->regenerate();
+
+        // Set this session as the user's active session
+        User::where('id', $userId)->update([
+            'active_session_id' => $request->session()->getId()
+        ]);
 
         $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
@@ -214,6 +239,12 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('login');
         }
 
+        $user = User::find($userId);
+        if (!$user || $user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user') {
+            session()->forget(['otp_user_id', 'otp_code', 'otp_expires_at', 'otp_remember', 'otp_verified_user_id', 'remember_email', 'remember_password']);
+            return redirect()->route('login')->withErrors(['email' => 'Access denied. Accounts with "User" role are not allowed to login.']);
+        }
+
         // Invalidate prior login history
         LoginHistory::where('user_id', $userId)
             ->whereNull('logout_at')
@@ -227,6 +258,11 @@ class AuthenticatedSessionController extends Controller
         // Perform login
         Auth::loginUsingId($userId, true);
         $request->session()->regenerate();
+
+        // Set this session as the user's active session
+        User::where('id', $userId)->update([
+            'active_session_id' => $request->session()->getId()
+        ]);
 
         $cookieResponse = redirect()->intended(route('dashboard', absolute: false));
 
@@ -249,12 +285,20 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = Auth::user();
+        $currentSessionId = $request->session()->getId();
+
         // Update the latest login record
-        LoginHistory::where('user_id', Auth::id())
+        LoginHistory::where('user_id', $user?->id)
             ->whereNull('logout_at')
             ->latest('id')
             ->first()
             ?->update(['logout_at' => now(), 'user_agent' => request()->userAgent()]);
+
+        // Only clear active_session_id if this session was the active session
+        if ($user && $user->active_session_id === $currentSessionId) {
+            $user->update(['active_session_id' => null]);
+        }
 
         Auth::guard('web')->logout();
 

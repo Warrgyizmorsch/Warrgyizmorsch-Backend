@@ -171,7 +171,7 @@
                 <div class="dropdown nxl-h-item">
                     <a href="javascript:void(0);" data-bs-toggle="dropdown" role="button" data-bs-auto-close="outside" style="height: 40px; width: 40px;">
                         @if(Auth::user()->image)
-                        <img src="{{ asset('storage/' . Auth::user()->image) }}" alt="profile-img" class="img-fluid user-avtar me-0" style="height: 100%; width: 100%; object-fit: cover;">
+                        <img src="{{ asset('storage/' . Auth::user()->image) }}" onerror="this.onerror=null;this.src='{{ asset('images/blank.jpeg') }}';" alt="profile-img" class="img-fluid user-avtar me-0" style="height: 100%; width: 100%; object-fit: cover;">
                         @else
                         <img src="{{ asset('images/blank.jpeg') }}" alt="default_Img" class="img-fluid user-avtar me-0" style="height: 100%; width: 100%; object-fit: cover;" />
                         @endif
@@ -181,7 +181,7 @@
                             <div class="d-flex align-items-center">
                                 <div style="height: 45px; width: 45px; margin-right: 5px;">
                                     @if(Auth::user()->image)
-                                    <img src="{{ asset('storage/' . Auth::user()->image) }}" alt="profile-img" class="img-fluid user-avtar" style="height: 100%; width: 100%; object-fit: cover;">
+                                    <img src="{{ asset('storage/' . Auth::user()->image) }}" onerror="this.onerror=null;this.src='{{ asset('images/blank.jpeg') }}';" alt="profile-img" class="img-fluid user-avtar" style="height: 100%; width: 100%; object-fit: cover;">
                                     @else
                                     <img src="{{ asset('images/blank.jpeg') }}" alt="default_Img" class="img-fluid user-avtar" style="height: 100%; width: 100%; object-fit: cover;" />
                                     @endif
@@ -193,7 +193,7 @@
                             </div>
                         </div>
                         <div class="dropdown-divider"></div>
-                        <a href="/profile" class="dropdown-item">
+                        <a href="{{ route('profile.index') }}" class="dropdown-item">
                             <i class="feather-user"></i> Profile Details
                         </a>
                         <a href="{{ route('user.activity') }}" class="dropdown-item">

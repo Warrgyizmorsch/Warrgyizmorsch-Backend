@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'google_workspace' => [
+        'url' => env('WORKSPACE_API_URL', 'https://love14-deal-health-scoring.hf.space'),
+        'token' => env('WORKSPACE_API_TOKEN'),
+    ],
+
 ];

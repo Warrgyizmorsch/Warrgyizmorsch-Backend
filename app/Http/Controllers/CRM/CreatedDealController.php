@@ -1,0 +1,758 @@
+<?php
+
+namespace App\Http\Controllers\CRM;
+
+use App\Http\Controllers\Controller;
+use App\Models\Leads;
+use App\Models\Bucket;
+use App\Models\Category;
+use App\Models\User;
+use App\Models\LeadSource;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+
+class CreatedDealController extends Controller
+{
+    public function index(Request $request)
+    {
+        if (!auth()->check()) {
+            return redirect()->route('login');
+        }
+        @session_write_close();
+
+        // Auto-heal: Ensure leads in lead buckets are not wrongly marked as converted deals
+        DB::table('leads')
+            ->where('is_converted', 1)
+            ->whereIn('lead_bucket_id', function ($sub) {
+                $sub->select('id')->from('buckets')
+                    ->where(function ($bq) {
+                        $bq->where('type', 'lead')->orWhereNull('type');
+                    })
+                    ->where('name', 'NOT LIKE', '%deal%');
+            })
+            ->update(['is_converted' => 0]);
+
+        DB::table('orders')
+            ->whereIn('lead_id', function ($sub) {
+                $sub->select('id')->from('leads')->where('is_converted', 0);
+            })
+            ->delete();
+
+        // 1. Eager Load Essential Relations
+        $query = Leads::with([
+            'user:id,name,email,contact_no,city,state,pincode,address',
+            'owner:id,name,email',
+            'bucket:id,name,bucket_color,parent_id',
+            'category',
+            'latestMessage.user:id,name',
+            'tags:id,name,color',
+            'events' => function ($eQ) {
+                $eQ->with('assignedUser:id,name')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+            },
+            'messages' => function ($mQ) {
+                $mQ->where(function($q) {
+                    $q->where('is_done', 0)->orWhereNull('is_done');
+                })
+                ->whereNotNull('next_followup_date')
+                ->orderBy('next_followup_date', 'asc');
+            },
+        ]);
+
+        // 2. Role-based restrictions (Role 3 sees only assigned leads)
+        if (auth()->check() && auth()->user()->role_id == 3) {
+            $query->where('lead_owner', auth()->id());
+        }
+
+        // 3. Fetch Deal/Order Buckets to strictly isolate Deals from standard Leads
+        $activeOrderBuckets = Bucket::with(['children' => function($cq) {
+                $cq->where('is_deleted', 0);
+            }])
+            ->whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where('type', 'order')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $deletedOrderBuckets = Bucket::with(['children' => function($cq) {
+                $cq->where('is_deleted', 0);
+            }])
+            ->whereNull('parent_id')
+            ->where('is_deleted', 1)
+            ->where('type', 'order')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $allOrderBuckets = $activeOrderBuckets->concat($deletedOrderBuckets);
+        $childBuckets = $allOrderBuckets;
+
+        $orderBucketIds = $allOrderBuckets->pluck('id')
+            ->merge($allOrderBuckets->pluck('children')->flatten()->pluck('id'))
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        $orderStatusNames = $allOrderBuckets->pluck('name')
+            ->merge($allOrderBuckets->pluck('children')->flatten()->pluck('name'))
+            ->filter()
+            ->map(fn($n) => strtolower(trim($n)))
+            ->unique()
+            ->toArray();
+
+        // Must strictly belong to deal/order buckets or Deal Created status, and non-archived
+        $query->where(function ($q) use ($orderBucketIds, $orderStatusNames) {
+            $q->where('is_converted', 1)
+              ->orWhereIn('lead_bucket_id', $orderBucketIds)
+              ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+              ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_bucket_name, "")))'), $orderStatusNames)
+              ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
+        })->where(function ($q) {
+            $q->where('is_archived', 0)->orWhereNull('is_archived');
+        });
+
+        // 4. Search Filter
+        $searchUserIds = [];
+        if ($request->filled('search_uid')) {
+            $query->where('uid', $request->search_uid);
+        } elseif ($request->filled('search')) {
+            $search = trim($request->search);
+            $digitsOnly = preg_replace('/\D+/', '', $search);
+            $last10 = (strlen($digitsOnly) >= 10) ? substr($digitsOnly, -10) : $digitsOnly;
+
+            $searchUserIds = User::where(function ($uQ) use ($search, $digitsOnly, $last10) {
+                $uQ->where('name', 'like', "%{$search}%")
+                   ->orWhere('email', 'like', "%{$search}%")
+                   ->orWhere('contact_no', 'like', "%{$search}%");
+
+                if ($digitsOnly !== '') {
+                    $uQ->orWhere('contact_no', 'like', "%{$digitsOnly}%")
+                       ->orWhere('contact_no', 'like', "%{$last10}%")
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%'])
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $last10 . '%']);
+                }
+            })
+            ->pluck('id')
+            ->toArray();
+
+            $query->where(function ($q) use ($searchUserIds, $search) {
+                if (!empty($searchUserIds)) {
+                    $q->whereIn('uid', $searchUserIds);
+                } else {
+                    $q->where('business_name', 'like', "%{$search}%");
+                }
+            });
+        }
+
+        // Date Filter
+        if ($request->filled('from') && $request->filled('to')) {
+            $from = Carbon::parse($request->from)->startOfDay();
+            $to = Carbon::parse($request->to)->endOfDay();
+            $query->whereBetween('date', [$from, $to]);
+        } elseif ($request->filled('from')) {
+            $from = Carbon::parse($request->from)->toDateString();
+            $query->whereDate('date', $from);
+        }
+
+        // Engagement Status Filter
+        if ($request->filled('lead_engagement_status')) {
+            $query->where('lead_engagement_status', $request->lead_engagement_status);
+        }
+
+        // Owner Filter
+        if ($request->filled('owner_id')) {
+            if ($request->owner_id === 'null') {
+                $query->whereNull('lead_owner');
+            } else {
+                $query->where('lead_owner', $request->owner_id);
+            }
+        }
+
+        if ($request->filled('source')) {
+            $query->where('platform', 'like', '%' . $request->source . '%');
+        }
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->filled('company')) {
+            $query->where('business_name', 'like', '%' . $request->company . '%');
+        }
+        if ($request->filled('campaign_name')) {
+            $query->where('campaign_name', 'like', '%' . $request->campaign_name . '%');
+        }
+        if ($request->filled('adset_name')) {
+            $query->where('adset_name', 'like', '%' . $request->adset_name . '%');
+        }
+        if ($request->filled('ad_name')) {
+            $query->where('ad_name', 'like', '%' . $request->ad_name . '%');
+        }
+        $dealStatusFilter = $request->input('lead_status', $request->input('status'));
+        if (!empty($dealStatusFilter) && strtolower($dealStatusFilter) !== 'all') {
+            $matchingBucket = $childBuckets->first(fn($b) => strtolower(trim($b->name)) === strtolower(trim($dealStatusFilter)));
+            $matchingBucketIds = $matchingBucket ? collect([$matchingBucket->id])->merge($matchingBucket->children->pluck('id'))->all() : [];
+
+            $query->where(function ($q) use ($dealStatusFilter, $matchingBucketIds) {
+                $q->where('lead_status', $dealStatusFilter)
+                  ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), strtolower(trim($dealStatusFilter)));
+                if (!empty($matchingBucketIds)) {
+                    $q->orWhereIn('lead_bucket_id', $matchingBucketIds);
+                }
+            });
+        }
+
+        // 5. Sorting & Pagination
+        $perPage = (int) $request->get('per_page', 20);
+        $perPage = in_array($perPage, [20, 50, 100, 250, 500]) ? $perPage : 20;
+
+        $leads = $query->orderBy('updated_at', 'desc')->paginate($perPage)->appends($request->query());
+        $totalDealsCount = $leads->total();
+
+        // Pre-aggregate deal counts in 1 fast query strictly for deal buckets
+        $dealCounts = Leads::where(function ($q) use ($orderBucketIds, $orderStatusNames) {
+                $q->where('is_converted', 1)
+                  ->orWhereIn('lead_bucket_id', $orderBucketIds)
+                  ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+                  ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_bucket_name, "")))'), $orderStatusNames)
+                  ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
+            })
+            ->where(function ($q) {
+                $q->where('is_archived', 0)->orWhereNull('is_archived');
+            })
+            ->when(auth()->user()->role_id == 3, fn($q) => $q->where('lead_owner', auth()->id()))
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, LOWER(TRIM(COALESCE(lead_bucket_name, ""))) as bucket_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_name', 'lead_bucket_id')
+            ->get();
+
+        $calculateDealBucketCount = function ($bucket) use ($dealCounts) {
+            $bucketIds = collect([$bucket->id])->merge($bucket->children ? $bucket->children->pluck('id') : collect())->all();
+            $statusNames = collect([$bucket->name])->merge($bucket->children ? $bucket->children->pluck('name') : collect())->map(fn($n) => strtolower(trim($n)))->all();
+            $bName = strtolower(trim($bucket->name));
+
+            $bucket->leads_count = $dealCounts->filter(function ($item) use ($bucketIds, $statusNames, $bName) {
+                if (in_array($item->lead_bucket_id, $bucketIds) || in_array($item->status_name, $statusNames) || in_array($item->bucket_name, $statusNames)) {
+                    return true;
+                }
+                if ($bName === 'deal created' && (str_contains($item->status_name, 'deal created') || str_contains($item->bucket_name, 'deal created'))) {
+                    return true;
+                }
+                return false;
+            })->sum('cnt');
+        };
+
+        $activeOrderBuckets->each(function($b) use ($calculateDealBucketCount) {
+            $b->is_deleted = 0;
+            $calculateDealBucketCount($b);
+        });
+
+        $deletedOrderBucketsWithDeals = collect();
+        $deletedOrderBuckets->each(function($b) use ($calculateDealBucketCount, &$deletedOrderBucketsWithDeals) {
+            $b->is_deleted = 1;
+            $calculateDealBucketCount($b);
+            if (($b->leads_count ?? 0) > 0) {
+                $deletedOrderBucketsWithDeals->push($b);
+            }
+        });
+
+        $activeNames = $activeOrderBuckets->pluck('name')
+            ->merge($activeOrderBuckets->pluck('children')->flatten()->pluck('name'))
+            ->map(fn($n) => strtolower(trim($n)))
+            ->toArray();
+
+        $orphanedBuckets = collect();
+        $distinctDealStatuses = $dealCounts->pluck('status_name')->concat($dealCounts->pluck('bucket_name'))->filter()->unique();
+        foreach ($distinctDealStatuses as $dbName) {
+            $dbNameLower = strtolower(trim($dbName));
+            if ($dbNameLower !== '' && !in_array($dbNameLower, $activeNames)) {
+                $cnt = $dealCounts->filter(fn($item) => strtolower(trim($item->status_name ?? '')) === $dbNameLower || strtolower(trim($item->bucket_name ?? '')) === $dbNameLower)->sum('cnt');
+                if ($cnt > 0) {
+                    $orphan = new Bucket();
+                    $orphan->id = null;
+                    $orphan->name = ucwords($dbName);
+                    $orphan->is_deleted = 1;
+                    $orphan->leads_count = $cnt;
+                    $orphan->setRelation('children', collect());
+                    $orphanedBuckets->push($orphan);
+                    $activeNames[] = $dbNameLower;
+                }
+            }
+        }
+
+        $childBuckets = $activeOrderBuckets
+            ->concat($deletedOrderBucketsWithDeals)
+            ->concat($orphanedBuckets);
+        $activeDealBuckets = $activeOrderBuckets;
+
+        $owners = User::whereIn('role_id', [1, 3])
+            ->where('is_deleted', 0)
+            ->select('id', 'name', 'email')
+            ->get();
+
+        $categorys = Category::where('is_active', 1)->orderBy('category_name')->get();
+        $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
+        $totalLeadsCount = $totalDealsCount;
+        $filteredLeadCount = $leads->total();
+        $childtotalLeadsCount = $totalDealsCount;
+        $systemTotalLeadsCount = $totalDealsCount;
+        $deletedLeadsCount = 0;
+        $followupsCount = 0;
+        $otherLeadsCount = 0;
+        $allBucketsWithChildren = $childBuckets->filter(fn($b) => !empty($b->id))->keyBy('id');
+        $isDealView = true;
+        $allTags = \App\Models\Tag::where('is_active', true)->orderBy('name')->get();
+
+        return view('crm.lead.tableindex', compact(
+            'leads',
+            'childBuckets',
+            'activeDealBuckets',
+            'owners',
+            'totalDealsCount',
+            'categorys',
+            'sources',
+            'totalLeadsCount',
+            'filteredLeadCount',
+            'systemTotalLeadsCount',
+            'childtotalLeadsCount',
+            'deletedLeadsCount',
+            'followupsCount',
+            'otherLeadsCount',
+            'allBucketsWithChildren',
+            'isDealView',
+            'allTags'
+        ));
+    }
+
+    /* =========================================================================
+       CREATED DEALS PIPELINE (KANBAN) VIEW METHODS
+       ========================================================================= */
+
+    private function applyPipelineFilters(Request $request, $query)
+    {
+        // 1. Role-based ownership restriction
+        if (auth()->check() && auth()->user()->role_id == 3) {
+            $query->where('lead_owner', auth()->id());
+        }
+
+        // Must strictly belong to deal/order buckets or Deal Created status, and non-archived
+        $orderBuckets = Bucket::where('is_deleted', 0)
+            ->where('type', 'order')
+            ->get();
+        $orderBucketIds = $orderBuckets->pluck('id')->toArray();
+        $orderStatusNames = $orderBuckets->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray();
+
+        $query->where(function ($q) use ($orderBucketIds, $orderStatusNames) {
+            $q->whereIn('lead_bucket_id', $orderBucketIds)
+              ->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $orderStatusNames)
+              ->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
+        })->where(function ($q) {
+            $q->where('is_archived', 0)->orWhereNull('is_archived');
+        });
+
+        // 3. Global Search
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $digitsOnly = preg_replace('/\D+/', '', $search);
+            $last10 = (strlen($digitsOnly) >= 10) ? substr($digitsOnly, -10) : $digitsOnly;
+
+            $searchUserIds = User::where(function ($uQ) use ($search, $digitsOnly, $last10) {
+                $uQ->where('name', 'like', "%{$search}%")
+                   ->orWhere('email', 'like', "%{$search}%")
+                   ->orWhere('contact_no', 'like', "%{$search}%");
+
+                if ($digitsOnly !== '') {
+                    $uQ->orWhere('contact_no', 'like', "%{$digitsOnly}%")
+                       ->orWhere('contact_no', 'like', "%{$last10}%")
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $digitsOnly . '%'])
+                       ->orWhereRaw("REPLACE(REPLACE(REPLACE(contact_no, ' ', ''), '+', ''), '-', '') LIKE ?", ['%' . $last10 . '%']);
+                }
+            })->pluck('id')->toArray();
+
+            $query->where(function ($q) use ($searchUserIds, $search) {
+                if (!empty($searchUserIds)) {
+                    $q->whereIn('uid', $searchUserIds);
+                } else {
+                    $q->where('business_name', 'like', "%{$search}%");
+                }
+            });
+        }
+
+        // 4. Date Filters
+        if ($request->filled('from') && $request->filled('to')) {
+            $from = Carbon::parse($request->from)->startOfDay();
+            $to = Carbon::parse($request->to)->endOfDay();
+            $query->whereBetween('date', [$from, $to]);
+        } elseif ($request->filled('from')) {
+            $query->whereDate('date', Carbon::parse($request->from)->toDateString());
+        }
+
+        // 5. Source Filter
+        if ($request->filled('source')) {
+            $query->where('platform', 'like', "%{$request->source}%");
+        }
+
+        // 6. Lead Owner Filter
+        if ($request->filled('owner_id')) {
+            if ($request->owner_id === 'null') {
+                $query->whereNull('lead_owner');
+            } else {
+                $query->where('lead_owner', $request->owner_id);
+            }
+        }
+
+        // 7. Category Filter
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // 8. Company Filter
+        if ($request->filled('company')) {
+            $query->where('business_name', 'like', '%' . $request->company . '%');
+        }
+
+        // 9. Campaign, Adset, Ad Name Filters
+        if ($request->filled('campaign_name')) {
+            $query->where('campaign_name', 'like', '%' . $request->campaign_name . '%');
+        }
+        if ($request->filled('adset_name')) {
+            $query->where('adset_name', 'like', '%' . $request->adset_name . '%');
+        }
+        if ($request->filled('ad_name')) {
+            $query->where('ad_name', 'like', '%' . $request->ad_name . '%');
+        }
+    }
+
+    private function applyBucketQueryFilter($query, $bucket)
+    {
+        $bName = strtolower(trim($bucket->name));
+        $bId = $bucket->id;
+        $childIds = $bucket->children ? $bucket->children->pluck('id')->toArray() : [];
+        $childNames = $bucket->children ? $bucket->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
+
+        $query->where(function ($q) use ($bName, $bId, $childNames, $childIds) {
+            $q->where('lead_bucket_id', $bId);
+            if (!empty($childIds)) {
+                $q->orWhereIn('lead_bucket_id', $childIds);
+            }
+            if ($bName !== '') {
+                $q->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $bName);
+            }
+            if (!empty($childNames)) {
+                $q->orWhereIn(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), $childNames);
+            }
+            if ($bName === 'deal created') {
+                $q->orWhere(DB::raw('LOWER(TRIM(COALESCE(lead_status, "")))'), 'like', '%deal created%');
+            }
+        });
+    }
+
+    public function pipelineIndex(Request $request)
+    {
+        if (!auth()->check()) {
+            return redirect()->route('login');
+        }
+        @session_write_close();
+
+        // 1. Filter Options Data
+        $owners = User::whereIn('role_id', [1, 3])->where('is_deleted', 0)->orderBy('name')->get(['id', 'name', 'email']);
+        $sources = LeadSource::where('is_active', 1)->pluck('source_name')->toArray();
+        $categories = Category::where('is_active', 1)->orderBy('category_name')->get();
+
+        // 2. Fetch Top-Level Deal/Order Buckets
+        $buckets = Bucket::whereNull('parent_id')
+            ->where('is_deleted', 0)
+            ->where('type', 'order')
+            ->with('children')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        // 3. Fast Aggregated Count Query
+        $statusCountsQuery = Leads::query();
+        $this->applyPipelineFilters($request, $statusCountsQuery);
+
+        $statusCounts = $statusCountsQuery
+            ->reorder()
+            ->selectRaw('LOWER(TRIM(COALESCE(lead_status, ""))) as status_name, lead_bucket_id, COUNT(*) as cnt')
+            ->groupBy('lead_status', 'lead_bucket_id')
+            ->get();
+
+        $columnCards = [];
+        $perPage = 15;
+
+        foreach ($buckets as $b) {
+            $bName = strtolower(trim($b->name));
+            $bId = $b->id;
+            $childIds = $b->children ? $b->children->pluck('id')->toArray() : [];
+            $childNames = $b->children ? $b->children->pluck('name')->map(fn($n) => strtolower(trim($n)))->toArray() : [];
+
+            $colTotal = $statusCounts->filter(function ($item) use ($bName, $bId, $childNames, $childIds) {
+                $itemStatus = strtolower(trim($item->status_name));
+                if ($itemStatus === $bName || $item->lead_bucket_id == $bId) {
+                    return true;
+                }
+                if (in_array($itemStatus, $childNames) || in_array($item->lead_bucket_id, $childIds)) {
+                    return true;
+                }
+                if ($bName === 'deal created' && str_contains($itemStatus, 'deal created')) {
+                    return true;
+                }
+                return false;
+            })->sum('cnt');
+
+            $cardQuery = Leads::with([
+                'user:id,name,email,contact_no,city,state,address',
+                'owner:id,name',
+                'bucket:id,name,bucket_color',
+                'category:id,category_name',
+                'tags:id,name,color',
+                'latestMessage.user:id,name',
+                'events' => function ($eQ) {
+                    $eQ->with('assignedUser:id,name')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+                }
+            ]);
+
+            $this->applyPipelineFilters($request, $cardQuery);
+            $this->applyBucketQueryFilter($cardQuery, $b);
+
+            $paginator = $cardQuery->orderBy('id', 'desc')->paginate($perPage, ['*'], 'col_' . $bId, 1);
+
+            $columnCards[$bId] = [
+                'bucket' => $b,
+                'total' => $colTotal,
+                'leads' => $paginator->items(),
+                'has_more' => $paginator->hasMorePages(),
+                'next_page' => $paginator->hasMorePages() ? 2 : null,
+            ];
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $columnHtmlMap = [];
+            foreach ($buckets as $b) {
+                $bId = $b->id;
+                $colData = $columnCards[$bId];
+                $cardsHtml = '';
+                foreach ($colData['leads'] as $leadItem) {
+                    $cardsHtml .= view('crm.lead.pipeline-card', ['lead' => $leadItem])->render();
+                }
+                $columnHtmlMap[$bId] = [
+                    'cards_html' => $cardsHtml,
+                    'total' => $colData['total'],
+                    'has_more' => $colData['has_more'],
+                    'next_page' => $colData['next_page'],
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'columns' => $columnHtmlMap,
+            ]);
+        }
+
+        return view('crm.lead.created-deals-pipeline', compact('buckets', 'owners', 'sources', 'categories', 'columnCards'));
+    }
+
+    public function pipelineCards(Request $request)
+    {
+        if (!auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+        @session_write_close();
+
+        $bucketId = $request->input('bucket_id');
+        $page = (int) $request->input('page', 1);
+        $perPage = 15;
+
+        if (!$bucketId) {
+            return response()->json(['success' => false, 'message' => 'Bucket ID required'], 400);
+        }
+
+        $bucket = Bucket::with('children')->find($bucketId);
+        if (!$bucket) {
+            return response()->json(['success' => false, 'message' => 'Bucket not found'], 404);
+        }
+
+        $cardQuery = Leads::with([
+            'user:id,name,email,contact_no,city,state,address',
+            'owner:id,name',
+            'bucket:id,name,bucket_color',
+            'category:id,category_name',
+            'tags:id,name,color',
+            'latestMessage.user:id,name',
+            'events' => function ($eQ) {
+                $eQ->with('assignedUser:id,name')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+            }
+        ]);
+
+        $this->applyPipelineFilters($request, $cardQuery);
+        $this->applyBucketQueryFilter($cardQuery, $bucket);
+
+        $paginator = $cardQuery->orderBy('id', 'desc')->paginate($perPage, ['*'], 'col_' . $bucketId, $page);
+
+        $cardsHtml = '';
+        foreach ($paginator->items() as $leadItem) {
+            $cardsHtml .= view('crm.lead.pipeline-card', ['lead' => $leadItem])->render();
+        }
+
+        return response()->json([
+            'success' => true,
+            'cards_html' => $cardsHtml,
+            'has_more' => $paginator->hasMorePages(),
+            'next_page' => $paginator->hasMorePages() ? ($page + 1) : null,
+        ]);
+    }
+
+    public function pipelineDragUpdate(Request $request, Leads $lead)
+    {
+        if (!auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        if (auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
+            return response()->json(['success' => false, 'message' => 'Permission denied'], 403);
+        }
+
+        $targetBucketId = $request->input('target_bucket_id');
+        $targetBucket = Bucket::where('type', 'order')->find($targetBucketId);
+
+        if (!$targetBucket) {
+            return response()->json(['success' => false, 'message' => 'Target bucket invalid'], 400);
+        }
+
+        $oldBucketId = $lead->lead_bucket_id;
+        $oldStatus = $lead->lead_status;
+
+        $lead->lead_bucket_id = $targetBucket->id;
+        if ($targetBucket->parent_id) {
+            $parent = Bucket::find($targetBucket->parent_id);
+            $lead->lead_bucket_name = $parent ? $parent->name : $targetBucket->name;
+        } else {
+            $lead->lead_bucket_name = $targetBucket->name;
+        }
+
+        if ($request->filled('lead_status')) {
+            $lead->lead_status = $request->input('lead_status');
+        } else {
+            $lead->lead_status = $targetBucket->name;
+        }
+        $lead->save();
+
+        \App\Models\Order::where('lead_id', $lead->id)->update([
+            'order_bucket_id' => $targetBucket->id,
+            'order_status' => $lead->lead_status,
+        ]);
+
+        try {
+            \App\Models\LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => auth()->id(),
+                'action' => 'pipeline_drag_update',
+                'changes' => json_encode([
+                    'from_bucket' => $oldBucketId,
+                    'to_bucket' => $targetBucket->id,
+                    'from_status' => $oldStatus,
+                    'to_status' => $lead->lead_status,
+                ]),
+            ]);
+        } catch (\Throwable $e) {
+            // Ignore audit log error silently
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lead status updated successfully',
+            'lead_id' => $lead->id,
+            'new_bucket_id' => $targetBucket->id,
+            'new_status' => $lead->lead_status,
+        ]);
+    }
+
+    public function bulkUpdateStatus(Request $request)
+    {
+        abort_unless(auth()->check(), 401);
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return response()->json(['status' => false, 'message' => 'No deals selected'], 400);
+        }
+
+        $bucketId = $request->bucket_id;
+        $statusName = $request->status_name;
+        $bucketName = null;
+
+        if ($bucketId) {
+            $bucketObj = Bucket::find($bucketId);
+            if ($bucketObj) {
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+                if (empty($statusName)) {
+                    $statusName = $bucketObj->name;
+                }
+            }
+        } elseif (!empty($statusName)) {
+            $bucketObj = Bucket::whereRaw('LOWER(TRIM(name)) = ?', [strtolower(trim($statusName))])->first();
+            if ($bucketObj) {
+                $bucketId = $bucketObj->id;
+                if ($bucketObj->parent_id) {
+                    $parentObj = Bucket::find($bucketObj->parent_id);
+                    $bucketName = $parentObj ? $parentObj->name : $bucketObj->name;
+                } else {
+                    $bucketName = $bucketObj->name;
+                }
+            }
+        }
+
+        $query = Leads::whereIn('id', $ids);
+        if (auth()->user()->role_id == 3) {
+            $query->where('lead_owner', auth()->id());
+        }
+
+        $dealsToUpdate = $query->get();
+        foreach ($dealsToUpdate as $leadObj) {
+            $oldStatus = $leadObj->lead_status;
+            $oldBucket = $leadObj->lead_bucket_name;
+
+            \App\Models\CallBack::create([
+                'lead_id' => $leadObj->id,
+                'status' => $statusName,
+                'bucket' => $bucketName ?: $statusName,
+                'message' => $oldStatus && $oldStatus !== $statusName 
+                    ? "Deal status changed from '{$oldStatus}' to '{$statusName}' (Bulk Action)"
+                    : "Deal status set to '{$statusName}' (Bulk Action)",
+                'is_done' => 1,
+                'created_by' => auth()->id(),
+            ]);
+
+            try {
+                \App\Models\LeadHistory::create([
+                    'lead_id' => $leadObj->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'bulk_deal_status_update',
+                    'changes' => json_encode([
+                        'from_status' => $oldStatus,
+                        'to_status' => $statusName,
+                        'from_bucket' => $oldBucket,
+                        'to_bucket' => $bucketName,
+                    ]),
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
+        $updateData = [
+            'lead_status' => $statusName,
+            'lead_bucket_id' => $bucketId,
+        ];
+        if ($bucketName) {
+            $updateData['lead_bucket_name'] = $bucketName;
+        }
+
+        $query->update($updateData);
+
+        \App\Models\Order::whereIn('lead_id', $ids)->update([
+            'order_bucket_id' => $bucketId,
+            'order_status' => $statusName,
+        ]);
+
+        return response()->json(['status' => true, 'message' => count($ids) . ' deals updated successfully']);
+    }
+}

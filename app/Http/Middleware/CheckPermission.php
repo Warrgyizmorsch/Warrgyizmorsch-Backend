@@ -19,17 +19,50 @@ class CheckPermission
             return redirect()->route('login')->withErrors(['msg' => 'Please login to continue']);
         }
 
+        // 🚫 Block clients / accounts with role 'User' (role_id: 2) from accessing any CRM page
+        if ($user->role_id == 2 || strtolower(optional($user->role)->name ?? '') === 'user') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            return redirect()->route('login')->withErrors(['email' => 'Access denied. Accounts with "User" role are not allowed to login.']);
+        }
+
+        if ($user->role_id == 1) {
+            return $next($request);
+        }
+
         $currentRouteName = LaravelRoute::currentRouteName();
 
         if (!$currentRouteName) {
             abort(403, 'Unauthorized: Route has no name.');
         }
 
-        $dbRoute = RouteModel::where('route_name', $currentRouteName)
-            ->where('is_deleted', false)
-            ->first();
+        $dbRoute = RouteModel::firstOrCreate(
+            ['route_name' => $currentRouteName],
+            [
+                'name' => ucwords(str_replace(['.', '_', '-'], ' ', $currentRouteName)),
+                'method' => strtoupper($request->method() ?? 'GET'),
+                'is_deleted' => false,
+            ]
+        );
 
-        if (!$dbRoute) {
+        if ($dbRoute->wasRecentlyCreated) {
+            try {
+                $roles = \App\Models\Role::where('is_deleted', false)->get();
+                foreach ($roles as $role) {
+                    $isSeo = strcasecmp($role->name, 'SEO') === 0;
+                    $allowed = ($role->id == 1 || !$isSeo) ? 1 : 0;
+                    RolePermission::firstOrCreate(
+                        ['role_id' => $role->id, 'route_id' => $dbRoute->id],
+                        ['is_allowed' => $allowed]
+                    );
+                }
+            } catch (\Throwable $e) {
+                // Ignore exception to ensure request flow is uninterrupted
+            }
+        }
+
+        if (!$dbRoute || $dbRoute->is_deleted) {
             abort(403, 'Unauthorized: Route not registered in system.');
         }
 
@@ -54,8 +87,29 @@ class CheckPermission
                 ->where('route_id', $routeId)
                 ->first();
 
-            if ($rolePermission && $rolePermission->is_allowed) {
-                return $next($request); // role allows
+            if ($rolePermission) {
+                if ($rolePermission->is_allowed) {
+                    return $next($request); // role explicitly allows
+                } else {
+                    abort(403, 'Unauthorized: You don’t have permission to access this page.'); // role explicitly denied
+                }
+            } else {
+                // If route exists but role permission record wasn't created yet, apply default policy
+                $isSeo = strcasecmp(optional($user->role)->name ?? '', 'SEO') === 0;
+                $allowed = ($user->role_id == 1 || !$isSeo);
+
+                try {
+                    RolePermission::firstOrCreate(
+                        ['role_id' => $user->role_id, 'route_id' => $routeId],
+                        ['is_allowed' => $allowed ? 1 : 0]
+                    );
+                } catch (\Throwable $e) {
+                    // Ignore exception
+                }
+
+                if ($allowed) {
+                    return $next($request);
+                }
             }
         }
 

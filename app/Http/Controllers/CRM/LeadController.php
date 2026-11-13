@@ -12,6 +12,7 @@ use App\Models\LeadHistory;
 use App\Models\LeadAttribute;
 use App\Models\LeadSource;
 use App\Models\Category;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -244,9 +245,9 @@ class LeadController extends Controller
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email',
+            'email' => 'nullable|required_without_all:mobile,linkedin_url|email',
             'country_code' => 'nullable|string|max:10',
-            'mobile' => 'required|string|max:20',
+            'mobile' => 'nullable|required_without_all:email,linkedin_url|string|max:20',
             'city' => 'nullable|string|max:255',
 
             // Lead fields
@@ -273,6 +274,7 @@ class LeadController extends Controller
              'services.*' => 'nullable',
              'pain_points' => 'nullable|string',
              'website' => 'nullable|string|max:255',
+             'linkedin_url' => 'nullable|required_without_all:mobile,email|string|max:500',
              'business_name' => 'nullable|string|max:255',
              'gst_number' => 'nullable|string|max:255',
              'city' => 'nullable|string|max:255',
@@ -282,15 +284,28 @@ class LeadController extends Controller
              'cloned_contacts' => 'nullable|array',
              'documents' => 'nullable|array',
              'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
+        ], [
+            'mobile.required_without_all' => 'Please provide at least one: Phone Number, Email, or LinkedIn URL.',
+            'email.required_without_all' => 'Please provide at least one: Phone Number, Email, or LinkedIn URL.',
+            'linkedin_url.required_without_all' => 'Please provide at least one: Phone Number, Email, or LinkedIn URL.',
         ]);
 
-        // 🔍 Search existing user by mobile number
-        $user = User::where('contact_no', $data['mobile'])->first();
+        $submittedMobile = !empty($data['mobile']) ? trim($data['mobile']) : null;
+        $submittedEmail = !empty($data['email']) ? trim($data['email']) : null;
+
+        // 🔍 Search existing user by mobile number or email
+        $user = null;
+        if ($submittedMobile) {
+            $user = User::where('contact_no', $submittedMobile)->first();
+        }
+        if (!$user && $submittedEmail) {
+            $user = User::where('email', $submittedEmail)->first();
+        }
 
         $userData = [
             'name' => $data['name'],
-            'email' => $data['email'] ?? 'user' . $data['mobile'] . '@gmail.com',
-            'contact_no' => $data['mobile'],
+            'email' => $submittedEmail,
+            'contact_no' => $submittedMobile,
             'country_code' => $data['country_code'] ?? null,
             'role_id' => 2,
             'password' => bcrypt('user@123'),
@@ -314,6 +329,7 @@ class LeadController extends Controller
         $leadData = $data;
         $leadData['client_details'] = $request->cloned_contacts ?? [];
         $leadData['website'] = $data['website'] ?? null;
+        $leadData['linkedin_url'] = $data['linkedin_url'] ?? null;
         $leadData['business_name'] = $data['business_name'] ?? null;
         $leadData['gst_number'] = $data['gst_number'] ?? null;
         
@@ -375,6 +391,20 @@ class LeadController extends Controller
         $leadData['lead_bucket_id'] = !empty($leadData['lead_bucket_id']) ? $leadData['lead_bucket_id'] : $defaultBucketId;
         $leadData['lead_status'] = !empty($leadData['lead_status']) ? $leadData['lead_status'] : $defaultSubStatus;
 
+        if (empty($leadData['lead_bucket_name']) && !empty($leadData['lead_bucket_id'])) {
+            $bObj = Bucket::find($leadData['lead_bucket_id']);
+            if ($bObj) {
+                if ($bObj->parent_id) {
+                    $pObj = Bucket::find($bObj->parent_id);
+                    $leadData['lead_bucket_name'] = $pObj ? $pObj->name : $bObj->name;
+                } else {
+                    $leadData['lead_bucket_name'] = $bObj->name;
+                }
+            } else {
+                $leadData['lead_bucket_name'] = 'Lead';
+            }
+        }
+
         $tableColumns = \Illuminate\Support\Facades\Schema::getColumnListing('leads');
         if (!empty($tableColumns)) {
             $leadData = array_intersect_key($leadData, array_flip($tableColumns));
@@ -401,6 +431,15 @@ class LeadController extends Controller
                 'created_data' => $leadData
             ]
         ]);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $lead->load(['user', 'owner', 'bucket', 'category', 'tags']);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead created successfully.',
+                'lead' => $lead,
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Lead created successfully.');
     }
@@ -443,12 +482,26 @@ class LeadController extends Controller
 
     public function update(Request $request, Leads $lead)
     {
+        $currentUserEmail = optional($lead->user)->email;
+        $submittedEmail = trim((string)$request->input('email', ''));
+        $submittedMobile = trim((string)$request->input('mobile', ''));
+        $ignoreId = $lead->uid ?: optional($lead->user)->id;
+
+        $isSameUserEmail = ($currentUserEmail && strtolower($submittedEmail) === strtolower($currentUserEmail));
+        $matchingUserByMobile = $submittedMobile ? User::where('contact_no', $submittedMobile)->first() : null;
+        $isLinkedUserEmail = ($matchingUserByMobile && strtolower((string)$matchingUserByMobile->email) === strtolower($submittedEmail));
+
+        $emailRule = ['nullable', 'email'];
+        if ($submittedEmail && !$isSameUserEmail && !$isLinkedUserEmail) {
+            $emailRule[] = \Illuminate\Validation\Rule::unique('users', 'email')->ignore($ignoreId);
+        }
+
         $data = $request->validate([
             // User fields
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $lead->uid,
+            'email' => $emailRule,
             'country_code' => 'nullable|string|max:10',
-            'mobile' => 'required|string|max:20',
+            'mobile' => 'nullable|string|max:20',
             'city' => 'nullable|string|max:255',
 
             // Lead fields
@@ -475,6 +528,7 @@ class LeadController extends Controller
             'services.*' => 'nullable',
             'pain_points' => 'nullable|string',
             'website' => 'nullable|string|max:255',
+            'linkedin_url' => 'nullable|string|max:500',
             'business_name' => 'nullable|string|max:255',
             'gst_number' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
@@ -484,27 +538,37 @@ class LeadController extends Controller
             'cloned_contacts' => 'nullable|array',
             'documents' => 'nullable|array',
             'documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt|max:10240',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'integer|exists:tags,id',
         ]);
 
         // ----------------------------
-        // 1. Update related user
+        // 1. Update related user (Smart Decoupling if user is shared)
         // ----------------------------
-        if ($lead->user) {
+        $userData = [
+            'name' => $data['name'],
+            'email' => $data['email'] ?? null,
+            'contact_no' => $data['mobile'] ?? null,
+            'country_code' => $data['country_code'] ?? null,
+            'city' => $data['city'] ?? null,
+            'state' => $data['state'] ?? null,
+            'pincode' => $data['pincode'] ?? null,
+            'address' => $data['address'] ?? null,
+        ];
+        $userColumns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
+        if (!empty($userColumns)) {
+            $userData = array_intersect_key($userData, array_flip($userColumns));
+        }
+
+        // Check if current user is shared with other leads
+        $isSharedUser = false;
+        if (!empty($lead->uid)) {
+            $isSharedUser = Leads::where('uid', $lead->uid)->where('id', '!=', $lead->id)->exists();
+        }
+
+        if ($lead->user && !$isSharedUser) {
+            // Dedicated user for this lead: safe to update directly
             $userOld = $lead->user->getOriginal();
-            $userData = [
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'contact_no' => $data['mobile'],
-                'country_code' => $data['country_code'] ?? null,
-                'city' => $data['city'] ?? null,
-                'state' => $data['state'] ?? null,
-                'pincode' => $data['pincode'] ?? null,
-                'address' => $data['address'] ?? null,
-            ];
-            $userColumns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
-            if (!empty($userColumns)) {
-                $userData = array_intersect_key($userData, array_flip($userColumns));
-            }
             $lead->user->update($userData);
 
             $userChanges = [];
@@ -525,6 +589,47 @@ class LeadController extends Controller
                     'changes' => $userChanges
                 ]);
             }
+        } else {
+            // User is shared with other leads OR lead has no user record attached!
+            // Decouple to avoid mutating other leads' data.
+            $targetUser = null;
+            if (!empty($data['mobile'])) {
+                $targetUser = User::where('contact_no', $data['mobile'])
+                    ->when($lead->uid, fn($q) => $q->where('id', '!=', $lead->uid))
+                    ->first();
+            }
+            if (!$targetUser && !empty($data['email'])) {
+                $targetUser = User::where('email', $data['email'])
+                    ->when($lead->uid, fn($q) => $q->where('id', '!=', $lead->uid))
+                    ->first();
+            }
+
+            if ($targetUser) {
+                $targetUser->update(array_filter($userData, fn($v) => !is_null($v)));
+                $lead->uid = $targetUser->id;
+                $lead->save();
+                $lead->setRelation('user', $targetUser);
+            } else {
+                $newUserData = array_merge($userData, [
+                    'email' => !empty($data['email']) ? trim($data['email']) : null,
+                    'role_id' => 2,
+                    'password' => \Illuminate\Support\Facades\Hash::make('user@123'),
+                ]);
+                if (!empty($userColumns)) {
+                    $newUserData = array_intersect_key($newUserData, array_flip($userColumns));
+                }
+                $newUser = User::create($newUserData);
+                $lead->uid = $newUser->id;
+                $lead->save();
+                $lead->setRelation('user', $newUser);
+            }
+
+            LeadHistory::create([
+                'lead_id' => $lead->id,
+                'user_id' => auth()->id(),
+                'action' => 'user_decoupled_updated',
+                'changes' => ['name' => ['old' => 'Shared Record', 'new' => $data['name']]]
+            ]);
         }
 
         $oldOwnerId = $lead->lead_owner;
@@ -557,6 +662,7 @@ class LeadController extends Controller
         }
 
         $lead->update($leadData);
+        $lead->tags()->sync($request->input('tag_ids', []));
 
         $newOwnerId = $lead->lead_owner;
 
@@ -638,6 +744,15 @@ class LeadController extends Controller
                     ]);
                 }
             }
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $lead->load(['user', 'owner', 'bucket', 'category', 'tags']);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Lead updated successfully.',
+                'lead' => $lead,
+            ]);
         }
 
         return redirect()->back()->with('success', 'Lead updated successfully.');
@@ -745,7 +860,7 @@ class LeadController extends Controller
     public function destroy(Leads $lead)
     {
         $lead->delete();
-        return redirect()->route('lead.index')->with('success', 'Lead deleted successfully.');
+        return redirect()->back()->with('success', 'Lead deleted successfully.');
     }
 
     public function downloadSample()
@@ -1669,7 +1784,7 @@ class LeadController extends Controller
 
         $oldEngagement = $lead->lead_engagement_status;
         $engS = strtolower(trim($request->lead_engagement_status ?? ''));
-        if (in_array($engS, ['hot', 'warm', 'cold', 'dead'])) {
+        if (in_array($engS, ['new', 'hot', 'warm', 'cold', 'dead'])) {
             $lead->update([
                 'lead_engagement_status' => $engS
             ]);
@@ -2155,29 +2270,78 @@ class LeadController extends Controller
     }
     public function bulkDelete(Request $request)
     {
-        if (!$request->filled('ids')) {
-            return back()->with('error', 'No leads selected');
+        $rawIds = $request->input('ids');
+        if (is_array($rawIds)) {
+            $ids = $rawIds;
+        } elseif (is_string($rawIds) && !empty($rawIds)) {
+            $ids = explode(',', $rawIds);
+        } else {
+            $ids = [];
         }
 
-        $ids = explode(',', $request->ids);
+        if (empty($ids)) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => false, 'message' => 'No leads selected'], 400);
+            }
+            return back()->with('error', 'No leads selected');
+        }
 
         DB::beginTransaction();
 
         try {
-
-            CallBack::whereIn('lead_id', $ids)->delete();
-
+            DB::table('taggables')->where('taggable_type', Leads::class)->whereIn('taggable_id', $ids)->delete();
+            DB::table('callback_messages')->whereIn('lead_id', $ids)->delete();
+            DB::table('lead_histories')->whereIn('lead_id', $ids)->delete();
+            DB::table('lead_events')->whereIn('lead_id', $ids)->delete();
+            Order::whereIn('lead_id', $ids)->delete();
             Leads::whereIn('id', $ids)->delete();
 
             DB::commit();
 
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => true, 'message' => count($ids) . ' lead(s) deleted successfully!']);
+            }
             return back()->with('success', 'Selected leads deleted successfully!');
         } catch (\Exception $e) {
-
             DB::rollBack();
 
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['status' => false, 'message' => 'Something went wrong: ' . $e->getMessage()], 500);
+            }
             return back()->with('error', 'Something went wrong: ' . $e->getMessage());
         }
+    }
+
+    public function archiveLead(Request $request, $id)
+    {
+        $lead = Leads::findOrFail($id);
+        if (auth()->check() && auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
+            return response()->json(['status' => false, 'message' => 'Permission denied'], 403);
+        }
+
+        $lead->update(['is_archived' => 1]);
+        Order::where('lead_id', $lead->id)->update(['is_archived' => 1]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Lead moved to archive successfully',
+        ]);
+    }
+
+    public function restoreLead(Request $request, $id)
+    {
+        $lead = Leads::findOrFail($id);
+        if (auth()->check() && auth()->user()->role_id == 3 && $lead->lead_owner != auth()->id()) {
+            return response()->json(['status' => false, 'message' => 'Permission denied'], 403);
+        }
+
+        $lead->update(['is_archived' => 0]);
+        Order::where('lead_id', $lead->id)->update(['is_archived' => 0]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Lead restored successfully',
+        ]);
     }
 
     public function fetchTemplates()

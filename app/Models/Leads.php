@@ -10,7 +10,9 @@ class Leads extends Model
     protected $fillable = [
         'lead_id',
         'is_converted',
+        'is_archived',
         'lead_bucket_id',
+        'lead_bucket_name',
         'lead_status',
         'lead_owner',
         'date',
@@ -46,6 +48,7 @@ class Leads extends Model
         'employee_strength',
         'industry',
         'website',
+        'linkedin_url',
         'business_name',
         'gst_number',
         'state',
@@ -119,8 +122,32 @@ class Leads extends Model
         return $this->belongsTo(Category::class, 'category_id');
     }
 
+    public function tags()
+    {
+        return $this->morphToMany(Tag::class, 'taggable')->orderBy('name');
+    }
+
+    public function order()
+    {
+        return $this->hasOne(Order::class, 'lead_id');
+    }
+
     public function emailLogs()
     {
         return $this->hasMany(EmailLog::class, 'lead_id')->latest();
+    }
+
+    public function events()
+    {
+        return $this->hasMany(LeadEvent::class, 'lead_id')->orderBy('event_date', 'asc')->orderBy('start_time', 'asc');
+    }
+
+    public function upcomingEvents()
+    {
+        return $this->hasMany(LeadEvent::class, 'lead_id')
+            ->where('status', LeadEvent::STATUS_SCHEDULED)
+            ->where('event_date', '>=', \Carbon\Carbon::today()->toDateString())
+            ->orderBy('event_date', 'asc')
+            ->orderBy('start_time', 'asc');
     }
 }

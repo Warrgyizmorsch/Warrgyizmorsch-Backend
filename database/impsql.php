@@ -47,3 +47,6 @@ ALTER TABLE `leads` ADD `website` VARCHAR(255) NOT NULL AFTER `industry`, ADD `b
 ALTER TABLE `leads` ADD `documents` JSON NULL DEFAULT NULL AFTER `description`;
 ALTER TABLE `callback_messages` ADD `followup_documents` JSON NULL DEFAULT NULL AFTER `call_recording`;
 
+<!-- Single Active Session -->
+ALTER TABLE `users` ADD `active_session_id` VARCHAR(255) NULL DEFAULT NULL AFTER `remember_token`;
+

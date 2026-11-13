@@ -573,7 +573,7 @@ $exportColumns = [
                                         </th> -->
                                         <th class="bg-white">Detail</th>
                                         <th style="text-align: left;">Last Comment</th>
-                                        <th>Engagement</th>
+                                        <!-- <th>Engagement</th> -->
                                         <!-- <th>Name</th>
                                         <th>Contact</th> -->
                                         <th>City</th>
@@ -689,7 +689,7 @@ $exportColumns = [
                                                 @endphp
                                                 @if($lead->lastMessage)
                                                     <strong>{{ $lead->lastMessage->user->name ?? 'Unknown' }}</strong>
-                                                    <small class="text-muted">: {{ $lead->lastMessage->created_at->format('d M Y, h:i A') }}</small><br>
+                                                    <small class="text-muted">: {{ optional($lead->lastMessage->created_at)->format('d M Y, h:i A') ?? '' }}</small><br>
                                                     <!-- <span style="text-wrap: auto; font-size: 0.7rem;">{{ Str::limit($lead->lastMessage->message ?? '', 80) }}</span> -->
                                                      <p class="mb-1 fw-medium text-dark comment-text"
                                                         id="comment-{{ $lead->id }}">
@@ -707,24 +707,26 @@ $exportColumns = [
                                                 @endif
                                             </td>                                                        
                                             
-                                            <td style="max-width: 200px !important;">
-                                                <form action="{{ route('lead.updateEngagementStatus', $lead->id) }}"
-                                                    method="POST"
-                                                    class="engagement-form">
-                                                    @csrf
-                                                    @method('PUT')
+                                            <!-- Engagement (Commented out)
+                                             <td style="max-width: 200px !important;">
+                                                 <form action="{{ route('lead.updateEngagementStatus', $lead->id) }}"
+                                                     method="POST"
+                                                     class="engagement-form">
+                                                     @csrf
+                                                     @method('PUT')
 
-                                                    <select name="lead_engagement_status"
-                                                            class="form-control engagement-status-select"
-                                                            data-select2-selector="tag">
-                                                        <option value="">Select</option>
-                                                        <option value="hot"  {{ $lead->lead_engagement_status === 'hot' ? 'selected' : '' }}>Hot</option>
-                                                        <option value="warm" {{ $lead->lead_engagement_status === 'warm' ? 'selected' : '' }}>Warm</option>
-                                                        <option value="cold" {{ $lead->lead_engagement_status === 'cold' ? 'selected' : '' }}>Cold</option>
-                                                        <option value="dead" {{ $lead->lead_engagement_status === 'dead' ? 'selected' : '' }}>Dead</option>
-                                                    </select>
-                                                </form>
-                                            </td>
+                                                     <select name="lead_engagement_status"
+                                                             class="form-control engagement-status-select"
+                                                             data-select2-selector="tag">
+                                                         <option value="">Select</option>
+                                                         <option value="hot"  {{ $lead->lead_engagement_status === 'hot' ? 'selected' : '' }}>Hot</option>
+                                                         <option value="warm" {{ $lead->lead_engagement_status === 'warm' ? 'selected' : '' }}>Warm</option>
+                                                         <option value="cold" {{ $lead->lead_engagement_status === 'cold' ? 'selected' : '' }}>Cold</option>
+                                                         <option value="dead" {{ $lead->lead_engagement_status === 'dead' ? 'selected' : '' }}>Dead</option>
+                                                     </select>
+                                                 </form>
+                                             </td>
+                                             -->
 
                                             <!-- Name -->
                                             <!-- <td>{{ $lead->user->name ?? 'N/A' }}</td> -->
@@ -748,34 +750,34 @@ $exportColumns = [
                                             <!-- Source -->
                                             <td>
                                                 @php
-    if (!empty($lead->platform)) {
-
-        // remove query params
-        $cleanUrl = strtok(trim($lead->platform), '?');
-
-        // if it is a URL show Website
-        if (filter_var($cleanUrl, FILTER_VALIDATE_URL)) {
-            $source = "Website";
-        } else {
-            $source = $cleanUrl;
-        }
-
-    } else {
-        $source = "Website";
-    }
-
-    // convert to short form (first letter of each word)
-    $words = preg_split('/[\s\-_]+/', $source);
-    $shortForm = '';
-
-    foreach ($words as $word) {
-        $shortForm .= strtoupper(substr($word, 0, 1));
-    }
+                                                    $pForm = strtolower($lead->platform ?? '');
+                                                    $isMetaLead = ($pForm === 'meta' || str_contains($pForm, 'facebook') || str_contains($pForm, 'meta') || !empty($lead->lead_id));
                                                 @endphp
 
-                                                <span class="badge bg-soft-dark text-dark">
-                                                    {{ $shortForm }}
-                                                </span>
+                                                @if($isMetaLead)
+                                                    <span class="badge rounded-pill text-white px-2 py-1 fs-11 fw-semibold d-inline-flex align-items-center" style="background: linear-gradient(135deg, #0866FF 0%, #00C6FF 100%);" title="Source: Meta (Facebook/Instagram Ads)">
+                                                        <i class="fab fa-facebook-f me-1" style="font-size: 9px;"></i>Meta Ads
+                                                    </span>
+                                                @else
+                                                    @php
+                                                        if (!empty($lead->platform)) {
+                                                            $cleanUrl = strtok(trim($lead->platform), '?');
+                                                            $source = filter_var($cleanUrl, FILTER_VALIDATE_URL) ? "Website" : $cleanUrl;
+                                                        } else {
+                                                            $source = "Website";
+                                                        }
+
+                                                        $words = preg_split('/[\s\-_]+/', $source);
+                                                        $shortForm = '';
+                                                        foreach ($words as $word) {
+                                                            $shortForm .= strtoupper(substr($word, 0, 1));
+                                                        }
+                                                    @endphp
+
+                                                    <span class="badge bg-soft-dark text-dark" title="{{ $source }}">
+                                                        {{ $shortForm ?: 'W' }}
+                                                    </span>
+                                                @endif
                                             </td>
 
                                             <!-- Bucket (relationship or ID) -->

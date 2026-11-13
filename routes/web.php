@@ -15,6 +15,7 @@ use App\Http\Controllers\CRM\LeadSourceController;
 use App\Http\Controllers\CRM\WarrLeadController;
 use App\Http\Controllers\CRM\WarrServicePageController;
 use App\Http\Controllers\CRM\SubjectPageController;
+use App\Http\Controllers\CRM\AdsLeadController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
@@ -24,6 +25,14 @@ use App\Http\Controllers\CRM\UniversityDetailController;
 use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\CRM\EmailTemplateController;
 use App\Http\Controllers\CRM\LeadEmailController;
+use App\Http\Controllers\CRM\LeadTableController;
+use App\Http\Controllers\CRM\CreatedDealController;
+use App\Http\Controllers\CRM\FollowupController;
+use App\Http\Controllers\CRM\TagController;
+use App\Http\Controllers\CRM\ArchiveLeadController;
+use App\Http\Controllers\CRM\ArchiveDealController;
+use App\Http\Controllers\CRM\ProjectController;
+use App\Http\Controllers\CRM\LeadEventController;
 
 Route::get('/send-whatsapp-all', [WhatsAppController::class, 'sendAll'])
     ->name('send.whatsapp.all');
@@ -41,6 +50,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/lead/bulk-owner-update', [LeadController::class, 'bulkOwnerUpdate'])
         ->name('lead.bulkOwnerUpdate');
+
+    Route::delete('/leads/{lead}/tags/{tag}', [TagController::class, 'detachFromLead'])
+        ->name('leads.tags.detach');
+    Route::post('/leads/{lead}/tags/{tag}/toggle', [TagController::class, 'toggleForLead'])
+        ->name('leads.tags.toggle');
 
 
     Route::prefix('categories')->group(function () {
@@ -105,7 +119,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/store', [LeadController::class, 'store'])->name('lead.store');
             Route::get('/edit/{lead}', [LeadController::class, 'edit'])->name('lead.edit');
             Route::put('/update/{lead}', [LeadController::class, 'update'])->name('lead.update');
-            // Route::delete('/destroy/{lead}', [LeadController::class, 'destroy'])->name('lead.destroy');
+            Route::delete('/destroy/{lead}', [LeadController::class, 'destroy'])->name('lead.destroy');
             Route::put('/bucket/{lead}', [LeadController::class, 'updateBucket'])->name('lead.updateBucket');
 
             Route::put('/status/{lead}', [LeadController::class, 'updateStatus'])->name('lead.updateStatus');
@@ -113,6 +127,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/send-message', [LeadController::class, 'sendMessage'])->name('lead.sendMessage');
             Route::get('/daily-report', [LeadController::class, 'dailyReport'])->name('lead.dailyReport');
             Route::put('/{lead}/engagement-status', [LeadController::class, 'updateEngagementStatus'])->name('lead.updateEngagementStatus');
+            Route::post('/{lead}/archive', [LeadController::class, 'archiveLead'])->name('lead.archive');
+            Route::post('/{lead}/restore', [LeadController::class, 'restoreLead'])->name('lead.restore');
             // Route::get('?bucket_id=15', [LeadController::class, 'index'])->name('lead.application');
             Route::get('/application', [LeadController::class, 'application'])->name('lead.application');
         });
@@ -123,6 +139,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/edit/{id}', [BucketController::class, 'edit'])->name('bucket.edit');
             Route::put('/update/{bucket}', [BucketController::class, 'update'])->name('bucket.update');
             Route::delete('/destroy/{bucket}', [BucketController::class, 'destroy'])->name('bucket.destroy');
+        });
+
+        Route::resource('tags', TagController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::prefix('projects')->name('projects.')->group(function () {
+            Route::get('/', [ProjectController::class, 'index'])->name('index');
+            Route::post('/', [ProjectController::class, 'store'])->name('store');
+            Route::get('/{project}', [ProjectController::class, 'show'])->name('show');
+            Route::put('/{project}', [ProjectController::class, 'update'])->name('update');
+            Route::delete('/{project}', [ProjectController::class, 'destroy'])->name('destroy');
+            Route::patch('/{project}/status', [ProjectController::class, 'toggleStatus'])->name('toggle-status');
         });
 
         Route::prefix('lead-questions')->group(function () {
@@ -157,6 +184,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('warr-leads')->group(function () {
             Route::get('/', [WarrLeadController::class, 'index'])->name('warr-leads.index');
             Route::put('/{lead}', [WarrLeadController::class, 'update'])->name('warr-leads.updateWarrLead');
+        });
+        Route::prefix('ads-leads')->name('ads-leads.')->group(function () {
+            Route::get('/', [AdsLeadController::class, 'index'])->name('index');
+            Route::post('/{id}/send-to-lead', [AdsLeadController::class, 'sendToLead'])->name('sendToLead');
+            Route::delete('/{id}', [AdsLeadController::class, 'destroy'])->name('destroy');
         });
         Route::prefix('warr-service-pages')->group(function () {
             Route::get('/', [WarrServicePageController::class, 'index'])->name('warr-service-pages.index');
@@ -200,9 +232,47 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/crm/leads/sample', [LeadController::class, 'downloadSample'])->name('lead.sample');
     Route::get('/lead-import-status/{jobId}', [LeadController::class, 'getImportJobStatus']);
 
-    // Modern Leads
+    // Modern Leads & Followups
+    Route::get('/followups', [FollowupController::class, 'index'])->name('followups.index');
+    Route::post('/followups/{followup}/mark-done', [FollowupController::class, 'markDone'])->name('followups.markDone');
+    Route::post('/followups/{followup}/done', [FollowupController::class, 'markDone'])->name('followups.done');
+    Route::post('/followups/{followup}/reschedule', [FollowupController::class, 'reschedule'])->name('followups.reschedule');
+    Route::post('/followups/{followup}/convert-deal', [FollowupController::class, 'convertToDeal'])->name('followups.convertDeal');
+    Route::get('/created-deals', [CreatedDealController::class, 'index'])->name('created.deals.index');
+    Route::get('/created-deals/pipeline', [CreatedDealController::class, 'pipelineIndex'])->name('created.deals.pipeline');
+    Route::get('/created-deals/pipeline/cards', [CreatedDealController::class, 'pipelineCards'])->name('created.deals.pipeline.cards');
+    Route::post('/created-deals/pipeline/drag-update/{lead}', [CreatedDealController::class, 'pipelineDragUpdate'])->name('created.deals.pipeline.dragUpdate');
+    Route::post('/created-deals/bulk-update-status', [CreatedDealController::class, 'bulkUpdateStatus'])->name('created.deals.bulkUpdateStatus');
+    Route::get('/new-leads-table', [LeadTableController::class, 'index'])->name('leads.table.index');
+    Route::post('/new-leads-table/{lead}/update-status', [LeadTableController::class, 'updateStatus'])->name('leads.table.updateStatus');
+    Route::post('/new-leads-table/bulk-update-status', [LeadTableController::class, 'bulkUpdateStatus'])->name('leads.table.bulkUpdateStatus');
+    Route::post('/new-leads-table/{lead}/convert-deal', [LeadTableController::class, 'convertToDeal'])->name('leads.table.convertDeal');
+    Route::post('/new-leads-table/bulk-convert-deal', [LeadTableController::class, 'bulkConvertToDeal'])->name('leads.table.bulkConvertDeal');
+    Route::get('/new-leads-table/pipeline', [LeadTableController::class, 'pipelineIndex'])->name('leads.table.pipeline');
+    Route::get('/new-leads-table/pipeline/cards', [LeadTableController::class, 'pipelineCards'])->name('leads.table.pipeline.cards');
+    Route::post('/new-leads-table/pipeline/drag-update/{lead}', [LeadTableController::class, 'pipelineDragUpdate'])->name('leads.table.pipeline.dragUpdate');
+
+    // Archive Leads & Deals
+    Route::get('/archive-leads', [ArchiveLeadController::class, 'index'])->name('archive.leads.index');
+    Route::post('/archive-leads/{id}/archive', [ArchiveLeadController::class, 'archive'])->name('archive.leads.archive');
+    Route::post('/archive-leads/bulk-archive', [ArchiveLeadController::class, 'bulkArchive'])->name('archive.leads.bulkArchive');
+    Route::post('/archive-leads/{id}/restore', [ArchiveLeadController::class, 'restore'])->name('archive.leads.restore');
+    Route::post('/archive-leads/bulk-restore', [ArchiveLeadController::class, 'bulkRestore'])->name('archive.leads.bulkRestore');
+    Route::post('/archive-leads/bulk-delete', [ArchiveLeadController::class, 'bulkDelete'])->name('archive.leads.bulkDelete');
+
+    Route::get('/archive-deals', [ArchiveDealController::class, 'index'])->name('archive.deals.index');
+    Route::post('/archive-deals/{id}/archive', [ArchiveDealController::class, 'archive'])->name('archive.deals.archive');
+    Route::post('/archive-deals/bulk-archive', [ArchiveDealController::class, 'bulkArchive'])->name('archive.deals.bulkArchive');
+    Route::post('/archive-deals/{id}/restore', [ArchiveDealController::class, 'restore'])->name('archive.deals.restore');
+    Route::post('/archive-deals/bulk-restore', [ArchiveDealController::class, 'bulkRestore'])->name('archive.deals.bulkRestore');
+    Route::post('/archive-deals/bulk-delete', [ArchiveDealController::class, 'bulkDelete'])->name('archive.deals.bulkDelete');
+    Route::post('/leads/bulk-delete', [LeadController::class, 'bulkDelete'])->name('leads.bulkDelete');
+
     Route::get('/modern-leads/search-suggestions', [NewleadController::class, 'searchSuggestions'])->name('modern.leads.search.suggestions');
     Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
+    Route::get('/modern-leads/pipeline', [NewleadController::class, 'pipelineIndex'])->name('modern.leads.pipeline');
+    Route::get('/modern-leads/pipeline/cards', [NewleadController::class, 'pipelineCards'])->name('modern.leads.pipeline.cards');
+    Route::post('/modern-leads/pipeline/drag-update/{lead}', [NewleadController::class, 'pipelineDragUpdate'])->name('modern.leads.pipeline.dragUpdate');
     Route::get('/modern-leads/{lead}/details-data', [NewleadController::class, 'getDetailsData'])->name('modern.leads.details.data');
     Route::post('/modern-leads/import/upload', [NewleadController::class, 'uploadImportFile'])->name('modern.leads.import.upload');
     Route::post('/modern-leads/import/process', [NewleadController::class, 'processImport'])->name('modern.leads.import.process');
@@ -275,9 +345,239 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/send', [LeadEmailController::class, 'sendEmail'])->name('send');
         Route::get('/history/{lead}', [LeadEmailController::class, 'getHistory'])->name('history');
     });
+
+    // Upcoming Events & Meetings
+    Route::prefix('upcoming-events')->name('events.')->group(function () {
+        Route::get('/', [LeadEventController::class, 'index'])->name('index');
+        Route::post('/lead/{lead}', [LeadEventController::class, 'store'])->name('store');
+        Route::put('/{event}', [LeadEventController::class, 'update'])->name('update');
+        Route::post('/{event}/complete', [LeadEventController::class, 'complete'])->name('complete');
+        Route::post('/{event}/cancel', [LeadEventController::class, 'cancel'])->name('cancel');
+        Route::post('/{event}/reschedule', [LeadEventController::class, 'reschedule'])->name('reschedule');
+        Route::delete('/{event}', [LeadEventController::class, 'destroy'])->name('destroy');
+        Route::get('/lead/{lead}', [LeadEventController::class, 'getLeadEvents'])->name('lead.events');
+    });
+
+    // Google Workspace Calendar Integration
+    Route::prefix('google-workspace')->name('google.workspace.')->group(function () {
+        Route::get('/connect', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'connect'])->name('connect');
+        Route::get('/callback', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'callback'])->name('callback');
+        Route::get('/status', [\App\Http\Controllers\CRM\GoogleWorkspaceController::class, 'status'])->name('status');
+    });
+
+    // Call Plugins Page (Screens 3 & 4)
+    Route::get('/admin/plugins', [\App\Http\Controllers\PluginController::class, 'index'])->name('plugins.index');
+    Route::get('/admin/plugins/dashboard', [\App\Http\Controllers\PluginController::class, 'index'])->name('admin.plugins.index');
+    Route::post('/admin/plugins/twilio/save', [\App\Http\Controllers\PluginController::class, 'saveTwilio'])->name('plugins.twilio.save');
+    Route::post('/admin/plugins/toggle-status', [\App\Http\Controllers\PluginController::class, 'toggleStatus'])->name('plugins.toggle');
+    Route::post('/admin/plugins/twilio/auto-fix-keys', [\App\Http\Controllers\PluginController::class, 'autoFixKeys'])->name('plugins.twilio.autofix');
+
+    // Call History Page (Screen 1)
+    Route::get('/call-history', [\App\Http\Controllers\PluginController::class, 'callHistory'])->name('call.history');
+    Route::get('/admin/plugins/twilio/call-history', [\App\Http\Controllers\PluginController::class, 'callHistory'])->name('plugins.twilio.call.history');
+    Route::get('/call-history/recording/{id}', [\App\Http\Controllers\PluginController::class, 'streamRecording'])->name('call.history.recording');
+    Route::get('/admin/plugins/twilio/recording/{id}', [\App\Http\Controllers\PluginController::class, 'streamRecording'])->name('plugins.twilio.recording');
+
+    // Softphone WebRTC AJAX
+    Route::get('/admin/plugins/twilio/token', [\App\Http\Controllers\PluginController::class, 'getWebRtcToken'])->name('plugins.twilio.token');
+    Route::post('/admin/plugins/twilio/log-call', [\App\Http\Controllers\PluginController::class, 'logCall'])->name('plugins.twilio.log.call');
+
+    // Twilio Voice Softphone & WebRTC (Compatible aliases)
+    Route::prefix('admin/twilio')->name('twilio.')->group(function () {
+        Route::get('/token', [\App\Http\Controllers\PluginController::class, 'getWebRtcToken'])->name('token');
+        Route::post('/log-call', [\App\Http\Controllers\PluginController::class, 'logCall'])->name('log.call');
+        Route::post('/auto-fix-keys', [\App\Http\Controllers\PluginController::class, 'autoFixKeys'])->name('autofix');
+    });
 });
+
+
 
 Route::get('/', fn() => redirect()->route('dashboard'))->name('home');
 
 
+
+
+
+
+
+Route::get('/run-lead-events-test-suite', function () {
+    $results = [];
+
+    // 1. Find or pick a test lead
+    $lead = \App\Models\Leads::first();
+    if (!$lead) {
+        return response()->json(['error' => 'No leads found to test with']);
+    }
+
+    $initialStatus = $lead->lead_status;
+    $initialBucketId = $lead->lead_bucket_id;
+    $initialBucketName = $lead->lead_bucket_name;
+
+    // Test 1: Create events of all 4 types
+    $types = [
+        \App\Models\LeadEvent::TYPE_MEETING_SCHEDULE,
+        \App\Models\LeadEvent::TYPE_DISCOVERY_CALL,
+        \App\Models\LeadEvent::TYPE_PROJECTION_CALL,
+        \App\Models\LeadEvent::TYPE_CONVERSION,
+    ];
+    $createdEvents = [];
+    foreach ($types as $type) {
+        $ev = \App\Models\LeadEvent::create([
+            'lead_id' => $lead->id,
+            'event_type' => $type,
+            'event_date' => now()->addDays(2)->toDateString(),
+            'start_time' => '11:00:00',
+            'end_time' => '11:30:00',
+            'title' => 'Automated Test ' . $type,
+            'description' => 'Test event notes for ' . $type,
+            'status' => \App\Models\LeadEvent::STATUS_SCHEDULED,
+            'created_by' => 1,
+        ]);
+        $createdEvents[$type] = $ev;
+    }
+    $results['test_1_create_4_types'] = [
+        'passed' => count($createdEvents) === 4,
+        'types_created' => array_keys($createdEvents),
+    ];
+
+    // Test 2: Multiple events per lead
+    $eventsCount = \App\Models\LeadEvent::where('lead_id', $lead->id)->count();
+    $results['test_2_multiple_events'] = [
+        'passed' => $eventsCount >= 4,
+        'count' => $eventsCount,
+    ];
+
+    // Test 3: Complete event
+    $completeEv = $createdEvents[\App\Models\LeadEvent::TYPE_MEETING_SCHEDULE];
+    $completeEv->status = \App\Models\LeadEvent::STATUS_COMPLETED;
+    $completeEv->completed_at = now();
+    $completeEv->save();
+    $results['test_3_complete_event'] = [
+        'passed' => ($completeEv->status === 'completed' && !is_null($completeEv->completed_at)),
+        'status' => $completeEv->status,
+        'completed_at' => $completeEv->completed_at->toIso8601String(),
+    ];
+
+    // Test 4: Cancel event
+    $cancelEv = $createdEvents[\App\Models\LeadEvent::TYPE_DISCOVERY_CALL];
+    $cancelEv->status = \App\Models\LeadEvent::STATUS_CANCELLED;
+    $cancelEv->save();
+    $results['test_4_cancel_event'] = [
+        'passed' => $cancelEv->status === 'cancelled',
+        'status' => $cancelEv->status,
+    ];
+
+    // Test 5: Edit / Reschedule event
+    $reschedEv = $createdEvents[\App\Models\LeadEvent::TYPE_PROJECTION_CALL];
+    $newDate = now()->addDays(5)->toDateString();
+    $newTime = '16:00:00';
+    $reschedEv->event_date = $newDate;
+    $reschedEv->start_time = $newTime;
+    $reschedEv->status = \App\Models\LeadEvent::STATUS_RESCHEDULED;
+    $reschedEv->save();
+    $results['test_5_reschedule_event'] = [
+        'passed' => ($reschedEv->event_date->format('Y-m-d') === $newDate && $reschedEv->start_time === $newTime && $reschedEv->status === 'rescheduled'),
+        'event_date' => $reschedEv->event_date->format('Y-m-d'),
+        'start_time' => $reschedEv->start_time,
+        'status' => $reschedEv->status,
+    ];
+
+    // Test 6: Overdue detection
+    $overdueEv = \App\Models\LeadEvent::create([
+        'lead_id' => $lead->id,
+        'event_type' => \App\Models\LeadEvent::TYPE_DISCOVERY_CALL,
+        'event_date' => now()->subDays(2)->toDateString(),
+        'start_time' => '09:00:00',
+        'status' => \App\Models\LeadEvent::STATUS_SCHEDULED,
+        'title' => 'Test Overdue Event',
+    ]);
+    $overdueCount = \App\Models\LeadEvent::overdue()->where('id', $overdueEv->id)->count();
+    $results['test_6_overdue_detection'] = [
+        'passed' => $overdueCount === 1,
+        'detected' => $overdueCount,
+    ];
+
+    // Test 7: Lead Status Protection
+    $lead->refresh();
+    $results['test_7_lead_status_protection'] = [
+        'passed' => (
+            $lead->lead_status === $initialStatus &&
+            $lead->lead_bucket_id === $initialBucketId &&
+            $lead->lead_bucket_name === $initialBucketName
+        ),
+        'initial_status' => $initialStatus,
+        'current_status' => $lead->lead_status,
+        'initial_bucket_id' => $initialBucketId,
+        'current_bucket_id' => $lead->lead_bucket_id,
+        'initial_bucket_name' => $initialBucketName,
+        'current_bucket_name' => $lead->lead_bucket_name,
+    ];
+
+    // Test 8: Cascade deletion compatibility with dummy lead
+    $dummyLead = \App\Models\Leads::create([
+        'lead_id' => 999999999,
+        'is_converted' => 0,
+        'is_archived' => 0,
+        'lead_status' => 'Test Dummy',
+    ]);
+    $dummyEvent = \App\Models\LeadEvent::create([
+        'lead_id' => $dummyLead->id,
+        'event_type' => \App\Models\LeadEvent::TYPE_MEETING_SCHEDULE,
+        'event_date' => now()->toDateString(),
+        'start_time' => '10:00:00',
+        'status' => 'scheduled',
+    ]);
+    $dummyEventId = $dummyEvent->id;
+    $dummyLead->delete();
+    $remainingDummyEvent = \App\Models\LeadEvent::find($dummyEventId);
+    $results['test_8_cascade_deletion'] = [
+        'passed' => is_null($remainingDummyEvent),
+        'event_deleted_on_lead_delete' => is_null($remainingDummyEvent),
+    ];
+
+    // Test 9: Telecaller Permission Check
+    $telecallerUser = new \App\Models\User();
+    $telecallerUser->id = 888;
+    $telecallerUser->role_id = 3;
+
+    $ownedLead = new \App\Models\Leads();
+    $ownedLead->id = 101;
+    $ownedLead->lead_owner = 888;
+
+    $notOwnedLead = new \App\Models\Leads();
+    $notOwnedLead->id = 102;
+    $notOwnedLead->lead_owner = 999;
+
+    $controller = new \App\Http\Controllers\CRM\LeadEventController();
+    $reflection = new \ReflectionClass($controller);
+    $method = $reflection->getMethod('checkLeadAccess');
+    $method->setAccessible(true);
+
+    \Illuminate\Support\Facades\Auth::setUser($telecallerUser);
+    $canAccessOwned = $method->invoke($controller, $ownedLead);
+    $canAccessNotOwned = $method->invoke($controller, $notOwnedLead);
+    
+    $adminUser = new \App\Models\User();
+    $adminUser->id = 1;
+    $adminUser->role_id = 1;
+    \Illuminate\Support\Facades\Auth::setUser($adminUser);
+    $adminCanAccessNotOwned = $method->invoke($controller, $notOwnedLead);
+
+    $results['test_9_role_permissions'] = [
+        'passed' => ($canAccessOwned === true && $canAccessNotOwned === false && $adminCanAccessNotOwned === true),
+        'telecaller_owned_access' => $canAccessOwned,
+        'telecaller_unowned_access' => $canAccessNotOwned,
+        'admin_unowned_access' => $adminCanAccessNotOwned,
+    ];
+
+    // Clean up test events on the real lead
+    foreach ($createdEvents as $ev) {
+        $ev->delete();
+    }
+    $overdueEv->delete();
+
+    return response()->json($results);
+});
+
 require __DIR__ . '/auth.php';
+

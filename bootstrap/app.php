@@ -14,9 +14,29 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->trustProxies(at: '*');
+
+        $middleware->web(append: [
+            \App\Http\Middleware\CheckSingleSession::class,
+        ]);
+
         $middleware->alias([
             'check.permission' => CheckPermission::class,
+            'check.single.session' => \App\Http\Middleware\CheckSingleSession::class,
         ]);
+        $middleware->validateCsrfTokens(except: [
+            'save-work-time',
+            'archive-leads/*',
+            'archive-deals/*',
+            'new-leads-table/*',
+            'leads/*',
+            'api/twilio/*',
+            'twilio/*',
+            'admin/twilio/voice',
+            'admin/twilio/status-callback',
+            'admin/twilio/recording-callback',
+        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

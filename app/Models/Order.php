@@ -25,6 +25,7 @@ class Order extends Model
         'notes',
         'converted_at',
         'is_active',
+        'is_archived',
     ];
 
     protected $casts = [
@@ -68,5 +69,10 @@ class Order extends Model
     public function messages()
     {
         return $this->hasMany(CallBack::class, 'lead_id', 'lead_id');
+    }
+
+    public function tags()
+    {
+        return $this->morphToMany(Tag::class, 'taggable')->orderBy('name');
     }
 }
