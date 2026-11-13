@@ -378,7 +378,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/call-history/recording/{id}', [\App\Http\Controllers\PluginController::class, 'streamRecording'])->name('call.history.recording');
     Route::get('/admin/plugins/twilio/recording/{id}', [\App\Http\Controllers\PluginController::class, 'streamRecording'])->name('plugins.twilio.recording');
 
-    // Softphone WebRTC AJAX
+    // Softphone WebRTC AJAX & Standalone Dialer Window
+    Route::get('/dialer', [\App\Http\Controllers\PluginController::class, 'dialerWindow'])->name('dialer');
+    Route::get('/admin/plugins/twilio/dialer', [\App\Http\Controllers\PluginController::class, 'dialerWindow'])->name('plugins.twilio.dialer');
     Route::get('/admin/plugins/twilio/token', [\App\Http\Controllers\PluginController::class, 'getWebRtcToken'])->name('plugins.twilio.token');
     Route::post('/admin/plugins/twilio/log-call', [\App\Http\Controllers\PluginController::class, 'logCall'])->name('plugins.twilio.log.call');
 

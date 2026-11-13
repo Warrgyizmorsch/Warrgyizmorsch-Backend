@@ -505,12 +505,59 @@ class TwilioSoftphoneController {
         $('#twilioIncomingCallView').removeClass('d-none');
         $('#twilioIncomingFromNumber').text(from);
 
-        call.on('disconnect', () => this.endCallUI());
-        call.on('cancel', () => this.endCallUI());
-        call.on('reject', () => this.endCallUI());
+        this.startRingtone();
+
+        call.on('disconnect', () => { this.stopRingtone(); this.endCallUI(); });
+        call.on('cancel', () => { this.stopRingtone(); this.endCallUI(); });
+        call.on('reject', () => { this.stopRingtone(); this.endCallUI(); });
+    }
+
+    startRingtone() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!this.ringtoneCtx) {
+                this.ringtoneCtx = new AudioCtx();
+            }
+            if (this.ringtoneCtx.state === 'suspended') {
+                this.ringtoneCtx.resume();
+            }
+            const playTone = () => {
+                if (!this.ringtoneCtx || this.ringtoneCtx.state === 'closed') return;
+                const osc1 = this.ringtoneCtx.createOscillator();
+                const osc2 = this.ringtoneCtx.createOscillator();
+                const gain = this.ringtoneCtx.createGain();
+
+                osc1.type = 'sine'; osc2.type = 'sine';
+                osc1.frequency.value = 440; osc2.frequency.value = 480;
+
+                gain.gain.setValueAtTime(0.18, this.ringtoneCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ringtoneCtx.currentTime + 1.8);
+
+                osc1.connect(gain); osc2.connect(gain);
+                gain.connect(this.ringtoneCtx.destination);
+
+                osc1.start(); osc2.start();
+                osc1.stop(this.ringtoneCtx.currentTime + 1.8);
+                osc2.stop(this.ringtoneCtx.currentTime + 1.8);
+            };
+
+            playTone();
+            this.ringInterval = setInterval(playTone, 3000);
+        } catch(e) {
+            console.warn('Ringtone sound error:', e);
+        }
+    }
+
+    stopRingtone() {
+        if (this.ringInterval) {
+            clearInterval(this.ringInterval);
+            this.ringInterval = null;
+        }
     }
 
     acceptIncoming() {
+        this.stopRingtone();
         if (this.incomingCall) {
             $('#twilioIncomingCallView').addClass('d-none');
             $('#twilioActiveCallView').removeClass('d-none');
@@ -523,6 +570,7 @@ class TwilioSoftphoneController {
     }
 
     rejectIncoming() {
+        this.stopRingtone();
         if (this.incomingCall) {
             this.incomingCall.reject();
             this.incomingCall = null;

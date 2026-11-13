@@ -211,12 +211,34 @@ class TwilioVoiceService
             }
         }
 
+        // Dynamically collect active Admins and Agents to ring simultaneously
+        $activeUserIds = [];
+        try {
+            $activeUserIds = User::where('is_deleted', 0)
+                ->where('is_active', 1)
+                ->whereIn('role_id', [1, 2, 3])
+                ->pluck('id')
+                ->toArray();
+        } catch (\Throwable $e) {
+            Log::warning('Could not fetch active user IDs for Twilio dial: ' . $e->getMessage());
+        }
+
+        $clientIdentities = ['agent_admin', 'agent_1', 'agent_5'];
+        foreach ($activeUserIds as $uId) {
+            $clientIdentities[] = 'agent_' . $uId;
+        }
+        $clientIdentities = array_unique($clientIdentities);
+
+        $clientXml = '';
+        foreach ($clientIdentities as $clientId) {
+            $clientXml .= '<Client statusCallback="' . htmlspecialchars($statusCallbackUrl) . '" statusCallbackEvent="initiated ringing answered completed">' . htmlspecialchars($clientId) . '</Client>';
+        }
+
         return '<?xml version="1.0" encoding="UTF-8"?>'
             . '<Response>'
             . '<Say voice="alice">Connecting to customer support, please hold.</Say>'
             . '<Dial timeout="30" record="record-from-answer" recordingStatusCallback="' . htmlspecialchars($recordingCallbackUrl) . '" action="' . htmlspecialchars($statusCallbackUrl) . '">'
-            . '<Client statusCallback="' . htmlspecialchars($statusCallbackUrl) . '" statusCallbackEvent="initiated ringing answered completed">agent_1</Client>'
-            . '<Client statusCallback="' . htmlspecialchars($statusCallbackUrl) . '" statusCallbackEvent="initiated ringing answered completed">agent_admin</Client>'
+            . $clientXml
             . '</Dial>'
             . '<Say voice="alice">No agent was available to take your call. Please try again later.</Say>'
             . '</Response>';
