@@ -277,6 +277,13 @@ class TwilioSoftphoneController {
             this.device.on('registered', () => {
                 this.isReady = true;
                 $('#twilioStatusText').text('Online').removeClass('bg-danger bg-secondary').addClass('bg-success');
+                if (!this.heartbeatTimer) {
+                    this.heartbeatTimer = setInterval(() => {
+                        if (this.device && this.device.state === 'registered') {
+                            this.refreshToken();
+                        }
+                    }, 120000);
+                }
             });
 
             this.device.on('unregistered', () => {

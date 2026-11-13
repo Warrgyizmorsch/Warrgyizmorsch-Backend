@@ -212,6 +212,9 @@ class PluginController extends Controller
         $userId   = Auth::id() ?? 1;
         $identity = 'agent_' . $userId;
 
+        // Mark softphone as online and active for next 15 minutes
+        \Illuminate\Support\Facades\Cache::put('softphone_online_' . $userId, now()->timestamp, now()->addMinutes(15));
+
         $tokenData = $this->twilio->generateAccessToken($identity);
 
         return response()->json($tokenData, ($tokenData['success'] ?? false) ? 200 : 422);
