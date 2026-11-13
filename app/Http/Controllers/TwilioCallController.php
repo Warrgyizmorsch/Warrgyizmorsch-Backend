@@ -121,10 +121,20 @@ class TwilioCallController extends Controller
                 $log->save();
             }
 
-            return response('', 204);
+            // This URL is also the <Dial action>. If no agent answered, tell the caller.
+            $dialStatus = strtolower((string) $request->input('DialCallStatus', ''));
+            if ($dialStatus !== '' && $dialStatus !== 'completed') {
+                return response(
+                    '<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="alice">No agent was available to take your call. Please try again later.</Say></Response>',
+                    200,
+                    ['Content-Type' => 'text/xml']
+                );
+            }
+
+            return $this->emptyTwiml();
         } catch (\Throwable $e) {
             Log::error('Twilio status-callback error: ' . $e->getMessage());
-            return response('', 200);
+            return $this->emptyTwiml();
         }
     }
 
@@ -148,7 +158,7 @@ class TwilioCallController extends Controller
 
         $user = Auth::user();
 
-        $log = !empty($data['call_sid']) 
+        $log = !empty($data['call_sid'])
             ? TwilioCallLog::firstOrNew(['call_sid' => $data['call_sid']])
             : new TwilioCallLog();
 
@@ -178,5 +188,17 @@ class TwilioCallController extends Controller
     {
         $result = $this->twilio->autoGenerateAndSaveApiKey();
         return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * Valid empty TwiML (text/xml) so Twilio never gets 204 / wrong Content-Type (Error 12300)
+     */
+    private function emptyTwiml(): Response
+    {
+        return response(
+            '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+            200,
+            ['Content-Type' => 'text/xml']
+        );
     }
 }
