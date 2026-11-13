@@ -156,6 +156,47 @@
         box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3);
         transform: scale(1.05);
     }
+
+    /* Clean Pagination Styling */
+    .call-history-card .card-footer .pagination {
+        margin-bottom: 0;
+        gap: 4px;
+        display: flex;
+        align-items: center;
+    }
+    .call-history-card .card-footer .pagination .page-item .page-link {
+        border-radius: 8px !important;
+        font-size: 13px;
+        font-weight: 600;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        padding: 6px 12px;
+        line-height: 1.4;
+        transition: all 0.15s ease;
+        box-shadow: none;
+    }
+    .call-history-card .card-footer .pagination .page-item.active .page-link {
+        background-color: #0073ea !important;
+        border-color: #0073ea !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(0, 115, 234, 0.25) !important;
+    }
+    .call-history-card .card-footer .pagination .page-item.disabled .page-link {
+        color: #94a3b8;
+        background-color: #f8fafc;
+        border-color: #e2e8f0;
+    }
+    .call-history-card .card-footer .pagination .page-link:hover:not(.active) {
+        background-color: #f1f5f9;
+        color: #0f172a;
+    }
+    .call-history-card .card-footer svg {
+        width: 14px !important;
+        height: 14px !important;
+        max-width: 14px !important;
+        max-height: 14px !important;
+        display: inline-block !important;
+    }
 </style>
 
 <div class="container-fluid py-4 call-history-container">
@@ -412,7 +453,7 @@
                         Showing {{ $logs->firstItem() }} to {{ $logs->lastItem() }} of {{ $logs->total() }} calls
                     </div>
                     <div>
-                        {{ $logs->links() }}
+                        {{ $logs->links('pagination::bootstrap-5') }}
                     </div>
                 </div>
             @endif
