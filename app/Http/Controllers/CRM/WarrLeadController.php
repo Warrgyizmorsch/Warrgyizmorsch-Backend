@@ -19,6 +19,8 @@ class WarrLeadController extends Controller
 
         $page_url = WarrLead::query()->whereNotNull('page_url')->where('page_url', '!=', '')
             ->distinct()->orderBy('page_url')->pluck('page_url');
+        $formTypes = WarrLead::query()->whereNotNull('form_type')->where('form_type', '!=', '')
+            ->distinct()->orderBy('form_type')->pluck('form_type');
 
         $statuses = WarrLead::query()->whereNotNull('status')->where('status', '!=', '')
             ->distinct()->orderBy('status')->pluck('status');
@@ -52,6 +54,14 @@ class WarrLeadController extends Controller
             $query->where('source', $request->source);
         }
 
+        if ($request->filled('page_url')) {
+            $query->where('page_url', $request->page_url);
+        }
+
+        if ($request->filled('form_type')) {
+            $query->where('form_type', $request->form_type);
+        }
+
         // Status
         if ($request->filled('status')) {
             $statusVal = strtolower(trim($request->status));
@@ -82,6 +92,7 @@ class WarrLeadController extends Controller
             'leads',
             'sources',
             'page_url',
+            'formTypes',
             'statuses',
             'totalLeadsCount',
             'filteredLeadCount',

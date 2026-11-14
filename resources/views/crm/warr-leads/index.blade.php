@@ -63,6 +63,8 @@ $filtersApplied =
     request('from') ||
     request('to') ||
     request('source') ||
+    request('page_url') ||
+    request('form_type') ||
     request('status');
     @endphp
 
@@ -144,11 +146,23 @@ $filtersApplied =
 
                 <div class="col-md-3">
                     <label class="form-label">Page Url</label>
-                    <select name="source" class="form-control" data-select2-selector="tag">
+                    <select name="page_url" class="form-control" data-select2-selector="tag">
                         <option value="">All Url</option>
                         @foreach(($page_url ?? []) as $src)
                             <option value="{{ $src }}" {{ request('page_url') == $src ? 'selected' : '' }}>
                                 {{ $src }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Form Type</label>
+                    <select name="form_type" class="form-control" data-select2-selector="tag">
+                        <option value="">All Forms</option>
+                        @foreach(($formTypes ?? []) as $type)
+                            <option value="{{ $type }}" {{ request('form_type') == $type ? 'selected' : '' }}>
+                                {{ \Illuminate\Support\Str::headline($type) }}
                             </option>
                         @endforeach
                     </select>
@@ -197,6 +211,8 @@ $filtersApplied =
                                     <th>Comment</th>
                                     <th>Source</th>
                                     <th>Page Url</th>
+                                    <th>Form Type</th>
+                                    <th>Form Details</th>
                                 </tr>
                                 </thead>
 
@@ -242,7 +258,7 @@ $filtersApplied =
                                         <td class="page-url-col">
                                             @if(!empty($lead->page_url))
                                                 @php
-        $cleanUrl = strtok(trim($lead->page_url), '?');
+        $cleanUrl = trim($lead->page_url);
                                                 @endphp
 
                                                 @if(filter_var($cleanUrl, FILTER_VALIDATE_URL))
@@ -256,10 +272,28 @@ $filtersApplied =
                                                 N/A
                                             @endif
                                         </td>
+                                        <td>{{ $lead->form_type ? \Illuminate\Support\Str::headline($lead->form_type) : '-' }}</td>
+                                        <td class="data-column">
+                                            @if(!empty($lead->form_details))
+                                                <details>
+                                                    <summary>View details</summary>
+                                                    <dl class="mb-0 mt-2">
+                                                        @foreach($lead->form_details as $key => $value)
+                                                            <dt>{{ \Illuminate\Support\Str::headline($key) }}</dt>
+                                                            <dd>
+                                                                {{ is_bool($value) ? ($value ? 'Yes' : 'No') : (is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : ($value ?? '-')) }}
+                                                            </dd>
+                                                        @endforeach
+                                                    </dl>
+                                                </details>
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted">No leads found.</td>
+                                        <td colspan="14" class="text-center text-muted">No leads found.</td>
                                     </tr>
                                 @endforelse
                                 </tbody>

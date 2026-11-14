@@ -23,6 +23,15 @@ class WarrLead extends Model
         'comment',
         'source',
         'page_url',
+        'form_type',
+        'form_details',
         'status',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'form_details' => 'array',
+        ];
+    }
 }
