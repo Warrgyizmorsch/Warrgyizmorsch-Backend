@@ -268,6 +268,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/archive-deals/bulk-delete', [ArchiveDealController::class, 'bulkDelete'])->name('archive.deals.bulkDelete');
     Route::post('/leads/bulk-delete', [LeadController::class, 'bulkDelete'])->name('leads.bulkDelete');
 
+    Route::get('/meta-leads', [NewleadController::class, 'metaLeads'])->name('modern.leads.meta');
+    Route::prefix('meta-leads/retargeting')->name('meta.retargeting.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CRM\MetaRetargetingController::class, 'index'])->name('index');
+        Route::get('/preview', [\App\Http\Controllers\CRM\MetaRetargetingController::class, 'previewCount'])->name('preview');
+        Route::post('/create-audience', [\App\Http\Controllers\CRM\MetaRetargetingController::class, 'createAudience'])->name('create_audience');
+        Route::post('/sync', [\App\Http\Controllers\CRM\MetaRetargetingController::class, 'syncLeads'])->name('sync');
+        Route::post('/sync-dataset', [\App\Http\Controllers\CRM\MetaRetargetingController::class, 'syncDataset'])->name('sync_dataset');
+        Route::post('/subscribe', [\App\Http\Controllers\CRM\MetaRetargetingController::class, 'subscribeWebhook'])->name('subscribe');
+    });
+
     Route::get('/modern-leads/search-suggestions', [NewleadController::class, 'searchSuggestions'])->name('modern.leads.search.suggestions');
     Route::get('/modern-leads', [NewleadController::class, 'index'])->name('modern.leads.index');
     Route::get('/modern-leads/pipeline', [NewleadController::class, 'pipelineIndex'])->name('modern.leads.pipeline');

@@ -98,6 +98,12 @@ class NewleadController extends Controller
         }
     }
 
+    public function metaLeads(Request $request)
+    {
+        $request->merge(['platform' => 'meta', 'lead_category' => 'Meta']);
+        return $this->index($request);
+    }
+
     public function index(Request $request)
     {
         if (!auth()->check()) {

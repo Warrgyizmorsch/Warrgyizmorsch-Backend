@@ -72,6 +72,19 @@ class Leads extends Model
         'custom_attributes' => 'array',
     ];
 
+    protected static function booted()
+    {
+        static::updated(function ($lead) {
+            if ($lead->isDirty('lead_status')) {
+                try {
+                    app(\App\Services\MetaAudienceService::class)->handleLeadStatusChange($lead, $lead->lead_status);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Meta CAPI on status change error: ' . $e->getMessage());
+                }
+            }
+        });
+    }
+
     public function bucket()
     {
         return $this->belongsTo(Bucket::class, 'lead_bucket_id', 'id');

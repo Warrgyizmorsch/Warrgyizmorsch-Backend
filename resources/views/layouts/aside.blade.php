@@ -125,6 +125,22 @@
                     </li>
                 @endif
 
+                {{-- Meta Leads & Retargeting Section --}}
+                <li class="nxl-item nxl-hasmenu {{ request()->routeIs('modern.leads.meta*') || request()->routeIs('meta.retargeting.*') ? 'active nxl-trigger' : '' }}">
+                    <a href="javascript:void(0);" class="nxl-link">
+                        <span class="nxl-micon"><i class="feather-facebook text-primary"></i></span>
+                        <span class="nxl-mtext">Meta Leads</span><span class="nxl-arrow"><i class="feather-chevron-right"></i></span>
+                    </a>
+                    <ul class="nxl-submenu">
+                        <li class="nxl-item {{ request()->routeIs('modern.leads.meta') ? 'active' : '' }}">
+                            <a class="nxl-link" href="{{ route('modern.leads.meta') }}">All Meta Leads</a>
+                        </li>
+                        <li class="nxl-item {{ request()->routeIs('meta.retargeting.*') ? 'active' : '' }}">
+                            <a class="nxl-link" href="{{ route('meta.retargeting.index') }}">Retargeting & Audiences</a>
+                        </li>
+                    </ul>
+                </li>
+
                 @php
                     $hasSettingMenu = false;
                     foreach ($menus as $m) {
