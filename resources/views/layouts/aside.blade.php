@@ -126,17 +126,17 @@
                 @endif
 
                 {{-- Meta Leads & Retargeting Section --}}
-                <li class="nxl-item nxl-hasmenu {{ request()->routeIs('modern.leads.meta*') || request()->routeIs('meta.retargeting.*') ? 'active nxl-trigger' : '' }}">
+                <li class="nxl-item nxl-hasmenu {{ (request()->routeIs('modern.leads.meta*') || request()->routeIs('meta.retargeting.*') || request()->is('meta-leads*')) ? 'active nxl-trigger' : '' }}">
                     <a href="javascript:void(0);" class="nxl-link">
                         <span class="nxl-micon"><i class="feather-facebook text-primary"></i></span>
                         <span class="nxl-mtext">Meta Leads</span><span class="nxl-arrow"><i class="feather-chevron-right"></i></span>
                     </a>
                     <ul class="nxl-submenu">
-                        <li class="nxl-item {{ request()->routeIs('modern.leads.meta') ? 'active' : '' }}">
-                            <a class="nxl-link" href="{{ route('modern.leads.meta') }}">All Meta Leads</a>
+                        <li class="nxl-item {{ request()->routeIs('modern.leads.meta') || request()->is('meta-leads') ? 'active' : '' }}">
+                            <a class="nxl-link" href="{{ \Illuminate\Support\Facades\Route::has('modern.leads.meta') ? route('modern.leads.meta') : url('/meta-leads') }}">All Meta Leads</a>
                         </li>
-                        <li class="nxl-item {{ request()->routeIs('meta.retargeting.*') ? 'active' : '' }}">
-                            <a class="nxl-link" href="{{ route('meta.retargeting.index') }}">Retargeting & Audiences</a>
+                        <li class="nxl-item {{ request()->routeIs('meta.retargeting.*') || request()->is('meta-leads/retargeting*') ? 'active' : '' }}">
+                            <a class="nxl-link" href="{{ \Illuminate\Support\Facades\Route::has('meta.retargeting.index') ? route('meta.retargeting.index') : url('/meta-leads/retargeting') }}">Retargeting & Audiences</a>
                         </li>
                     </ul>
                 </li>
