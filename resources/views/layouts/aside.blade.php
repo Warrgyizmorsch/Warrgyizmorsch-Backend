@@ -125,7 +125,18 @@
                     </li>
                 @endif
 
-                {{-- Meta Leads & Retargeting Section --}}
+                @php
+                    $hasMetaLeadsInDb = false;
+                    foreach ($menus as $m) {
+                        if (strtolower(trim($m->title ?? '')) === 'meta leads') {
+                            $hasMetaLeadsInDb = true;
+                            break;
+                        }
+                    }
+                @endphp
+
+                @if(!$hasMetaLeadsInDb)
+                {{-- Meta Leads & Retargeting Section (Fallback if not in DB) --}}
                 <li class="nxl-item nxl-hasmenu {{ (request()->routeIs('modern.leads.meta*') || request()->routeIs('meta.retargeting.*') || request()->is('meta-leads*')) ? 'active nxl-trigger' : '' }}">
                     <a href="javascript:void(0);" class="nxl-link">
                         <span class="nxl-micon"><i class="feather-facebook text-primary"></i></span>
@@ -140,6 +151,7 @@
                         </li>
                     </ul>
                 </li>
+                @endif
 
                 @php
                     $hasSettingMenu = false;
