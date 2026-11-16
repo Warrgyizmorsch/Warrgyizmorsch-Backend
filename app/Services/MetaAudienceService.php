@@ -353,22 +353,23 @@ class MetaAudienceService
     public function buildUserData($lead, array $extra = []): array
     {
         $user = is_object($lead) ? ($lead->user ?? null) : null;
+        $isArr = is_array($lead);
         $userData = [];
 
         // 1. Email (Hashed)
-        $email = $this->normalizeEmail($extra['email'] ?? $user->email ?? (is_object($lead) ? $lead->email : null) ?? null);
+        $email = $this->normalizeEmail($extra['email'] ?? ($isArr ? ($lead['email'] ?? null) : ($user->email ?? $lead->email ?? null)));
         if ($email) {
             $userData['em'] = [hash('sha256', $email)];
         }
 
         // 2. Phone Number (Hashed)
-        $phone = $this->normalizePhone($extra['phone'] ?? $user->contact_no ?? (is_object($lead) ? $lead->phone : null) ?? null, $user->country_code ?? '+91');
+        $phone = $this->normalizePhone($extra['phone'] ?? ($isArr ? ($lead['phone'] ?? null) : ($user->contact_no ?? $lead->phone ?? null)), $user->country_code ?? '+91');
         if ($phone) {
             $userData['ph'] = [hash('sha256', $phone)];
         }
 
         // 3. First Name & Last Name (Hashed)
-        $name = trim($extra['name'] ?? $user->name ?? (is_object($lead) ? $lead->name : null) ?? '');
+        $name = trim($extra['name'] ?? ($isArr ? ($lead['name'] ?? trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? ''))) : ($user->name ?? $lead->name ?? '')));
         if (!empty($name)) {
             $parts = preg_split('/\s+/', $name);
             if (!empty($parts[0])) {
@@ -380,19 +381,19 @@ class MetaAudienceService
         }
 
         // 4. Meta Lead ID (Not hashed, instant form ID)
-        $leadId = $extra['lead_id'] ?? (is_object($lead) ? ($lead->lead_id ?? $lead->leadgen_id ?? null) : null);
+        $leadId = $extra['lead_id'] ?? ($isArr ? ($lead['lead_id'] ?? $lead['leadgen_id'] ?? null) : ($lead->lead_id ?? $lead->leadgen_id ?? null));
         if ($leadId && is_numeric($leadId)) {
             $userData['lead_id'] = (string)$leadId;
         }
 
         // 5. External ID (CRM Lead ID - Hashed)
-        $crmId = (string)(is_object($lead) ? ($lead->id ?? '') : ($extra['crm_id'] ?? ''));
+        $crmId = (string)($isArr ? ($lead['id'] ?? '') : ($lead->id ?? '')) ?: (string)($extra['crm_id'] ?? '');
         if (!empty($crmId)) {
             $userData['external_id'] = [hash('sha256', 'wm_' . $crmId)];
         }
 
         // 6. City (ct) - Hashed
-        $city = trim($extra['city'] ?? (is_object($lead) ? $lead->city : null) ?? ($user->city ?? ''));
+        $city = trim($extra['city'] ?? ($isArr ? ($lead['city'] ?? null) : ($lead->city ?? $user->city ?? '')));
         if (!empty($city)) {
             $cleanCity = strtolower(preg_replace('/[^a-zA-Z]/', '', $city));
             if (!empty($cleanCity)) {
