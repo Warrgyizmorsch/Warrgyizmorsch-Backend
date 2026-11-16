@@ -31,8 +31,19 @@ class MetaRetargetingController extends Controller
             $audienceRes = $this->metaService->getCustomAudiences();
             $audiences = $audienceRes['success'] ? $audienceRes['data'] : [];
 
-            $buckets = Bucket::where('is_deleted', 0)->orderBy('name')->get(['id', 'name']);
-            $categories = Category::orderBy('name')->get(['id', 'name']);
+            try {
+                $buckets = Bucket::where('is_deleted', 0)->orderBy('name')->get(['id', 'name']);
+            } catch (\Throwable $e) {
+                $buckets = collect();
+            }
+
+            try {
+                $categories = Category::select('id', \Illuminate\Support\Facades\DB::raw('COALESCE(category_name, id) as name'))
+                    ->orderBy('category_name')
+                    ->get();
+            } catch (\Throwable $e) {
+                $categories = collect();
+            }
 
             $totalLeadsCount = Leads::count();
             $metaLeadsCount = Leads::where(function ($q) {
