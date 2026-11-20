@@ -75,9 +75,10 @@ class Leads extends Model
     protected static function booted()
     {
         static::updated(function ($lead) {
-            if ($lead->isDirty('lead_status')) {
+            if ($lead->isDirty('lead_status') || $lead->isDirty('lead_bucket_name') || $lead->isDirty('lead_bucket_id')) {
                 try {
-                    app(\App\Services\MetaAudienceService::class)->handleLeadStatusChange($lead, $lead->lead_status);
+                    $status = $lead->lead_status ?: $lead->lead_bucket_name;
+                    app(\App\Services\MetaAudienceService::class)->handleLeadStatusChange($lead, $status);
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('Meta CAPI on status change error: ' . $e->getMessage());
                 }

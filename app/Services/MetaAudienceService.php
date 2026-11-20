@@ -480,6 +480,13 @@ class MetaAudienceService
      * Map CRM Lead Statuses to Meta Conversions API (CAPI) Events
      */
     public const STATUS_TO_META_EVENT = [
+        'counselling in progress' => 'QualifiedLead',
+        'application process'     => 'SubmitApplication',
+        'offer stage'             => 'OfferReceived',
+        'converted'               => 'Purchase',
+        'next intake'             => 'NextIntakeLead',
+        'lost'                    => 'UnqualifiedLead',
+        // Canonical Title Case
         'Counselling in Progress' => 'QualifiedLead',
         'Application Process'     => 'SubmitApplication',
         'Offer Stage'             => 'OfferReceived',
@@ -497,36 +504,71 @@ class MetaAudienceService
             return false;
         }
 
-        $eventName = self::STATUS_TO_META_EVENT[$newStatus] ?? null;
+        $normalizedStatus = strtolower(trim((string)$newStatus));
+        $eventName = self::STATUS_TO_META_EVENT[$normalizedStatus] ?? self::STATUS_TO_META_EVENT[$newStatus] ?? null;
+
+        // Untouched leads, Not Connected, Visa Process -> send nothing
         if (!$eventName) {
             return false;
         }
 
-        $platform = strtolower(trim($lead->platform ?? ''));
+        // Check if lead source is Meta (instant form or website from Meta ad)
+        $platform = strtolower(trim((string)($lead->platform ?? '')));
         $hasMetaLeadId = !empty($lead->lead_id);
-        $isMetaSource = $hasMetaLeadId || str_contains($platform, 'meta') || str_contains($platform, 'facebook') || str_contains($platform, 'instagram');
+        $hasMetaCampaign = !empty($lead->campaign_id) || !empty($lead->ad_id) || !empty($lead->form_id);
+
+        $hasClickId = false;
+        if (is_object($lead) && !empty($lead->id)) {
+            try {
+                $hasClickId = \App\Models\LeadAttribute::where('lead_id', $lead->id)
+                    ->whereIn('field_name', ['fbc', 'fbp', 'fbclid', 'click_id'])
+                    ->exists();
+            } catch (\Throwable $e) {
+                $hasClickId = false;
+            }
+        }
+
+        $isMetaSource = $hasMetaLeadId 
+            || $hasMetaCampaign 
+            || $hasClickId 
+            || str_contains($platform, 'meta') 
+            || str_contains($platform, 'facebook') 
+            || str_contains($platform, 'instagram');
 
         if (!$isMetaSource) {
             return false;
         }
 
+        // Check if this event was already sent for this lead
         $attrKey = 'meta_capi_sent_' . $eventName;
-        $alreadySent = \App\Models\LeadAttribute::where('lead_id', $lead->id)
-            ->where('field_name', $attrKey)
-            ->exists();
+        $alreadySent = false;
+        if (is_object($lead) && !empty($lead->id)) {
+            try {
+                $alreadySent = \App\Models\LeadAttribute::where('lead_id', $lead->id)
+                    ->where('field_name', $attrKey)
+                    ->exists();
+            } catch (\Throwable $e) {
+                $alreadySent = false;
+            }
+        }
 
         if ($alreadySent) {
             return false;
         }
 
+        // Send to Meta CAPI
         $sent = $this->sendSingleLeadEvent($eventName, $lead);
 
         if ($sent) {
-            \App\Models\LeadAttribute::create([
-                'lead_id' => $lead->id,
-                'field_name' => $attrKey,
-                'field_value' => date('Y-m-d H:i:s'),
-            ]);
+            try {
+                \App\Models\LeadAttribute::create([
+                    'lead_id' => $lead->id,
+                    'field_name' => $attrKey,
+                    'field_value' => date('Y-m-d H:i:s'),
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Failed saving Meta CAPI sent attribute: ' . $e->getMessage());
+            }
             Log::info("Meta CAPI Event [{$eventName}] sent for Lead ID: {$lead->id}");
             return true;
         }
